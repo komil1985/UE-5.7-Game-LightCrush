@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright ASKD Games
 
 #pragma once
 
@@ -6,6 +6,9 @@
 #include "GameFramework/Character.h"
 #include "kdMyPlayer.generated.h"
 
+
+class UCameraComponent;
+class USpringArmComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter
 {
@@ -14,9 +17,13 @@ class THEPERSPVIEW_API AkdMyPlayer : public ACharacter
 public:
 	AkdMyPlayer();
 	virtual void Tick(float DeltaTime) override;
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 protected:
 	virtual void BeginPlay() override;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Components")
+	TObjectPtr<UCameraComponent> Camera;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Components")
+	TObjectPtr<USpringArmComponent> SpringArm;
 };
