@@ -4,6 +4,7 @@
 #include "Player/kdPlayerController.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
+#include "GameFramework/Character.h"
 
 void AkdPlayerController::BeginPlay()
 {
@@ -20,6 +21,8 @@ void AkdPlayerController::SetupInputComponent()
 		if (MoveAction)
 		{
 			EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AkdPlayerController::Move);
+			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AkdPlayerController::StartJump);
+			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AkdPlayerController::StopJump);
 		}
 	}
 }
@@ -37,6 +40,22 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 	{
 		ControlledPawn->AddMovementInput(ForwardDirection, InputAxisVector.Y);
 		ControlledPawn->AddMovementInput(RightDirection, InputAxisVector.X);
+	}
+}
+
+void AkdPlayerController::StartJump()
+{
+	if (ACharacter* MyCharacter = Cast<ACharacter>(GetPawn()))
+	{
+		MyCharacter->Jump();
+	}
+}
+
+void AkdPlayerController::StopJump()
+{
+	if (ACharacter* MyCharacter = Cast<ACharacter>(GetPawn()))
+	{
+		MyCharacter->StopJumping();
 	}
 }
 

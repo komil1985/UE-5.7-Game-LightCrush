@@ -27,7 +27,12 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> MoveAction;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputAction> JumpAction;
+
 private:
 	void Move(const FInputActionValue& Value);
+	void StartJump();
+	void StopJump();
 	void EnhancedSubSystem();
 };
