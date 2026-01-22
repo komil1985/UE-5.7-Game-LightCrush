@@ -36,6 +36,14 @@ AkdMyPlayer::AkdMyPlayer()
 
 }
 
+void AkdMyPlayer::ToggleCrushMode()
+{
+	SpringArm->SetRelativeRotation(FRotator(0.0f, 0.0, 0.0f));
+	Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
+	Camera->OrthoWidth = 500.0f;
+	GetCharacterMovement()->bConstrainToPlane = true;
+}
+
 void AkdMyPlayer::BeginPlay()
 {
 	Super::BeginPlay();

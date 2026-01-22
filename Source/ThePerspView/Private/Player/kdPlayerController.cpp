@@ -5,6 +5,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "GameFramework/Character.h"
+#include "Player/kdMyPlayer.h"
 
 void AkdPlayerController::BeginPlay()
 {
@@ -23,6 +24,7 @@ void AkdPlayerController::SetupInputComponent()
 			EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AkdPlayerController::Move);
 			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AkdPlayerController::StartJump);
 			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AkdPlayerController::StopJump);
+			EnhancedInputComponent->BindAction(CrushAction, ETriggerEvent::Started, this, &AkdPlayerController::CrushMode);
 		}
 	}
 }
@@ -56,6 +58,14 @@ void AkdPlayerController::StopJump()
 	if (ACharacter* MyCharacter = Cast<ACharacter>(GetPawn()))
 	{
 		MyCharacter->StopJumping();
+	}
+}
+
+void AkdPlayerController::CrushMode()
+{
+	if (AkdMyPlayer* MyPlayer = Cast<AkdMyPlayer>(GetPawn()))
+	{
+		MyPlayer->ToggleCrushMode();
 	}
 }
 

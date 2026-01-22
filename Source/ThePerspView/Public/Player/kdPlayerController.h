@@ -30,9 +30,14 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> JumpAction;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputAction> CrushAction;
+
 private:
 	void Move(const FInputActionValue& Value);
 	void StartJump();
 	void StopJump();
+	void CrushMode();
+
 	void EnhancedSubSystem();
 };

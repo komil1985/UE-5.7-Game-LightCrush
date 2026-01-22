@@ -18,12 +18,15 @@ public:
 	AkdMyPlayer();
 	virtual void Tick(float DeltaTime) override;
 
-protected:
-	virtual void BeginPlay() override;
-
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UCameraComponent> Camera;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<USpringArmComponent> SpringArm;
+
+	UFUNCTION(BlueprintCallable, Category = "Mechanic")
+	void ToggleCrushMode();
+
+protected:
+	virtual void BeginPlay() override;
 };
