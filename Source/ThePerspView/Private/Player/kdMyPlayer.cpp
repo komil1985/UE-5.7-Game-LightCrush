@@ -38,10 +38,22 @@ AkdMyPlayer::AkdMyPlayer()
 
 void AkdMyPlayer::ToggleCrushMode()
 {
-	SpringArm->SetRelativeRotation(FRotator(0.0f, 0.0, 0.0f));
-	Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
-	Camera->OrthoWidth = 500.0f;
-	GetCharacterMovement()->bConstrainToPlane = true;
+	bIsCrushMode = !bIsCrushMode;
+	if (bIsCrushMode)
+	{
+		SpringArm->SetRelativeRotation(FRotator(0.0f, 0.0, 0.0f));
+		Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
+		Camera->OrthoWidth = 500.0f;
+		Camera->bAutoCalculateOrthoPlanes = false;
+		GetCharacterMovement()->bConstrainToPlane = true;
+	}
+	else
+	{
+		SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0, 0.0f));
+		SpringArm->TargetArmLength = 500.0f;
+		Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
+		GetCharacterMovement()->bConstrainToPlane = false;
+	}
 }
 
 void AkdMyPlayer::BeginPlay()

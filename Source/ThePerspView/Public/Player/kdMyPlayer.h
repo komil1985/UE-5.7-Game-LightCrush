@@ -29,4 +29,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+private:
+	bool bIsCrushMode;
 };
