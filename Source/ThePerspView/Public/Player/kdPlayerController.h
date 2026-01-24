@@ -40,4 +40,9 @@ private:
 	void CrushMode();
 
 	void EnhancedSubSystem();
+
+	bool bIsInCrushMode;
+
+	FVector SavedLocation = FVector();
+	FRotator SavedRotation = FRotator();
 };

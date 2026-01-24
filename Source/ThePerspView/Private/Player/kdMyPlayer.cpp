@@ -38,17 +38,24 @@ AkdMyPlayer::AkdMyPlayer()
 
 void AkdMyPlayer::ToggleCrushMode()
 {
+	// Toggle the crush mode state
 	bIsCrushMode = !bIsCrushMode;
+
 	if (bIsCrushMode)
 	{
+		// Setting up for orthographic top-down view
 		SpringArm->SetRelativeRotation(FRotator(0.0f, 0.0, 0.0f));
 		Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
 		Camera->OrthoWidth = 500.0f;
 		Camera->bAutoCalculateOrthoPlanes = false;
+
+		// Enable planar movement constraints & Set the constraint plane normal to (1, 0, 0) for the YZ plane (restricts X)
 		GetCharacterMovement()->bConstrainToPlane = true;
+		GetCharacterMovement()->SetPlaneConstraintNormal(FVector(1.0f, 0.0f, 0.0f));
 	}
 	else
 	{
+		// Setting up for perspective third-person view
 		SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0, 0.0f));
 		SpringArm->TargetArmLength = 500.0f;
 		Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
@@ -67,4 +74,3 @@ void AkdMyPlayer::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 }
-
