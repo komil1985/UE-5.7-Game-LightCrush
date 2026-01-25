@@ -9,6 +9,7 @@
 
 class UCameraComponent;
 class USpringArmComponent;
+class AkdFloorBase;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter
 {
@@ -29,6 +30,12 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+	UFUNCTION()
+	AkdFloorBase* FindFloorActor(UWorld* World);
+
+	UPROPERTY()
+	TObjectPtr<AkdFloorBase>FloorActor = nullptr;
 
 private:
 	bool bIsCrushMode;
