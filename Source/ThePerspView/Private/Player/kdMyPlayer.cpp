@@ -42,8 +42,8 @@ void AkdMyPlayer::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	// Initialize FloorActor reference
-	FloorActor = FindFloorActor(GetWorld());
+	// Initialize FloorActors reference
+	FindFloorActors(GetWorld());
 }
 
 void AkdMyPlayer::Tick(float DeltaTime)
@@ -52,16 +52,18 @@ void AkdMyPlayer::Tick(float DeltaTime)
 
 }
 
-AkdFloorBase* AkdMyPlayer::FindFloorActor(UWorld* World)
+AkdFloorBase* AkdMyPlayer::FindFloorActors(UWorld* World)
 {
 	// Find the first instance of AkdFloorBase in the world
 	TArray<AActor*> FoundActors;
 	UGameplayStatics::GetAllActorsOfClass(World, AkdFloorBase::StaticClass(), FoundActors);
 
-	if (FoundActors.Num() > 0)
+	for (AActor* Actor : FoundActors)
 	{
-		// Return the first found actor casted to AkdFloorBase
-		return Cast<AkdFloorBase>(FoundActors[0]);
+		if (AkdFloorBase* Floor = Cast<AkdFloorBase>(Actor))
+		{
+			FloorActors.Add(Floor);
+		}
 	}
 	return nullptr;
 }
@@ -80,44 +82,57 @@ void AkdMyPlayer::ToggleCrushMode()
 		Camera->OrthoWidth = 500.0f;
 		Camera->bAutoCalculateOrthoPlanes = false;
 
-		// Enable planar movement constraints & Set the constraint plane normal to (1, 0, 0) for the YZ plane (restricts X)
+		// Enable planar movement constraints & Set the constraint plane normal to (1, 0, 0) for the YZ plane (restricts X movement)
 		GetCharacterMovement()->bConstrainToPlane = true;
 		GetCharacterMovement()->SetPlaneConstraintNormal(FVector(1.0f, 0.0f, 0.0f));
 
-		// reduce floor X scale to simulate crush effect
-		if (FloorActor)
+		for (AkdFloorBase* Floor : FloorActors)
 		{
-			// Crush the floor along the X axis
-			FVector FloorScale = FloorActor->FloorMesh->GetComponentScale();
-			FloorScale.X = 1.0f; // Adjust this value to control the degree of "crush"
-			FloorActor->FloorMesh->SetRelativeScale3D(FloorScale);
+			// reduce floor X scale and position to simulate crush effect
+			if (Floor && Floor->FloorMesh)
+			{
+				// Crush the floor along the X axis
+				FVector FloorScale = Floor->FloorMesh->GetComponentScale();
+				FloorScale.X = 1.0f; // Adjust this value to control the degree of "crush"
+				Floor->FloorMesh->SetRelativeScale3D(FloorScale);
 
-			// Adjust player position to be above the crushed floor
-			FVector PlayerLocation = GetActorLocation();
-			PlayerLocation.X = 0.0f; // Keep player at X = 0 in crush mode
-			SetActorLocation(PlayerLocation);
-		}
-	}
-	else
-	{
-		// Setting up for perspective third-person view
-		SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0, 0.0f));
-		SpringArm->TargetArmLength = 500.0f;
-		Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
-		GetCharacterMovement()->bConstrainToPlane = false;
+				// Adjust Floor position
+				FVector FloorLocation = Floor->GetActorLocation();
+				FloorLocation.X = 0.0f; // Keep floor at X = 0 in crush mode
+				Floor->SetActorLocation(FloorLocation);
 
-		// Restore floor scale and player position
-		if (FloorActor)
-		{
-			// Restore the floor scale along the X axis
-			FVector FloorScale = FloorActor->FloorMesh->GetComponentScale();
-			FloorScale.X = 20.0f; // Restore original scale
-			FloorActor->FloorMesh->SetRelativeScale3D(FloorScale);
+				// Adjust player position to be above the crushed floor
+				FVector PlayerLocation = GetActorLocation();
+				PlayerLocation.X = 0.0f; // Keep player at X = 0 in crush mode
+				SetActorLocation(PlayerLocation);
+			}
+			else
+			{
+				// Setting up for perspective third-person view
+				SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0, 0.0f));
+				SpringArm->TargetArmLength = 500.0f;
+				Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
+				GetCharacterMovement()->bConstrainToPlane = false;
 
-			// Adjust player position back to normal
-			FVector PlayerLocation = GetActorLocation();
-			PlayerLocation.X = 0.0f; // Move player back to original X position
-			SetActorLocation(PlayerLocation);
+				// Restore floor scale and player position
+				if (Floor && Floor->FloorMesh)
+				{
+					// Restore the floor scale along the X axis
+					FVector FloorScale = Floor->FloorMesh->GetComponentScale();
+					FloorScale.X = 20.0f; // Restore original scale
+					Floor->FloorMesh->SetRelativeScale3D(FloorScale);
+
+					// Restore Floor position
+					FVector FloorLocation = Floor->GetActorLocation();
+					FloorLocation = Floor->GetFloorLocation(); // Move floor back to original X position
+					Floor->SetActorLocation(FloorLocation);
+
+					// Adjust player position back to normal
+					FVector PlayerLocation = GetActorLocation();
+					PlayerLocation.X = 0.0f; // Move player back to original X position
+					SetActorLocation(PlayerLocation);
+				}
+			}
 		}
 	}
 }

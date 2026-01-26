@@ -18,6 +18,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Mesh")
 	TObjectPtr<UStaticMeshComponent> FloorMesh;
 
+	UFUNCTION()
+	FVector GetFloorLocation() { return GetActorLocation(); }
+
 protected:
 	virtual void BeginPlay() override;
 

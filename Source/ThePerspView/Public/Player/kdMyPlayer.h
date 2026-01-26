@@ -32,10 +32,10 @@ protected:
 	virtual void BeginPlay() override;
 
 	UFUNCTION()
-	AkdFloorBase* FindFloorActor(UWorld* World);
+	AkdFloorBase* FindFloorActors(UWorld* World);
 
 	UPROPERTY()
-	TObjectPtr<AkdFloorBase>FloorActor = nullptr;
+	TArray<TObjectPtr<AkdFloorBase>>FloorActors;
 
 private:
 	bool bIsCrushMode;
