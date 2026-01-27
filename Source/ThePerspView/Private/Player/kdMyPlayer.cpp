@@ -36,28 +36,77 @@ AkdMyPlayer::AkdMyPlayer()
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
+
+	CurrentFloorActor = nullptr;
 }
 
 void AkdMyPlayer::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	// Initialize FloorActors reference
 	FindFloorActors(GetWorld());
+
+	// Store original player location
+	OriginalPlayerLocation = GetActorLocation();
+
+	// Initialize current floor actor
+	UpdateCurrentFloor();
 }
 
 void AkdMyPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	// Update current floor actor each tick
+	UpdateCurrentFloor();
 }
 
-AkdFloorBase* AkdMyPlayer::FindFloorActors(UWorld* World)
+void AkdMyPlayer::UpdateCurrentFloor()
+{
+	// Perform a line trace downwards to detect the floor actor beneath the player
+	FVector Start = GetActorLocation();
+	FVector End = Start - FVector(0.0f, 0.0f, 200.0f); // Cast ray downwards
+
+	FHitResult HitResult;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	// Line trace to find the floor actor
+	bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, Params);
+
+	if(bHit)
+	{	
+		// Check if the hit actor is a floor actor
+		if(AkdFloorBase* HitFloor = Cast<AkdFloorBase>(HitResult.GetActor()))
+		{
+			CurrentFloorActor = HitFloor;
+		}
+	}
+	else
+	{
+		CurrentFloorActor = nullptr;  // No floor actor found
+	}
+}
+
+void AkdMyPlayer::CachePlayerRelativePosition()
+{
+	// Cache player position relative to the current floor actor
+	if (CurrentFloorActor)
+	{
+		FVector FloorLocation = CurrentFloorActor->GetActorLocation();
+		FVector RelativePosition = GetActorLocation() - FloorLocation;
+		PlayerRelativePositionsPerFloor.Add(CurrentFloorActor, RelativePosition);
+	}
+}
+
+void AkdMyPlayer::FindFloorActors(UWorld* World)
 {
 	// Find the first instance of AkdFloorBase in the world
 	TArray<AActor*> FoundActors;
 	UGameplayStatics::GetAllActorsOfClass(World, AkdFloorBase::StaticClass(), FoundActors);
 
+	FloorActors.Empty();
 	for (AActor* Actor : FoundActors)
 	{
 		if (AkdFloorBase* Floor = Cast<AkdFloorBase>(Actor))
@@ -65,7 +114,6 @@ AkdFloorBase* AkdMyPlayer::FindFloorActors(UWorld* World)
 			FloorActors.Add(Floor);
 		}
 	}
-	return nullptr;
 }
 
 void AkdMyPlayer::ToggleCrushMode()
@@ -75,6 +123,8 @@ void AkdMyPlayer::ToggleCrushMode()
 
 	if (bIsCrushMode)
 	{
+		// Cache player position before entering crush mode
+		CachePlayerRelativePosition(); 
 
 		// Setting up for orthographic view
 		SpringArm->SetRelativeRotation(FRotator(0.0f, 0.0, 0.0f));
@@ -92,46 +142,52 @@ void AkdMyPlayer::ToggleCrushMode()
 			if (Floor && Floor->FloorMesh)
 			{
 				// Crush the floor along the X axis
-				FVector FloorScale = Floor->FloorMesh->GetComponentScale();
-				FloorScale.X = 1.0f; // Adjust this value to control the degree of "crush"
-				Floor->FloorMesh->SetRelativeScale3D(FloorScale);
+				FVector NewFloorScale = Floor->OriginalFloorScale;	// Cached original scale
+				NewFloorScale.X = 1.0f; // Adjust this value to control the degree of "crush"
+				Floor->FloorMesh->SetRelativeScale3D(NewFloorScale);
 
 				// Adjust Floor position
-				FVector FloorLocation = Floor->GetActorLocation();
-				FloorLocation.X = 0.0f; // Keep floor at X = 0 in crush mode
-				Floor->SetActorLocation(FloorLocation);
-
-				// Adjust player position to be above the crushed floor
-				FVector PlayerLocation = GetActorLocation();
-				PlayerLocation.X = 0.0f; // Keep player at X = 0 in crush mode
-				SetActorLocation(PlayerLocation);
+				FVector NewFloorLocation = Floor->OriginalFloorLocation;	// Cached original location
+				NewFloorLocation.X = 0.0f; // Keep floor at X = 0 in crush mode
+				Floor->SetActorLocation(NewFloorLocation);
 			}
-			else
+		}
+
+		if (CurrentFloorActor && PlayerRelativePositionsPerFloor.Contains(CurrentFloorActor))
+		{
+			// Adjust player position to be above the crushed floor
+			FVector PlayerRelativePosition = PlayerRelativePositionsPerFloor[CurrentFloorActor];
+			PlayerRelativePosition.X = 0.0f; // Keep player at X = 0 in crush mode
+			FVector NewPlayerLocation = CurrentFloorActor->GetActorLocation() + PlayerRelativePosition;
+			SetActorLocation(NewPlayerLocation);
+		}
+		else
+		{
+			// If no current floor, just set player X to 0
+			FVector PlayerLocation = GetActorLocation();
+			PlayerLocation.X = 0.0f;
+			SetActorLocation(PlayerLocation);
+		}
+	}
+	else  // Restore Mode
+	{
+		// Setting up for perspective third-person view
+		SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0, 0.0f));
+		SpringArm->TargetArmLength = 500.0f;
+		Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
+
+		GetCharacterMovement()->bConstrainToPlane = false;
+
+		// Restore floor scale and position
+		for (AkdFloorBase* Floor : FloorActors)
+		{
+			if (Floor && Floor->FloorMesh)
 			{
-				// Setting up for perspective third-person view
-				SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0, 0.0f));
-				SpringArm->TargetArmLength = 500.0f;
-				Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
-				GetCharacterMovement()->bConstrainToPlane = false;
+				// Restore the floor scale
+				Floor->FloorMesh->SetRelativeScale3D(Floor->OriginalFloorScale);
 
-				// Restore floor scale and player position
-				if (Floor && Floor->FloorMesh)
-				{
-					// Restore the floor scale along the X axis
-					FVector FloorScale = Floor->FloorMesh->GetComponentScale();
-					FloorScale.X = 20.0f; // Restore original scale
-					Floor->FloorMesh->SetRelativeScale3D(FloorScale);
-
-					// Restore Floor position
-					FVector FloorLocation = Floor->GetActorLocation();
-					FloorLocation = Floor->GetFloorLocation(); // Move floor back to original X position
-					Floor->SetActorLocation(FloorLocation);
-
-					// Adjust player position back to normal
-					FVector PlayerLocation = GetActorLocation();
-					PlayerLocation.X = 0.0f; // Move player back to original X position
-					SetActorLocation(PlayerLocation);
-				}
+				// Restore Floor position
+				Floor->SetActorLocation(Floor->OriginalFloorLocation);
 			}
 		}
 	}

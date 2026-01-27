@@ -25,18 +25,30 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<USpringArmComponent> SpringArm;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mechanic")
+	FVector OriginalPlayerLocation;		// Store original player location for Restore Mode
+
+	UPROPERTY()
+	TArray<TObjectPtr<AkdFloorBase>>FloorActors;	// References to floor actors in the world
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mechanic")
+	bool bIsCrushMode = false;	// Crush mode state flag
+
+	UPROPERTY()
+	TObjectPtr<AkdFloorBase> CurrentFloorActor;	// Current floor actor being interacted with
+
+	UPROPERTY()
+	TMap<TObjectPtr<AkdFloorBase>, FVector> PlayerRelativePositionsPerFloor; // Store player relative positions before floor interaction
+
 	UFUNCTION(BlueprintCallable, Category = "Mechanic")
-	void ToggleCrushMode();
+	void ToggleCrushMode();		// Toggle between Crush Mode and Restore Mode
 
 protected:
 	virtual void BeginPlay() override;
 
 	UFUNCTION()
-	AkdFloorBase* FindFloorActors(UWorld* World);
+	void FindFloorActors(UWorld* World);	// Find and store references to floor actors
 
-	UPROPERTY()
-	TArray<TObjectPtr<AkdFloorBase>>FloorActors;
-
-private:
-	bool bIsCrushMode;
+	void UpdateCurrentFloor();
+	void CachePlayerRelativePosition();
 };

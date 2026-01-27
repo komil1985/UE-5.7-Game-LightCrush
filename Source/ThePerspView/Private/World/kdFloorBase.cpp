@@ -16,6 +16,11 @@ void AkdFloorBase::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	if (FloorMesh)
+	{
+		OriginalFloorScale = FloorMesh->GetComponentScale();
+	}
+	OriginalFloorLocation = GetActorLocation();
 }
 
 void AkdFloorBase::Tick(float DeltaTime)

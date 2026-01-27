@@ -18,8 +18,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Mesh")
 	TObjectPtr<UStaticMeshComponent> FloorMesh;
 
-	UFUNCTION()
-	FVector GetFloorLocation() { return GetActorLocation(); }
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Floor")
+	FVector OriginalFloorScale;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Floor")
+	FVector OriginalFloorLocation;
 
 protected:
 	virtual void BeginPlay() override;
