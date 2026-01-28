@@ -12,7 +12,7 @@
 
 AkdMyPlayer::AkdMyPlayer()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
@@ -52,6 +52,7 @@ void AkdMyPlayer::BeginPlay()
 
 	// Initialize current floor actor
 	UpdateCurrentFloor();
+
 }
 
 void AkdMyPlayer::Tick(float DeltaTime)
@@ -60,6 +61,10 @@ void AkdMyPlayer::Tick(float DeltaTime)
 
 	// Update current floor actor each tick
 	UpdateCurrentFloor();
+
+	// Handle crush mode transitions
+	CrushInterpolation(DeltaTime); 
+
 }
 
 void AkdMyPlayer::UpdateCurrentFloor()
@@ -100,6 +105,125 @@ void AkdMyPlayer::CachePlayerRelativePosition()
 	}
 }
 
+void AkdMyPlayer::CrushTransition()
+{
+	if (bIsTranstioning) return;
+
+	bIsTranstioning = true;
+	TransitionAlpha = 0.0f;
+	bTargetCrushMode = !bIsCrushMode;
+
+	// You would typically use a timer or a tick function to update TransitionAlpha over time
+
+	// Cache Start values
+	TransitionData.PlayerStartLocation = GetActorLocation();
+	TransitionData.SpringArmStartRotation = SpringArm->GetRelativeRotation();
+	TransitionData.SpringArmStartLength = SpringArm->TargetArmLength;
+
+	TransitionData.FloorStartScales.Empty();
+	TransitionData.FloorTargetScales.Empty();
+	TransitionData.FloorStartLocations.Empty();
+	TransitionData.FloorTargetLocations.Empty();
+
+	for (AkdFloorBase* Floor : FloorActors)
+	{
+		if(Floor && Floor->FloorMesh)
+		{
+			// Start scale and location
+			TransitionData.FloorStartScales.Add(Floor->FloorMesh->GetComponentScale());
+			TransitionData.FloorStartLocations.Add(Floor->GetActorLocation());
+
+			// Target scale and location for crush mode
+			FVector TargetScale = Floor->OriginalFloorScale;
+			FVector TargetLocation = Floor->OriginalFloorLocation;
+
+			if (bTargetCrushMode)
+			{
+				TargetScale.X = 1.0f; // Crush effect
+				TargetLocation.X = 0.0f; // Keep floor at X = 0 in crush mode
+			}
+
+			TransitionData.FloorTargetScales.Add(TargetScale);
+			TransitionData.FloorTargetLocations.Add(TargetLocation);
+		}
+	}
+	// You would typically set up a timer or use Tick to call an UpdateTransition function here
+
+	// Player position target
+	FVector TargetPlayerLocation = TransitionData.PlayerStartLocation;
+	if (bTargetCrushMode)
+	{
+		TargetPlayerLocation.X = 0.0f; // Keep player at X = 0 in crush mode
+	}
+	TransitionData.PlayerTargetLocation = TargetPlayerLocation;
+
+	// SpringArm target rotation and length
+	if (bTargetCrushMode)
+	{
+		TransitionData.SpringArmTargetRotation = FRotator(0.0f, 0.0, 0.0f);
+		TransitionData.SpringArmTargetLength = SpringArm->TargetArmLength; // Keep same length
+	}
+	else
+	{
+		TransitionData.SpringArmTargetRotation = FRotator(-30.0f, 0.0, 0.0f);
+		TransitionData.SpringArmTargetLength = 500.0f;
+	}
+
+}
+
+void AkdMyPlayer::CrushInterpolation(float DeltaTime)
+{
+	if (bIsTranstioning)
+	{
+		TransitionAlpha += DeltaTime / TransitionDuration;
+		float Alpha = FMath::Clamp(TransitionAlpha, 0.0f, 1.0f);
+
+		// Interpolate player location
+		FVector NewPlayerLocation = FMath::Lerp(TransitionData.PlayerStartLocation, TransitionData.PlayerTargetLocation, Alpha);
+		SetActorLocation(NewPlayerLocation);
+
+		// Interpolate SpringArm rotation and length
+		FRotator NewSpringArmRotation = FMath::Lerp(TransitionData.SpringArmStartRotation, TransitionData.SpringArmTargetRotation, Alpha);
+		SpringArm->SetRelativeRotation(NewSpringArmRotation);
+		float NewSpringArmLength = FMath::Lerp(TransitionData.SpringArmStartLength, TransitionData.SpringArmTargetLength, Alpha);
+		SpringArm->TargetArmLength = NewSpringArmLength;
+
+		// Interpolate floor scales and locations
+		for (int32 i = 0; i < FloorActors.Num(); ++i)
+		{
+			AkdFloorBase* Floor = FloorActors[i];  // Assuming FloorActors and TransitionData arrays are aligned
+			if (Floor && Floor->FloorMesh)
+			{
+				FVector NewFloorScale = FMath::Lerp(TransitionData.FloorStartScales[i], TransitionData.FloorTargetScales[i], Alpha);
+				Floor->FloorMesh->SetRelativeScale3D(NewFloorScale);
+
+				FVector NewFloorLocation = FMath::Lerp(TransitionData.FloorStartLocations[i], TransitionData.FloorTargetLocations[i], Alpha);
+				Floor->SetActorLocation(NewFloorLocation);
+			}
+		}
+
+		// Switch camera projection mode at halfway point
+		if (Alpha > 0.5f)
+		{
+			Camera->SetProjectionMode(bTargetCrushMode ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective);
+		}
+
+		// Check if transition is complete
+		if (Alpha >= 1.0f)
+		{
+			bIsTranstioning = false;
+			bIsCrushMode = bTargetCrushMode;
+			GetCharacterMovement()->bConstrainToPlane = bIsCrushMode;
+
+			if (bIsCrushMode)
+			{
+				// Ensure constraint plane normal is set for crush mode
+				GetCharacterMovement()->SetPlaneConstraintNormal(FVector(1.0f, 0.0f, 0.0f));
+			}
+		}
+	}
+}
+
 void AkdMyPlayer::FindFloorActors(UWorld* World)
 {
 	// Find the first instance of AkdFloorBase in the world
@@ -119,12 +243,15 @@ void AkdMyPlayer::FindFloorActors(UWorld* World)
 void AkdMyPlayer::ToggleCrushMode()
 {
 	// Toggle the crush mode state
-	bIsCrushMode = !bIsCrushMode;
+	//bIsCrushMode = !bIsCrushMode;
+
+	// Start the transition
+	CrushTransition();		// <-- Use transition function instead of instant toggle
 
 	if (bIsCrushMode)
 	{
 		// Cache player position before entering crush mode
-		CachePlayerRelativePosition(); 
+		CachePlayerRelativePosition();
 
 		// Setting up for orthographic view
 		SpringArm->SetRelativeRotation(FRotator(0.0f, 0.0, 0.0f));
@@ -145,7 +272,7 @@ void AkdMyPlayer::ToggleCrushMode()
 				FVector NewFloorScale = Floor->OriginalFloorScale;	// Cached original scale
 				NewFloorScale.X = 1.0f; // Adjust this value to control the degree of "crush"
 				Floor->FloorMesh->SetRelativeScale3D(NewFloorScale);
-
+				
 				// Adjust Floor position
 				FVector NewFloorLocation = Floor->OriginalFloorLocation;	// Cached original location
 				NewFloorLocation.X = 0.0f; // Keep floor at X = 0 in crush mode
@@ -175,7 +302,7 @@ void AkdMyPlayer::ToggleCrushMode()
 		SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0, 0.0f));
 		SpringArm->TargetArmLength = 500.0f;
 		Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
-
+		
 		GetCharacterMovement()->bConstrainToPlane = false;
 
 		// Restore floor scale and position
