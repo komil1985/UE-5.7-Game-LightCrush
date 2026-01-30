@@ -51,7 +51,7 @@ void AkdMyPlayer::BeginPlay()
 	OriginalPlayerLocation = GetActorLocation();
 
 	// Initialize current floor actor
-	//UpdateCurrentFloor();
+	UpdateCurrentFloor();
 
 }
 
@@ -63,7 +63,14 @@ void AkdMyPlayer::Tick(float DeltaTime)
 	CrushInterpolation(DeltaTime);
 
 	// Update current floor actor each tick
-	//UpdateCurrentFloor();
+	UpdateCurrentFloor();
+
+	// Cache player relative position if floor actor has changed
+	if (CurrentFloorActor && LastCachedFloor != CurrentFloorActor)
+	{
+		CachePlayerRelativePosition();
+		LastCachedFloor = CurrentFloorActor;
+	}
 
 }
 
@@ -107,9 +114,9 @@ void AkdMyPlayer::CachePlayerRelativePosition()
 
 void AkdMyPlayer::CrushTransition()
 {
-	if (bIsTranstioning) return;
+	if (bIsTransitioning) return;
 
-	bIsTranstioning = true;
+	bIsTransitioning = true;
 	TransitionAlpha = 0.0f;
 	bTargetCrushMode = !bIsCrushMode;
 
@@ -125,7 +132,7 @@ void AkdMyPlayer::CrushTransition()
 
 	for (AkdFloorBase* Floor : FloorActors)
 	{
-		if(Floor && Floor->FloorMesh)
+		if (Floor && Floor->FloorMesh)
 		{
 			// Start scale and location
 			TransitionData.FloorStartScales.Add(Floor->FloorMesh->GetComponentScale());
@@ -150,7 +157,7 @@ void AkdMyPlayer::CrushTransition()
 	FVector TargetPlayerLocation = TransitionData.PlayerStartLocation;
 	if (bTargetCrushMode)
 	{
-		TargetPlayerLocation.X = 0.0f; // Keep player at X = 0 in crush mode
+		 TargetPlayerLocation.X = 0.0f; // Keep player at X = 0 only	
 	}
 	TransitionData.PlayerTargetLocation = TargetPlayerLocation;
 
@@ -169,7 +176,7 @@ void AkdMyPlayer::CrushTransition()
 
 void AkdMyPlayer::CrushInterpolation(float DeltaTime)
 {
-	if (bIsTranstioning)
+	if (bIsTransitioning)
 	{
 		TransitionAlpha += DeltaTime / TransitionDuration;
 		float Alpha = FMath::Clamp(TransitionAlpha, 0.0f, 1.0f);
@@ -201,13 +208,22 @@ void AkdMyPlayer::CrushInterpolation(float DeltaTime)
 		// Switch camera projection mode at halfway point
 		if (Alpha > 0.5f)
 		{
-			Camera->SetProjectionMode(bTargetCrushMode ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective);
+			if (bTargetCrushMode)
+			{
+				Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
+				Camera->bAutoCalculateOrthoPlanes = false;
+				Camera->OrthoWidth = 536.0f;
+			}
+			else
+			{
+				Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
+			}
 		}
 
 		// Check if transition is complete
 		if (Alpha >= 1.0f)
 		{
-			bIsTranstioning = false;
+			bIsTransitioning = false;
 			bIsCrushMode = bTargetCrushMode;
 			GetCharacterMovement()->bConstrainToPlane = bIsCrushMode;
 

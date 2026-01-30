@@ -56,6 +56,9 @@ public:
 	TObjectPtr<AkdFloorBase> CurrentFloorActor;	// Current floor actor being interacted with
 
 	UPROPERTY()
+	TObjectPtr<AkdFloorBase> LastCachedFloor = nullptr;  // Last floor for which player relative position was cached
+
+	UPROPERTY()
 	TMap<TObjectPtr<AkdFloorBase>, FVector> PlayerRelativePositionsPerFloor; // Store player relative positions before floor interaction
 
 	UFUNCTION(BlueprintCallable, Category = "Crush Mechanic")
@@ -75,7 +78,7 @@ protected:
 
 	// Transition variables //
 	UPROPERTY()
-	bool bIsTranstioning = false;
+	bool bIsTransitioning = false;
 
 	UPROPERTY()
 	float TransitionAlpha = 0.0f;
