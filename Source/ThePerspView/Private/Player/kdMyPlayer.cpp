@@ -31,7 +31,7 @@ AkdMyPlayer::AkdMyPlayer()
 	GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 1000.0f, 0.0f);
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 10000.0f, 0.0f);
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
@@ -47,8 +47,9 @@ void AkdMyPlayer::BeginPlay()
 	// Initialize FloorActors reference
 	FindFloorActors(GetWorld());
 
-	// Store original player location
+	// Store original player location & Scale
 	OriginalPlayerLocation = GetActorLocation();
+	OriginalPlayerScale = GetMesh()->GetRelativeScale3D();
 
 	// Initialize current floor actor
 	UpdateCurrentFloor();
@@ -78,7 +79,7 @@ void AkdMyPlayer::UpdateCurrentFloor()
 {
 	// Perform a line trace downwards to detect the floor actor beneath the player
 	FVector Start = GetActorLocation();
-	FVector End = Start - FVector(0.0f, 0.0f, 200.0f); // Cast ray downwards
+	FVector End = Start - FVector(0.0f, 0.0f, 500.0f); // Cast ray downwards
 
 	FHitResult HitResult;
 	FCollisionQueryParams Params;
@@ -122,6 +123,7 @@ void AkdMyPlayer::CrushTransition()
 
 	// Cache Start values
 	TransitionData.PlayerStartLocation = GetActorLocation();
+	TransitionData.PlayerOriginalScale = GetMesh()->GetRelativeScale3D();
 	TransitionData.SpringArmStartRotation = SpringArm->GetRelativeRotation();
 	TransitionData.SpringArmStartLength = SpringArm->TargetArmLength;
 
@@ -144,7 +146,7 @@ void AkdMyPlayer::CrushTransition()
 
 			if (bTargetCrushMode)
 			{
-				TargetScale.X = 1.0f; // Crush effect
+				TargetScale.X = 0.01f; // Crush effect
 				TargetLocation.X = 0.0f; // Keep floor at X = 0 in crush mode
 			}
 
@@ -153,13 +155,17 @@ void AkdMyPlayer::CrushTransition()
 		}
 	}
 
-	// Player position target
+	// Player position target & Scale
 	FVector TargetPlayerLocation = TransitionData.PlayerStartLocation;
+	FVector TargetPlayerScale = TransitionData.PlayerOriginalScale;
 	if (bTargetCrushMode)
 	{
-		 TargetPlayerLocation.X = 0.0f; // Keep player at X = 0 only	
+		 TargetPlayerLocation.X = 0.0f; // Keep player at X = 0 only
+		 TargetPlayerScale.Y = 0.01f; // Crush effect
+
 	}
 	TransitionData.PlayerTargetLocation = TargetPlayerLocation;
+	TransitionData.PlayerTargetScale = TargetPlayerScale;
 
 	// SpringArm target rotation and length
 	if (bTargetCrushMode)
@@ -181,9 +187,11 @@ void AkdMyPlayer::CrushInterpolation(float DeltaTime)
 		TransitionAlpha += DeltaTime / TransitionDuration;
 		float Alpha = FMath::Clamp(TransitionAlpha, 0.0f, 1.0f);
 
-		// Interpolate player location
+		// Interpolate player location & Scale
 		FVector NewPlayerLocation = FMath::Lerp(TransitionData.PlayerStartLocation, TransitionData.PlayerTargetLocation, Alpha);
 		SetActorLocation(NewPlayerLocation);
+		FVector NewPlayerScale = FMath::Lerp(TransitionData.PlayerOriginalScale, TransitionData.PlayerTargetScale, Alpha);
+		SetActorRelativeScale3D(NewPlayerScale);
 
 		// Interpolate SpringArm rotation and length
 		FRotator NewSpringArmRotation = FMath::Lerp(TransitionData.SpringArmStartRotation, TransitionData.SpringArmTargetRotation, Alpha);
@@ -210,9 +218,9 @@ void AkdMyPlayer::CrushInterpolation(float DeltaTime)
 		{
 			if (bTargetCrushMode)
 			{
-				Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
-				Camera->bAutoCalculateOrthoPlanes = false;
-				Camera->OrthoWidth = 536.0f;
+				Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
+				//Camera->bAutoCalculateOrthoPlanes = false;
+				//Camera->OrthoWidth = 536.0f;
 			}
 			else
 			{

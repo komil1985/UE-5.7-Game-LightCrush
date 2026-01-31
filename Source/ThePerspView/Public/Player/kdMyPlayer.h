@@ -13,6 +13,8 @@ struct FTransformData
 	
 	FVector PlayerStartLocation;
 	FVector PlayerTargetLocation;
+	FVector PlayerOriginalScale;
+	FVector PlayerTargetScale;
 	FRotator SpringArmStartRotation;
 	FRotator SpringArmTargetRotation;
 	float SpringArmStartLength;
@@ -45,6 +47,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crush Mechanic")
 	FVector OriginalPlayerLocation;		// Store original player location for Restore Mode
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crush Mechanic")
+	FVector OriginalPlayerScale;		// Store original player scale for Restore Mode
 
 	UPROPERTY()
 	TArray<TObjectPtr<AkdFloorBase>>FloorActors;	// References to floor actors in the world
@@ -83,8 +88,8 @@ protected:
 	UPROPERTY()
 	float TransitionAlpha = 0.0f;
 
-	UPROPERTY()
-	float TransitionDuration = 0.7f;  // Duration of the transition in seconds
+	UPROPERTY(EditDefaultsOnly, Category = "Crush Mechanic")
+	float TransitionDuration = 0.4f;  // Duration of the transition in seconds
 
 	UPROPERTY()
 	bool bTargetCrushMode = false;
