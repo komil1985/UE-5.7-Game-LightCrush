@@ -9,6 +9,7 @@
 #include "World/kdFloorBase.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
+#include "Camera/PlayerCameraManager.h"
 
 AkdMyPlayer::AkdMyPlayer()
 {
@@ -121,6 +122,19 @@ void AkdMyPlayer::CrushTransition()
 	TransitionAlpha = 0.0f;
 	bTargetCrushMode = !bIsCrushMode;
 
+	// Camera Shake when crush mode activates
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (PC && CrushCameraShake)
+	{
+		PC->PlayerCameraManager->StartCameraShake(CrushCameraShake, 1.0f);
+	}
+
+	// Spawning sound when crush mode activates
+	if (ToggleCrushSound)
+	{
+		UGameplayStatics::SpawnSoundAttached(ToggleCrushSound, GetRootComponent());
+	}
+
 	// Cache Start values
 	TransitionData.PlayerStartLocation = GetActorLocation();
 	TransitionData.PlayerOriginalScale = GetMesh()->GetRelativeScale3D();
@@ -144,25 +158,24 @@ void AkdMyPlayer::CrushTransition()
 			FVector TargetScale = Floor->OriginalFloorScale;
 			FVector TargetLocation = Floor->OriginalFloorLocation;
 
-			if (bTargetCrushMode)
+			if (bTargetCrushMode && CrushSound)
 			{
-				TargetScale.X = 0.01f; // Crush effect
 				TargetLocation.X = 0.0f; // Keep floor at X = 0 in crush mode
+				TargetScale.X = FloorCrushScale; // Crush effect
 			}
-
 			TransitionData.FloorTargetScales.Add(TargetScale);
 			TransitionData.FloorTargetLocations.Add(TargetLocation);
+			UGameplayStatics::SpawnSoundAttached(CrushSound, GetRootComponent());
 		}
 	}
 
-	// Player position target & Scale
+	// Player targeted position & Scale
 	FVector TargetPlayerLocation = TransitionData.PlayerStartLocation;
 	FVector TargetPlayerScale = TransitionData.PlayerOriginalScale;
 	if (bTargetCrushMode)
 	{
 		 TargetPlayerLocation.X = 0.0f; // Keep player at X = 0 only
-		 TargetPlayerScale.Y = 0.01f; // Crush effect
-
+		 TargetPlayerScale.Y = PlayerCrushScale; // Crush effect
 	}
 	TransitionData.PlayerTargetLocation = TargetPlayerLocation;
 	TransitionData.PlayerTargetScale = TargetPlayerScale;
@@ -263,10 +276,17 @@ void AkdMyPlayer::FindFloorActors(UWorld* World)
 void AkdMyPlayer::ToggleCrushMode()
 {
 	// Start the transition
-	CrushTransition();		// <-- Use transition function instead of instant toggle
+	CrushTransition();		// <-- Use this transition function instead of instant toggle
+
 }
 
-// -- Previous instant toggle implementation in ToggleCrushMode --- Below is for reference only -- //
+
+
+/****************************************************************************************************************************************************************************/
+
+// -- Previous instant toggle implementation in ToggleCrushMode function --- Below is for reference only -- //
+
+/****************************************************************************************************************************************************************************/
 
 // Toggle the crush mode state
 //bIsCrushMode = !bIsCrushMode;
@@ -341,3 +361,9 @@ void AkdMyPlayer::ToggleCrushMode()
 //		}
 //	}
 //}
+
+/****************************************************************************************************************************************************************************/
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/****************************************************************************************************************************************************************************/

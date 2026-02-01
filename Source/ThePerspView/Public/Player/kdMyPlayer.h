@@ -30,6 +30,8 @@ struct FTransformData
 class UCameraComponent;
 class USpringArmComponent;
 class AkdFloorBase;
+class UCameraShakeBase;
+class USoundBase;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter
 {
@@ -56,6 +58,15 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crush Mechanic")
 	bool bIsCrushMode = false;	// Crush mode state flag
+
+	UPROPERTY(EditAnywhere, Category = "Crush Effects")
+	TSubclassOf<UCameraShakeBase> CrushCameraShake;
+
+	UPROPERTY(EditAnywhere, Category = "Crush Effects")
+	TObjectPtr<USoundBase> CrushSound;
+
+	UPROPERTY(EditAnywhere, Category = "Crush Effects")
+	TObjectPtr<USoundBase> ToggleCrushSound;
 
 	UPROPERTY()
 	TObjectPtr<AkdFloorBase> CurrentFloorActor;	// Current floor actor being interacted with
@@ -102,4 +113,8 @@ protected:
 
 	UFUNCTION()
 	void CrushInterpolation(float DeltaTime);
+
+private:
+	float PlayerCrushScale = 0.001f;	// Scale factor for player crush effect
+	float FloorCrushScale = 0.001f;		// Scale factor for floor crush effect
 };
