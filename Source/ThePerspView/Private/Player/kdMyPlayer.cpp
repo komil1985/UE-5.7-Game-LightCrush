@@ -65,37 +65,47 @@ void AkdMyPlayer::Tick(float DeltaTime)
 	CrushInterpolation(DeltaTime);
 
 	// Update current floor actor each tick
-	UpdateCurrentFloor();
+	//UpdateCurrentFloor();
 
 	// Cache player relative position if floor actor has changed
-	if (CurrentFloorActor && LastCachedFloor != CurrentFloorActor)
-	{
-		CachePlayerRelativePosition();
-		LastCachedFloor = CurrentFloorActor;
-	}
+	//if (CurrentFloorActor && LastCachedFloor != CurrentFloorActor)
+	//{
+	//	CachePlayerRelativePosition();
+	//	LastCachedFloor = CurrentFloorActor;
+	//}
 
 }
 
 void AkdMyPlayer::UpdateCurrentFloor()
 {
 	// Perform a line trace downwards to detect the floor actor beneath the player
-	FVector Start = GetActorLocation();
-	FVector End = Start - FVector(0.0f, 0.0f, 500.0f); // Cast ray downwards
+	//FVector Start = GetActorLocation();
+	//FVector End = Start - FVector(0.0f, 0.0f, 500.0f); // Cast ray downwards
 
-	FHitResult HitResult;
-	FCollisionQueryParams Params;
-	Params.AddIgnoredActor(this);
+	//FHitResult HitResult;
+	//FCollisionQueryParams Params;
+	//Params.AddIgnoredActor(this);
 
-	// Line trace to find the floor actor
-	bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, Params);
+	//// Line trace to find the floor actor
+	//bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, Params);
 
-	if(bHit)
-	{	
-		// Check if the hit actor is a floor actor
-		if(AkdFloorBase* HitFloor = Cast<AkdFloorBase>(HitResult.GetActor()))
-		{
-			CurrentFloorActor = HitFloor;
-		}
+	//if(bHit)
+	//{	
+	//	// Check if the hit actor is a floor actor
+	//	if(AkdFloorBase* HitFloor = Cast<AkdFloorBase>(HitResult.GetActor()))
+	//	{
+	//		CurrentFloorActor = HitFloor;
+	//	}
+	//}
+	//else
+	//{
+	//	CurrentFloorActor = nullptr;  // No floor actor found
+	//}
+
+	if (GetCharacterMovement()->CurrentFloor.HitResult.bBlockingHit) {
+		AActor* FloorActor = GetCharacterMovement()->CurrentFloor.HitResult.GetActor();
+		// Do your logic here
+		CurrentFloorActor = Cast<AkdFloorBase>(FloorActor);
 	}
 	else
 	{
@@ -195,16 +205,21 @@ void AkdMyPlayer::CrushTransition()
 
 void AkdMyPlayer::CrushInterpolation(float DeltaTime)
 {
-	if (bIsTransitioning)
-	{
-		TransitionAlpha += DeltaTime / TransitionDuration;
-		float Alpha = FMath::Clamp(TransitionAlpha, 0.0f, 1.0f);
+	if (!bIsTransitioning) return;
+	
+	TransitionAlpha += DeltaTime / TransitionDuration;
+	float Alpha = FMath::Clamp(TransitionAlpha, 0.0f, 1.0f);
 
-		// Interpolate player location & Scale
-		FVector NewPlayerLocation = FMath::Lerp(TransitionData.PlayerStartLocation, TransitionData.PlayerTargetLocation, Alpha);
-		SetActorLocation(NewPlayerLocation);
-		FVector NewPlayerScale = FMath::Lerp(TransitionData.PlayerOriginalScale, TransitionData.PlayerTargetScale, Alpha);
-		SetActorRelativeScale3D(NewPlayerScale);
+	// Interpolate player location
+	FVector NewPlayerLocation = FMath::Lerp(TransitionData.PlayerStartLocation, TransitionData.PlayerTargetLocation, Alpha);
+	
+	// only interpolate the X axis to "Snap" the player to the 2D plane
+	if (bIsCrushMode)
+	{
+		FVector CurrentLoc = GetActorLocation();
+		CurrentLoc.X = FMath::Lerp(TransitionData.PlayerStartLocation.X, 0.0f, Alpha);
+		SetActorLocation(CurrentLoc);
+	}
 
 		// Interpolate SpringArm rotation and length
 		FRotator NewSpringArmRotation = FMath::Lerp(TransitionData.SpringArmStartRotation, TransitionData.SpringArmTargetRotation, Alpha);
@@ -212,33 +227,36 @@ void AkdMyPlayer::CrushInterpolation(float DeltaTime)
 		float NewSpringArmLength = FMath::Lerp(TransitionData.SpringArmStartLength, TransitionData.SpringArmTargetLength, Alpha);
 		SpringArm->TargetArmLength = NewSpringArmLength;
 
+		/*************************************************************************************************************************************/
 		// Interpolate floor scales and locations
-		for (int32 i = 0; i < FloorActors.Num(); ++i)
-		{
-			AkdFloorBase* Floor = FloorActors[i];  // Assuming FloorActors and TransitionData arrays are aligned
-			if (Floor && Floor->FloorMesh)
-			{
-				FVector NewFloorScale = FMath::Lerp(TransitionData.FloorStartScales[i], TransitionData.FloorTargetScales[i], Alpha);
-				Floor->FloorMesh->SetRelativeScale3D(NewFloorScale);
+		//for (int32 i = 0; i < FloorActors.Num(); ++i)
+		//{
+		//	AkdFloorBase* Floor = FloorActors[i];  // Assuming FloorActors and TransitionData arrays are aligned
+		//	if (Floor && Floor->FloorMesh)
+		//	{
+		//		FVector NewFloorScale = FMath::Lerp(TransitionData.FloorStartScales[i], TransitionData.FloorTargetScales[i], Alpha);
+		//		Floor->FloorMesh->SetRelativeScale3D(NewFloorScale);
 
-				FVector NewFloorLocation = FMath::Lerp(TransitionData.FloorStartLocations[i], TransitionData.FloorTargetLocations[i], Alpha);
-				Floor->SetActorLocation(NewFloorLocation);
-			}
-		}
+		//		FVector NewFloorLocation = FMath::Lerp(TransitionData.FloorStartLocations[i], TransitionData.FloorTargetLocations[i], Alpha);
+		//		Floor->SetActorLocation(NewFloorLocation);
+		//	}
+		//}
+		/*************************************************************************************************************************************/
 
 		// Switch camera projection mode at halfway point
-		if (Alpha > 0.5f)
+		if (Alpha > 0.5f && !bProjectionSwitched)
 		{
 			if (bTargetCrushMode)
 			{
-				Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
-				//Camera->bAutoCalculateOrthoPlanes = false;
-				//Camera->OrthoWidth = 536.0f;
+				Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
+				Camera->SetOrthoWidth(TransitionData.SpringArmTargetLength * 2.0f);	
+				Camera->bAutoCalculateOrthoPlanes = false;
 			}
 			else
 			{
 				Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
 			}
+			bProjectionSwitched = true;
 		}
 
 		// Check if transition is complete
@@ -250,11 +268,14 @@ void AkdMyPlayer::CrushInterpolation(float DeltaTime)
 
 			if (bIsCrushMode)
 			{
-				// Ensure constraint plane normal is set for crush mode
 				GetCharacterMovement()->SetPlaneConstraintNormal(FVector(1.0f, 0.0f, 0.0f));
+				GetCharacterMovement()->SetPlaneConstraintEnabled(true);
 			}
+			else {
+				GetCharacterMovement()->SetPlaneConstraintEnabled(false);
+			}
+			bProjectionSwitched = false;
 		}
-	}
 }
 
 void AkdMyPlayer::FindFloorActors(UWorld* World)

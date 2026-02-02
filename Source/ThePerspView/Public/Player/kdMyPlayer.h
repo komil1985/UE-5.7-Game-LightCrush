@@ -117,4 +117,6 @@ protected:
 private:
 	float PlayerCrushScale = 0.001f;	// Scale factor for player crush effect
 	float FloorCrushScale = 0.001f;		// Scale factor for floor crush effect
+
+	bool bProjectionSwitched = false; // Flag to track if projection has been switched
 };
