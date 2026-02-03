@@ -10,6 +10,9 @@
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "Camera/PlayerCameraManager.h"
+#include "DrawDebugHelpers.h"
+#include "Sound/SoundBase.h"
+#include "Engine/DirectionalLight.h"
 
 AkdMyPlayer::AkdMyPlayer()
 {
@@ -55,6 +58,20 @@ void AkdMyPlayer::BeginPlay()
 	// Initialize current floor actor
 	UpdateCurrentFloor();
 
+
+	if (CrushPostProcessMaterial && Camera)
+	{
+		// Create the dynamic instance
+		CrushPPInstance = UMaterialInstanceDynamic::Create(CrushPostProcessMaterial, this);
+
+		// Add it to the Camera's Post Process Settings
+		// 0.0f means it is currently invisible (OFF)
+		CrushBlendable.Object = CrushPPInstance;
+		CrushBlendable.Weight = 0.0f;
+
+		Camera->PostProcessSettings.WeightedBlendables.Array.Add(CrushBlendable);
+	}
+
 }
 
 void AkdMyPlayer::Tick(float DeltaTime)
@@ -73,6 +90,44 @@ void AkdMyPlayer::Tick(float DeltaTime)
 	//	CachePlayerRelativePosition();
 	//	LastCachedFloor = CurrentFloorActor;
 	//}
+
+
+	// MOVEMENT LOGIC
+	// Only override physics if we are fully in Crush Mode (2D)
+	if (bIsCrushMode && !bIsTransitioning)
+	{
+		// 1. Check if we are physically standing on a block
+		bool bIsOnRealGround = GetCharacterMovement()->IsWalking();
+
+		// 2. Check if we are standing on a shadow
+		bool bIsOnShadow = IsStandingInShadow();
+
+		if (bIsOnShadow)
+		{
+			// CASE: Standing on Shadow
+			// We disable gravity so the player doesn't fall through the shadow
+			GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+
+			// Force vertical velocity to 0 so they don't drift up/down
+			FVector Velocity = GetCharacterMovement()->Velocity;
+			Velocity.Z = 0.0f;
+			GetCharacterMovement()->Velocity = Velocity;
+		}
+		else if (!bIsOnRealGround)
+		{
+			// CASE: In Empty Light (Gap)
+			// If we aren't on ground AND aren't on a shadow, gravity takes over.
+			GetCharacterMovement()->SetMovementMode(MOVE_Falling);
+		}
+	}
+	else if (!bIsCrushMode)
+	{
+		// Standard 3D behavior
+		if (GetCharacterMovement()->MovementMode == MOVE_Flying)
+		{
+			GetCharacterMovement()->SetMovementMode(MOVE_Falling);
+		}
+	}
 
 }
 
@@ -276,6 +331,66 @@ void AkdMyPlayer::CrushInterpolation(float DeltaTime)
 			}
 			bProjectionSwitched = false;
 		}
+
+		// ---------------------------------------------------
+		// VISUAL UPDATE: Fade the Outline Shader
+		// ---------------------------------------------------
+		if (Camera->PostProcessSettings.WeightedBlendables.Array.Num() > 0)
+		{
+			float TargetWeight = bTargetCrushMode ? 1.0f : 0.0f;
+			float StartWeight = bTargetCrushMode ? 0.0f : 1.0f;
+
+			// Smoothly interpolate the weight
+			float NewWeight = FMath::Lerp(StartWeight, TargetWeight, Alpha);
+
+			// Update the FIRST blendable in the array (our outline material)
+			Camera->PostProcessSettings.WeightedBlendables.Array[0].Weight = NewWeight;
+		}
+}
+
+bool AkdMyPlayer::IsStandingInShadow()
+{
+	UWorld* World = GetWorld();
+	if(!World)	return false;
+
+	// Find the Light Source Actor in the world (assuming there's only one for simplicity)
+	if (!DirectionalLightActor)
+	{
+		TArray<AActor*> FoundLights;
+		UGameplayStatics::GetAllActorsOfClass(World, ADirectionalLight::StaticClass(), FoundLights);
+		if (FoundLights.Num() > 0)
+		{
+			DirectionalLightActor = Cast<ADirectionalLight>(FoundLights[0]);
+			CachedLightDirection = -DirectionalLightActor->GetActorForwardVector(); // Light direction is opposite to forward vector
+		}
+		else
+		{
+			CachedLightDirection = FVector(0, 0, 1); // Default to upward light if no directional light found
+		}
+	}
+
+	// Perform a line trace from the player to the light source direction
+	FHitResult HitResult;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this); // Ignore self
+
+	FVector Start = GetActorLocation() - FVector(0, 0, 40.0f);
+	FVector End = Start + (CachedLightDirection * 50000.0f); // Cast ray towards light source
+
+	bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, Params);
+
+	if (bShowShadowDebugLines)
+	{
+		if (bHit)
+		{
+			DrawDebugLine(World, Start, HitResult.ImpactPoint, FColor::Green, false, -1.0f, 0, 2.0f);
+		}
+		else
+		{
+			DrawDebugLine(World, Start, Start + (CachedLightDirection * 1000.0f), FColor::Red, false, -1.0f, 0, 2.0f);
+		}
+	}
+	return bHit;	// If we hit something, player is in shadow; if not, player is in light
 }
 
 void AkdMyPlayer::FindFloorActors(UWorld* World)

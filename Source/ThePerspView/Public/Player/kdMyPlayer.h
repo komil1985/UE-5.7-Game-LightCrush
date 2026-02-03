@@ -60,13 +60,13 @@ public:
 	bool bIsCrushMode = false;	// Crush mode state flag
 
 	UPROPERTY(EditAnywhere, Category = "Crush Effects")
-	TSubclassOf<UCameraShakeBase> CrushCameraShake;
+	TSubclassOf<UCameraShakeBase> CrushCameraShake;	// Camera shake class for crush/restore transition
 
 	UPROPERTY(EditAnywhere, Category = "Crush Effects")
-	TObjectPtr<USoundBase> CrushSound;
+	TObjectPtr<USoundBase> CrushSound;	// Sound played during crush/restore transition
 
 	UPROPERTY(EditAnywhere, Category = "Crush Effects")
-	TObjectPtr<USoundBase> ToggleCrushSound;
+	TObjectPtr<USoundBase> ToggleCrushSound;	// Sound played when toggling crush mode
 
 	UPROPERTY()
 	TObjectPtr<AkdFloorBase> CurrentFloorActor;	// Current floor actor being interacted with
@@ -87,36 +87,59 @@ protected:
 	void FindFloorActors(UWorld* World);	// Find and store references to floor actors
 
 	UFUNCTION()
-	void UpdateCurrentFloor();
+	void UpdateCurrentFloor();	// Update the current floor actor based on player position
 
 	UFUNCTION()
-	void CachePlayerRelativePosition();
+	void CachePlayerRelativePosition();	// Cache player relative position to the current floor
 
 	// Transition variables //
 	UPROPERTY()
-	bool bIsTransitioning = false;
+	bool bIsTransitioning = false;	// Flag to indicate if a transition is in progress
 
 	UPROPERTY()
-	float TransitionAlpha = 0.0f;
+	float TransitionAlpha = 0.0f;	// Alpha value for interpolation during transition
 
 	UPROPERTY(EditDefaultsOnly, Category = "Crush Mechanic")
 	float TransitionDuration = 0.4f;  // Duration of the transition in seconds
 
 	UPROPERTY()
-	bool bTargetCrushMode = false;
+	bool bTargetCrushMode = false;	// Target mode for the transition
 
 	UPROPERTY()
 	FTransformData TransitionData; // Data for smooth transitions
 
 	UFUNCTION()
-	void CrushTransition();
+	void CrushTransition();	// Start the crush/restore transition
 
 	UFUNCTION()
-	void CrushInterpolation(float DeltaTime);
+	void CrushInterpolation(float DeltaTime);	// Handle interpolation during transition
+
+	UFUNCTION()
+	bool IsStandingInShadow();	// Check if player is standing in shadow
+
+	UPROPERTY()
+	AActor* DirectionalLightActor = nullptr;	// Reference to the directional light actor
+
+	UPROPERTY()
+	FVector CachedLightDirection = FVector::ZeroVector;	// Cached light direction for shadow calculations
+
+	UPROPERTY(EditAnywhere, Category = "Crush Mechanic")
+	bool bShowShadowDebugLines = true;		// Toggle for debug lines
 
 private:
 	float PlayerCrushScale = 0.001f;	// Scale factor for player crush effect
 	float FloorCrushScale = 0.001f;		// Scale factor for floor crush effect
 
 	bool bProjectionSwitched = false; // Flag to track if projection has been switched
+
+
+	UPROPERTY(EditAnywhere, Category = "Crush Visuals")
+	UMaterialInterface* CrushPostProcessMaterial; // Assign M_CrushOutline here in Blueprint
+
+	// Dynamic instance so we can fade it in/out
+	UPROPERTY()
+	UMaterialInstanceDynamic* CrushPPInstance;
+
+	// Weighted blendable to control intensity
+	FWeightedBlendable CrushBlendable;
 };
