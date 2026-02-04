@@ -96,28 +96,19 @@ void AkdMyPlayer::Tick(float DeltaTime)
 	// Only override physics if we are fully in Crush Mode (2D)
 	if (bIsCrushMode && !bIsTransitioning)
 	{
-		// 1. Check if we are physically standing on a block
-		bool bIsOnRealGround = GetCharacterMovement()->IsWalking();
-
-		// 2. Check if we are standing on a shadow
-		bool bIsOnShadow = IsStandingInShadow();
-
-		if (bIsOnShadow)
+		if (IsStandingInShadow())
 		{
 			// CASE: Standing on Shadow
-			// We disable gravity so the player doesn't fall through the shadow
-			GetCharacterMovement()->SetMovementMode(MOVE_Flying);
-
-			// Force vertical velocity to 0 so they don't drift up/down
-			FVector Velocity = GetCharacterMovement()->Velocity;
-			Velocity.Z = 0.0f;
-			GetCharacterMovement()->Velocity = Velocity;
+			GetCharacterMovement()->SetMovementMode(MOVE_Flying);			// We disable gravity so the player doesn't fall through the shadow
+			GetCharacterMovement()->BrakingDecelerationFlying = 500.0f;		// High deceleration for tight control on shadows
+			GetCharacterMovement()->GravityScale = 0.0f;
+			GetCharacterMovement()->bConstrainToPlane = false;				// Disable plane constraint to allow free movement on shadow
 		}
-		else if (!bIsOnRealGround)
+		else
 		{
 			// CASE: In Empty Light (Gap)
-			// If we aren't on ground AND aren't on a shadow, gravity takes over.
-			GetCharacterMovement()->SetMovementMode(MOVE_Falling);
+			GetCharacterMovement()->SetMovementMode(MOVE_Falling);		// If we aren't on ground AND aren't on a shadow, gravity takes over.
+			GetCharacterMovement()->GravityScale = 1.0f;
 		}
 	}
 	else if (!bIsCrushMode)
@@ -128,35 +119,10 @@ void AkdMyPlayer::Tick(float DeltaTime)
 			GetCharacterMovement()->SetMovementMode(MOVE_Falling);
 		}
 	}
-
 }
 
 void AkdMyPlayer::UpdateCurrentFloor()
 {
-	// Perform a line trace downwards to detect the floor actor beneath the player
-	//FVector Start = GetActorLocation();
-	//FVector End = Start - FVector(0.0f, 0.0f, 500.0f); // Cast ray downwards
-
-	//FHitResult HitResult;
-	//FCollisionQueryParams Params;
-	//Params.AddIgnoredActor(this);
-
-	//// Line trace to find the floor actor
-	//bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, Params);
-
-	//if(bHit)
-	//{	
-	//	// Check if the hit actor is a floor actor
-	//	if(AkdFloorBase* HitFloor = Cast<AkdFloorBase>(HitResult.GetActor()))
-	//	{
-	//		CurrentFloorActor = HitFloor;
-	//	}
-	//}
-	//else
-	//{
-	//	CurrentFloorActor = nullptr;  // No floor actor found
-	//}
-
 	if (GetCharacterMovement()->CurrentFloor.HitResult.bBlockingHit) {
 		AActor* FloorActor = GetCharacterMovement()->CurrentFloor.HitResult.GetActor();
 		// Do your logic here
@@ -186,6 +152,7 @@ void AkdMyPlayer::CrushTransition()
 	bIsTransitioning = true;
 	TransitionAlpha = 0.0f;
 	bTargetCrushMode = !bIsCrushMode;
+	TransitionDuration = 0.2f;
 
 	// Camera Shake when crush mode activates
 	APlayerController* PC = Cast<APlayerController>(GetController());
@@ -241,6 +208,9 @@ void AkdMyPlayer::CrushTransition()
 	{
 		 TargetPlayerLocation.X = 0.0f; // Keep player at X = 0 only
 		 TargetPlayerScale.Y = PlayerCrushScale; // Crush effect
+
+		 // Add 5 units of height to clear the floor collision immediately
+		 AddActorWorldOffset(FVector(0, 0, 5.0f));
 	}
 	TransitionData.PlayerTargetLocation = TargetPlayerLocation;
 	TransitionData.PlayerTargetScale = TargetPlayerScale;
@@ -249,12 +219,12 @@ void AkdMyPlayer::CrushTransition()
 	if (bTargetCrushMode)
 	{
 		TransitionData.SpringArmTargetRotation = FRotator(0.0f, 0.0, 0.0f);
-		TransitionData.SpringArmTargetLength = SpringArm->TargetArmLength; // Keep same length
+		TransitionData.SpringArmTargetLength = 300.0f; // Keep same length
 	}
 	else
 	{
 		TransitionData.SpringArmTargetRotation = FRotator(-30.0f, 0.0, 0.0f);
-		TransitionData.SpringArmTargetLength = 500.0f;
+		TransitionData.SpringArmTargetLength = 600.0f;
 	}
 }
 
@@ -326,8 +296,10 @@ void AkdMyPlayer::CrushInterpolation(float DeltaTime)
 				GetCharacterMovement()->SetPlaneConstraintNormal(FVector(1.0f, 0.0f, 0.0f));
 				GetCharacterMovement()->SetPlaneConstraintEnabled(true);
 			}
-			else {
-				GetCharacterMovement()->SetPlaneConstraintEnabled(false);
+			else 
+			{
+				GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+				// GetCharacterMovement()->SetPlaneConstraintEnabled(false);
 			}
 			bProjectionSwitched = false;
 		}
@@ -414,6 +386,29 @@ void AkdMyPlayer::ToggleCrushMode()
 	// Start the transition
 	CrushTransition();		// <-- Use this transition function instead of instant toggle
 
+}
+
+void AkdMyPlayer::MoveUpInShadow(float Value)
+{
+	// Safety check: Only move if in Crush mode and in shadow
+	if (!bIsCrushMode || bIsTransitioning) return;
+
+	// Only apply vertical movement when in flying mode (on shadow)
+	if (GetCharacterMovement()->MovementMode == MOVE_Flying)
+	{
+		float FloatAcceleration = 1500.0f; // How fast we gain speed
+		float MaxFloatSpeed = 600.0f;      // Cap the speed
+
+		FVector CurrentVel = GetCharacterMovement()->Velocity;
+
+		// Apply acceleration to the Z axis
+		CurrentVel.Z += Value * FloatAcceleration * GetWorld()->GetDeltaSeconds();
+
+		// Clamp the speed so you don't rocket off into space
+		CurrentVel.Z = FMath::Clamp(CurrentVel.Z, -MaxFloatSpeed, MaxFloatSpeed);
+
+		GetCharacterMovement()->Velocity = CurrentVel;
+	}
 }
 
 

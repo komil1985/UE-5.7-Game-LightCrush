@@ -80,6 +80,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Crush Mechanic")
 	void ToggleCrushMode();		// Toggle between Crush Mode and Restore Mode
 
+	UFUNCTION(BlueprintCallable, Category = "Crush Mechanic")
+	void MoveUpInShadow(float Value);		// Move player up while in shadow (Crush Mode)
+
 protected:
 	virtual void BeginPlay() override;
 

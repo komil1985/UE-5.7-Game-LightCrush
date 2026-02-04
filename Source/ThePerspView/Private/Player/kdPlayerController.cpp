@@ -25,6 +25,7 @@ void AkdPlayerController::SetupInputComponent()
 			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AkdPlayerController::StartJump);
 			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AkdPlayerController::StopJump);
 			EnhancedInputComponent->BindAction(CrushAction, ETriggerEvent::Started, this, &AkdPlayerController::CrushMode);
+			EnhancedInputComponent->BindAction(MoveUpAction, ETriggerEvent::Triggered, this, &AkdPlayerController::MoveUp);
 		}
 	}
 }
@@ -42,6 +43,14 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 	{
 		ControlledPawn->AddMovementInput(ForwardDirection, InputAxisVector.Y);
 		ControlledPawn->AddMovementInput(RightDirection, InputAxisVector.X);
+	}
+}
+
+void AkdPlayerController::MoveUp(const FInputActionValue& Value)
+{
+	if (AkdMyPlayer* MyPlayer = Cast<AkdMyPlayer>(GetPawn()))
+	{
+		MyPlayer->MoveUpInShadow(Value.Get<float>());
 	}
 }
 
