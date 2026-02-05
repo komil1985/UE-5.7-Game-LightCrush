@@ -80,8 +80,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Crush Mechanic")
 	void ToggleCrushMode();		// Toggle between Crush Mode and Restore Mode
 
-	UFUNCTION(BlueprintCallable, Category = "Crush Mechanic")
-	void MoveUpInShadow(float Value);		// Move player up while in shadow (Crush Mode)
+	UFUNCTION()
+	bool IsStandingInShadow();	// Check if player is standing in shadow
+
+	UFUNCTION()
+	void CrushMode();
 
 protected:
 	virtual void BeginPlay() override;
@@ -116,9 +119,6 @@ protected:
 
 	UFUNCTION()
 	void CrushInterpolation(float DeltaTime);	// Handle interpolation during transition
-
-	UFUNCTION()
-	bool IsStandingInShadow();	// Check if player is standing in shadow
 
 	UPROPERTY()
 	AActor* DirectionalLightActor = nullptr;	// Reference to the directional light actor

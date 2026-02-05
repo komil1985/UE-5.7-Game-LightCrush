@@ -5,6 +5,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Player/kdMyPlayer.h"
 
 void AkdPlayerController::BeginPlay()
@@ -25,7 +26,7 @@ void AkdPlayerController::SetupInputComponent()
 			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AkdPlayerController::StartJump);
 			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AkdPlayerController::StopJump);
 			EnhancedInputComponent->BindAction(CrushAction, ETriggerEvent::Started, this, &AkdPlayerController::CrushMode);
-			EnhancedInputComponent->BindAction(MoveUpAction, ETriggerEvent::Triggered, this, &AkdPlayerController::MoveUp);
+			EnhancedInputComponent->BindAction(MoveUpAction, ETriggerEvent::Triggered, this, &AkdPlayerController::MoveUpInShadow);
 		}
 	}
 }
@@ -46,11 +47,14 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 	}
 }
 
-void AkdPlayerController::MoveUp(const FInputActionValue& Value)
+void AkdPlayerController::MoveUpInShadow(const FInputActionValue& Value)
 {
 	if (AkdMyPlayer* MyPlayer = Cast<AkdMyPlayer>(GetPawn()))
 	{
-		MyPlayer->MoveUpInShadow(Value.Get<float>());
+		if(MyPlayer->bIsCrushMode && MyPlayer->IsStandingInShadow())
+		{
+			MyPlayer->AddMovementInput(FVector::UpVector, Value.Get<float>());
+		}
 	}
 }
 

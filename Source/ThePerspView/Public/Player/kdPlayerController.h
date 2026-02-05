@@ -38,7 +38,7 @@ public:
 
 private:
 	void Move(const FInputActionValue& Value);
-	void MoveUp(const FInputActionValue& Value);
+	void MoveUpInShadow(const FInputActionValue& Value);
 	void StartJump();
 	void StopJump();
 	void CrushMode();
