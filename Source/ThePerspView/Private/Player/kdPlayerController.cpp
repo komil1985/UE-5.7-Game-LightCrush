@@ -53,7 +53,7 @@ void AkdPlayerController::MoveUpInShadow(const FInputActionValue& Value)
 	{
 		if(MyPlayer->bIsCrushMode && MyPlayer->IsStandingInShadow())
 		{
-			MyPlayer->AddMovementInput(FVector::UpVector, Value.Get<float>());
+			MyPlayer->AddShadowVerticalInput(Value.Get<float>());
 		}
 	}
 }

@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "kdMyPlayer.generated.h"
 
+// Struct to hold transform data for transitions
 USTRUCT()
 struct FTransformData
 {
@@ -24,6 +25,17 @@ struct FTransformData
 	TArray<FVector> FloorTargetScales;
 	TArray<FVector> FloorStartLocations;
 	TArray<FVector> FloorTargetLocations;
+};
+
+// Player movement states for Crush Mechanic
+UENUM(BlueprintType)
+enum class EPlayerMovementState : uint8
+{
+	Normal3DState,
+	CrushTransitionIn,
+	Crush2D_OnGround,
+	Crush2D_InShadow,
+	CrushTransitionOut
 };
 
 
@@ -86,6 +98,12 @@ public:
 	UFUNCTION()
 	void CrushMode();
 
+	EPlayerMovementState CurrentState;		// Current player movement state
+	EPlayerMovementState PreviousState;		// Previous player movement state
+
+	UFUNCTION()
+	void AddShadowVerticalInput(float Value);	// Handle vertical input for shadow movement
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -130,11 +148,10 @@ protected:
 	bool bShowShadowDebugLines = true;		// Toggle for debug lines
 
 private:
-	float PlayerCrushScale = 0.001f;	// Scale factor for player crush effect
-	float FloorCrushScale = 0.001f;		// Scale factor for floor crush effect
+	float PlayerCrushScale = 1.0f;	// Scale factor for player crush effect
+	float FloorCrushScale = 1.0f;		// Scale factor for floor crush effect
 
 	bool bProjectionSwitched = false; // Flag to track if projection has been switched
-
 
 	UPROPERTY(EditAnywhere, Category = "Crush Visuals")
 	UMaterialInterface* CrushPostProcessMaterial; // Assign M_CrushOutline here in Blueprint
@@ -145,4 +162,10 @@ private:
 
 	// Weighted blendable to control intensity
 	FWeightedBlendable CrushBlendable;
+
+	// Finite State Machine functions
+	void SetMovementState(EPlayerMovementState NewState);
+	void OnEnterState(EPlayerMovementState State);
+	void OnExitState(EPlayerMovementState State);
+	void UpdateFSM(float DeltaTime);
 };

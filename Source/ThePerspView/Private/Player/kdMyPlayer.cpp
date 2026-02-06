@@ -44,6 +44,14 @@ AkdMyPlayer::AkdMyPlayer()
 	CurrentFloorActor = nullptr;
 }
 
+void AkdMyPlayer::AddShadowVerticalInput(float Value)
+{
+	if (CurrentState == EPlayerMovementState::Crush2D_InShadow)
+	{
+		AddMovementInput(FVector::UpVector, Value);
+	}
+}
+
 void AkdMyPlayer::BeginPlay()
 {
 	Super::BeginPlay();
@@ -78,10 +86,9 @@ void AkdMyPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// Handle crush mode transitions
-	CrushInterpolation(DeltaTime);
-
-	CrushMode();
+	CrushInterpolation(DeltaTime);	// Smoothly interpolate player and floor properties during crush/restore transitions
+	//UpdateFSM(DeltaTime);			// Update player movement state machine
+	CrushMode();					// Handle crush mode logic based on current state and conditions
 	
 }
 
@@ -249,7 +256,7 @@ void AkdMyPlayer::CrushInterpolation(float DeltaTime)
 				GetCharacterMovement()->SetPlaneConstraintEnabled(false);
 
 				// FORCE the physics back to normal immediately
-				GetCharacterMovement()->SetMovementMode(MOVE_Falling);
+				GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 				GetCharacterMovement()->GravityScale = 1.0f;
 			}
 			bProjectionSwitched = false;
@@ -269,6 +276,96 @@ void AkdMyPlayer::CrushInterpolation(float DeltaTime)
 			// Update the FIRST blendable in the array (our outline material)
 			Camera->PostProcessSettings.WeightedBlendables.Array[0].Weight = NewWeight;
 		}
+}
+
+void AkdMyPlayer::SetMovementState(EPlayerMovementState NewState)
+{
+	if (CurrentState == NewState) return;	// No state change
+	PreviousState = CurrentState;			// Store previous state for reference
+	OnExitState(PreviousState);				// Handle any cleanup for exiting the current state
+	CurrentState = NewState;				// Handle setup for entering the new state
+	OnEnterState(CurrentState);				// Note: The actual movement logic for each state is handled in the OnEnterState function to ensure clean transitions
+}
+
+void AkdMyPlayer::OnEnterState(EPlayerMovementState State)
+{
+	UCharacterMovementComponent* Move = GetCharacterMovement();
+	switch (State)
+	{
+		case EPlayerMovementState::Normal3DState:
+			Move->SetPlaneConstraintEnabled(false);
+			Move->SetMovementMode(MOVE_Walking);
+			Move->GravityScale = 1.0f;
+			Move->Velocity = FVector::ZeroVector;
+			// Ensure capsule snaps back to floor
+			Move->bForceNextFloorCheck = true;
+			break;
+
+		case EPlayerMovementState::CrushTransitionIn:
+			CrushTransition();
+			break;
+
+		case EPlayerMovementState::Crush2D_OnGround:
+			Move->SetPlaneConstraintEnabled(true);
+			Move->SetPlaneConstraintNormal(FVector(1, 0, 0));	// Lock X Movement
+			Move->SetMovementMode(MOVE_Walking);
+			Move->GravityScale = 1.0f;
+			break;
+
+		case EPlayerMovementState::Crush2D_InShadow:
+			Move->SetPlaneConstraintEnabled(false);
+			//Move->SetPlaneConstraintNormal(FVector(1.0f, 0.0f, 0.0f));	// Lock X Movement
+			Move->SetMovementMode(MOVE_Flying);	// Disable gravity so player doesn't fall through shadow
+			Move->GravityScale = 0.0f;			
+			Move->Velocity = FVector::ZeroVector;	// Stop any falling velocity immediately when entering shadow
+			break;
+
+		case EPlayerMovementState::CrushTransitionOut:
+			// handle in CrushTransition function for smooth interpolation back to 3D
+			break;
+	}
+}
+
+void AkdMyPlayer::OnExitState(EPlayerMovementState State) {	/* Usually empty — FSM keeps things clean */ }
+
+void AkdMyPlayer::UpdateFSM(float DeltaTime)
+{
+	switch (CurrentState)
+	{
+	case EPlayerMovementState::Normal3DState:
+		// idle
+		break;
+
+	case EPlayerMovementState::CrushTransitionIn:
+		CrushInterpolation(DeltaTime);
+		if (!bIsTransitioning)
+		{
+			SetMovementState(EPlayerMovementState::Crush2D_OnGround);
+		}
+		break;
+
+	case EPlayerMovementState::Crush2D_OnGround:
+		if (IsStandingInShadow())
+		{
+			SetMovementState(EPlayerMovementState::Crush2D_InShadow);
+		}
+		break;
+
+	case EPlayerMovementState::Crush2D_InShadow:
+		if (!IsStandingInShadow())
+		{
+			SetMovementState(EPlayerMovementState::Crush2D_OnGround);
+		}
+		break;
+
+	case EPlayerMovementState::CrushTransitionOut:
+		CrushInterpolation(DeltaTime);
+		if (!bIsTransitioning)
+		{
+			SetMovementState(EPlayerMovementState::Normal3DState);
+		}
+		break;
+	}
 }
 
 bool AkdMyPlayer::IsStandingInShadow()
@@ -344,7 +441,7 @@ void AkdMyPlayer::CrushMode()
 		// Standard 3D behavior
 		if (GetCharacterMovement()->MovementMode == MOVE_Flying)
 		{
-			GetCharacterMovement()->SetMovementMode(MOVE_Falling);
+			GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 		}
 	}
 }
@@ -369,7 +466,6 @@ void AkdMyPlayer::ToggleCrushMode()
 {
 	// Start the transition
 	CrushTransition();		// <-- Use this transition function instead of instant toggle
-
 }
 
 
