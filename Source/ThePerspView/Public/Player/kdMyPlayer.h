@@ -44,6 +44,7 @@ class USpringArmComponent;
 class AkdFloorBase;
 class UCameraShakeBase;
 class USoundBase;
+class UkdCrushStateComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter
 {
@@ -58,6 +59,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<USpringArmComponent> SpringArm;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Components")
+	TObjectPtr<UkdCrushStateComponent> CrushStateComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crush Mechanic")
 	FVector OriginalPlayerLocation;		// Store original player location for Restore Mode

@@ -13,6 +13,7 @@
 #include "DrawDebugHelpers.h"
 #include "Sound/SoundBase.h"
 #include "Engine/DirectionalLight.h"
+#include "Crush/kdCrushStateComponent.h"
 
 AkdMyPlayer::AkdMyPlayer()
 {
@@ -31,11 +32,13 @@ AkdMyPlayer::AkdMyPlayer()
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 	Camera->bUsePawnControlRotation = false;
 
+	CrushStateComponent = CreateDefaultSubobject<UkdCrushStateComponent>(TEXT("CrushState"));
+
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 50000.0f, 0.0f);
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
@@ -86,9 +89,9 @@ void AkdMyPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	CrushInterpolation(DeltaTime);	// Smoothly interpolate player and floor properties during crush/restore transitions
+	//CrushInterpolation(DeltaTime);	// Smoothly interpolate player and floor properties during crush/restore transitions
 	//UpdateFSM(DeltaTime);			// Update player movement state machine
-	CrushMode();					// Handle crush mode logic based on current state and conditions
+	//CrushMode();					// Handle crush mode logic based on current state and conditions
 	
 }
 
@@ -250,14 +253,19 @@ void AkdMyPlayer::CrushInterpolation(float DeltaTime)
 				GetCharacterMovement()->SetPlaneConstraintNormal(FVector(1.0f, 0.0f, 0.0f));
 				GetCharacterMovement()->SetPlaneConstraintEnabled(true);
 			}
-			else 
+			else if (bIsCrushMode && IsStandingInShadow())
 			{
-				//GetCharacterMovement()->SetMovementMode(MOVE_Flying);
-				GetCharacterMovement()->SetPlaneConstraintEnabled(false);
-
+				GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+				GetCharacterMovement()->SetPlaneConstraintEnabled(true);
+				GetCharacterMovement()->GravityScale = 0.0f;
+				GetCharacterMovement()->SetPlaneConstraintNormal(FVector(1.0f, 0.0f, 0.0f));
+			}
+			else
+			{
 				// FORCE the physics back to normal immediately
 				GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 				GetCharacterMovement()->GravityScale = 1.0f;
+				GetCharacterMovement()->SetPlaneConstraintEnabled(false);
 			}
 			bProjectionSwitched = false;
 		}
@@ -313,8 +321,8 @@ void AkdMyPlayer::OnEnterState(EPlayerMovementState State)
 			break;
 
 		case EPlayerMovementState::Crush2D_InShadow:
-			Move->SetPlaneConstraintEnabled(false);
-			//Move->SetPlaneConstraintNormal(FVector(1.0f, 0.0f, 0.0f));	// Lock X Movement
+			Move->SetPlaneConstraintEnabled(true);
+			Move->SetPlaneConstraintNormal(FVector(1.0f, 0.0f, 0.0f));	// Lock X Movement
 			Move->SetMovementMode(MOVE_Flying);	// Disable gravity so player doesn't fall through shadow
 			Move->GravityScale = 0.0f;			
 			Move->Velocity = FVector::ZeroVector;	// Stop any falling velocity immediately when entering shadow
@@ -428,6 +436,7 @@ void AkdMyPlayer::CrushMode()
 			GetCharacterMovement()->SetMovementMode(MOVE_Flying);			// We disable gravity so the player doesn't fall through the shadow
 			GetCharacterMovement()->BrakingDecelerationFlying = 2000.0f;
 			GetCharacterMovement()->GravityScale = 0.0f;
+			
 		}
 		else
 		{
@@ -466,92 +475,6 @@ void AkdMyPlayer::ToggleCrushMode()
 {
 	// Start the transition
 	CrushTransition();		// <-- Use this transition function instead of instant toggle
+
+	//CrushMode();
 }
-
-
-
-/****************************************************************************************************************************************************************************/
-
-// -- Previous instant toggle implementation in ToggleCrushMode function --- Below is for reference only -- //
-
-/****************************************************************************************************************************************************************************/
-
-// Toggle the crush mode state
-//bIsCrushMode = !bIsCrushMode;
-
-//if (bIsCrushMode)
-//{
-//	// Cache player position before entering crush mode
-//	//CachePlayerRelativePosition();
-
-//	// Setting up for orthographic view
-//	SpringArm->SetRelativeRotation(FRotator(0.0f, 0.0, 0.0f));
-//	Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
-//	Camera->OrthoWidth = 500.0f;
-//	Camera->bAutoCalculateOrthoPlanes = false;
-
-//	// Enable planar movement constraints & Set the constraint plane normal to (1, 0, 0) for the YZ plane (restricts X movement)
-//	GetCharacterMovement()->bConstrainToPlane = true;
-//	GetCharacterMovement()->SetPlaneConstraintNormal(FVector(1.0f, 0.0f, 0.0f));
-
-//	for (AkdFloorBase* Floor : FloorActors)
-//	{
-//		// reduce floor X scale and position to simulate crush effect
-//		if (Floor && Floor->FloorMesh)
-//		{
-//			// Crush the floor along the X axis
-//			FVector NewFloorScale = Floor->OriginalFloorScale;	// Cached original scale
-//			NewFloorScale.X = 1.0f; // Adjust this value to control the degree of "crush"
-//			Floor->FloorMesh->SetRelativeScale3D(NewFloorScale);
-//			
-//			// Adjust Floor position
-//			FVector NewFloorLocation = Floor->OriginalFloorLocation;	// Cached original location
-//			NewFloorLocation.X = 0.0f; // Keep floor at X = 0 in crush mode
-//			Floor->SetActorLocation(NewFloorLocation);
-//		}
-//	}
-
-//	if (CurrentFloorActor && PlayerRelativePositionsPerFloor.Contains(CurrentFloorActor))
-//	{
-//		// Adjust player position to be above the crushed floor
-//		FVector PlayerRelativePosition = PlayerRelativePositionsPerFloor[CurrentFloorActor];
-//		PlayerRelativePosition.X = 0.0f; // Keep player at X = 0 in crush mode
-//		FVector NewPlayerLocation = CurrentFloorActor->GetActorLocation() + PlayerRelativePosition;
-//		SetActorLocation(NewPlayerLocation);
-//	}
-//	else
-//	{
-//		// If no current floor, just set player X to 0
-//		FVector PlayerLocation = GetActorLocation();
-//		PlayerLocation.X = 0.0f;
-//		SetActorLocation(PlayerLocation);
-//	}
-//}
-//else  // Restore Mode
-//{
-//	// Setting up for perspective third-person view
-//	SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0, 0.0f));
-//	SpringArm->TargetArmLength = 500.0f;
-//	Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
-//	
-//	GetCharacterMovement()->bConstrainToPlane = false;
-
-//	// Restore floor scale and position
-//	for (AkdFloorBase* Floor : FloorActors)
-//	{
-//		if (Floor && Floor->FloorMesh)
-//		{
-//			// Restore the floor scale
-//			Floor->FloorMesh->SetRelativeScale3D(Floor->OriginalFloorScale);
-
-//			// Restore Floor position
-//			Floor->SetActorLocation(Floor->OriginalFloorLocation);
-//		}
-//	}
-//}
-
-/****************************************************************************************************************************************************************************/
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/****************************************************************************************************************************************************************************/
