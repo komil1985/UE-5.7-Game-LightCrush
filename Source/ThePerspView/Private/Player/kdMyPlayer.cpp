@@ -14,6 +14,7 @@
 #include "Sound/SoundBase.h"
 #include "Engine/DirectionalLight.h"
 #include "Crush/kdCrushStateComponent.h"
+#include "Crush/kdCrushTransitionComponent.h"
 
 AkdMyPlayer::AkdMyPlayer()
 {
@@ -33,6 +34,7 @@ AkdMyPlayer::AkdMyPlayer()
 	Camera->bUsePawnControlRotation = false;
 
 	CrushStateComponent = CreateDefaultSubobject<UkdCrushStateComponent>(TEXT("CrushState"));
+	CrushTransitionComponent = CreateDefaultSubobject<UkdCrushTransitionComponent>(TEXT("CrushTransition"));
 
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
@@ -59,6 +61,10 @@ void AkdMyPlayer::BeginPlay()
 {
 	Super::BeginPlay();
 
+	CrushTransitionComponent->OnTransitionComplete.AddDynamic(this, &AkdMyPlayer::OnTransitionFinished);
+
+	//////////////////////////////////////////////////////////////////////////////////////////
+	
 	// Initialize FloorActors reference
 	FindFloorActors(GetWorld());
 
@@ -83,6 +89,15 @@ void AkdMyPlayer::BeginPlay()
 		Camera->PostProcessSettings.WeightedBlendables.Array.Add(CrushBlendable);
 	}
 
+}
+
+void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
+{
+	bIsCrushMode = bNewCrushState;
+	bIsTransitioning = false;
+
+	// Tell the physics engine to start/stop tracking shadows
+	CrushStateComponent->ToggleShadowTracking(bIsCrushMode);
 }
 
 void AkdMyPlayer::Tick(float DeltaTime)

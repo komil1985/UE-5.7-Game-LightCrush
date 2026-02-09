@@ -4,9 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Engine/EngineTypes.h"
 #include "kdCrushStateComponent.generated.h"
 
-class ACharacter;
+class ADirectionalLight;
+class UCharacterMovementComponent;
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class THEPERSPVIEW_API UkdCrushStateComponent : public UActorComponent
 {
@@ -15,29 +18,37 @@ class THEPERSPVIEW_API UkdCrushStateComponent : public UActorComponent
 public:	
 	UkdCrushStateComponent();
 
-	UFUNCTION(BlueprintCallable, Category = "LightCrush")
-	void EnterCrushState();									
+	UFUNCTION(BlueprintCallable, Category = "Crush Physics")
+	void ToggleShadowTracking(bool bEnable);
 
-	UFUNCTION(BlueprintCallable, Category = "LightCrush")
-	void ExitCrushState();
+	void HandleVerticalInput(float Value);
 
-	UFUNCTION(BlueprintCallable, Category = "LightCrush")
-	bool IsInCrushState() const { return bIsCrushed; }
+	UFUNCTION(BlueprintPure, Category = "Crush Physics")
+	bool IsStandingInShadow() const;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings")
+	float ShadowCheckFrequency = 0.05f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings")
+	float ShadowSwimSpeed = 600.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings")
+	float ShadowBrakingDeceleration = 2000.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings")
+	bool bShowDebugLines = false;
 
 protected:
 	virtual void BeginPlay() override;
+	void UpdateShadowPhysics();
+	void FindDirectionalLight();
+	void ResetPhysicsTo3D();
 
 private:
-	bool bIsCrushed = false;
+	FTimerHandle ShadowTimerHandle;
 
 	UPROPERTY()
-	TObjectPtr<ACharacter> PlayerCharacter;
+	TObjectPtr<ADirectionalLight> DirectionalLightActor;
 
-	UPROPERTY()
-	TObjectPtr<UMaterialInstanceDynamic> CrushPPInstance;
-
-	void ApplyCrushEffect();
-	void RemoveCrushEffect();
-
-	void ConfigureMovementForCrush(bool bEnable);
+	FVector CachedLightDirection;
 };

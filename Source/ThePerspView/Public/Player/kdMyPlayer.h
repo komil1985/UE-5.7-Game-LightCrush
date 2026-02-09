@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "InputActionValue.h"
 #include "kdMyPlayer.generated.h"
 
 // Struct to hold transform data for transitions
@@ -45,6 +46,7 @@ class AkdFloorBase;
 class UCameraShakeBase;
 class USoundBase;
 class UkdCrushStateComponent;
+class UkdCrushTransitionComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter
 {
@@ -63,6 +65,20 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UkdCrushStateComponent> CrushStateComponent;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Components")
+	TObjectPtr<UkdCrushTransitionComponent> CrushTransitionComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crush State")
+	bool bIsCrushMode = false;		// Crush mode state flag
+
+	bool bIsTransitioning = false;		// Prevents spamming the toggle button
+
+	/*  --  Controller Interface  --  */
+	void RequestCrushToggle();		// called by player controller when 'Toggle' button is pressed
+	void RequestVerticalMove(const FInputActionValue& Value);
+
+	////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crush Mechanic")
 	FVector OriginalPlayerLocation;		// Store original player location for Restore Mode
 
@@ -71,9 +87,6 @@ public:
 
 	UPROPERTY()
 	TArray<TObjectPtr<AkdFloorBase>>FloorActors;	// References to floor actors in the world
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crush Mechanic")
-	bool bIsCrushMode = false;	// Crush mode state flag
 
 	UPROPERTY(EditAnywhere, Category = "Crush Effects")
 	TSubclassOf<UCameraShakeBase> CrushCameraShake;	// Camera shake class for crush/restore transition
@@ -112,6 +125,11 @@ protected:
 	virtual void BeginPlay() override;
 
 	UFUNCTION()
+	void OnTransitionFinished(bool bNewCrushState);
+
+	///////////////////////////////////////////////////////////////////////////////////////////
+
+	UFUNCTION()
 	void FindFloorActors(UWorld* World);	// Find and store references to floor actors
 
 	UFUNCTION()
@@ -119,10 +137,6 @@ protected:
 
 	UFUNCTION()
 	void CachePlayerRelativePosition();	// Cache player relative position to the current floor
-
-	// Transition variables //
-	UPROPERTY()
-	bool bIsTransitioning = false;	// Flag to indicate if a transition is in progress
 
 	UPROPERTY()
 	float TransitionAlpha = 0.0f;	// Alpha value for interpolation during transition
