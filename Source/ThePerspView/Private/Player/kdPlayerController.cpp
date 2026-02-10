@@ -5,7 +5,6 @@
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "GameFramework/Character.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "Player/kdMyPlayer.h"
 
 void AkdPlayerController::BeginPlay()
@@ -23,62 +22,69 @@ void AkdPlayerController::SetupInputComponent()
 		if (MoveAction)
 		{
 			EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AkdPlayerController::Move);
+		}
+		if (LookAction)
+		{
+			EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AkdPlayerController::Look);
+		}
+		if (JumpAction)
+		{
 			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AkdPlayerController::StartJump);
 			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AkdPlayerController::StopJump);
-			EnhancedInputComponent->BindAction(CrushAction, ETriggerEvent::Started, this, &AkdPlayerController::CrushMode);
-			EnhancedInputComponent->BindAction(MoveUpAction, ETriggerEvent::Triggered, this, &AkdPlayerController::MoveUpInShadow);
+		}
+		if (CrushAction)
+		{
+			EnhancedInputComponent->BindAction(CrushAction, ETriggerEvent::Started, this, &AkdPlayerController::RequestCrushToggle);
+		}
+		if (MoveUpAction)
+		{
+			EnhancedInputComponent->BindAction(MoveUpAction, ETriggerEvent::Triggered, this, &AkdPlayerController::HandleCrushMovement);
 		}
 	}
 }
 
 void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 {
-	const FVector2D InputAxisVector = InputActionValue.Get<FVector2D>();
-	const FRotator Rotation = GetControlRotation();
-	const FRotator YawRotation(0.0f, Rotation.Yaw, 0.0f);
-
-	const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-	const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-
-	if (APawn* ControlledPawn = GetPawn<APawn>())
+	if (AkdMyPlayer* MyPlayer = GetMyPlayer())
 	{
-		ControlledPawn->AddMovementInput(ForwardDirection, InputAxisVector.Y);
-		ControlledPawn->AddMovementInput(RightDirection, InputAxisVector.X);
-	}
-}
-
-void AkdPlayerController::MoveUpInShadow(const FInputActionValue& Value)
-{
-	if (AkdMyPlayer* MyPlayer = Cast<AkdMyPlayer>(GetPawn()))
-	{
-		if(MyPlayer->bIsCrushMode && MyPlayer->IsStandingInShadow())
+		if (!MyPlayer->bIsCrushMode)
 		{
-			MyPlayer->AddShadowVerticalInput(Value.Get<float>());
+			const FVector2D InputAxisVector = InputActionValue.Get<FVector2D>();
+			const FRotator Rotation = GetControlRotation();
+			const FRotator YawRotation(0.0f, Rotation.Yaw, 0.0f);
+
+			const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+			const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+			MyPlayer->AddMovementInput(ForwardDirection, InputAxisVector.Y);
+			MyPlayer->AddMovementInput(RightDirection, InputAxisVector.X);
 		}
 	}
 }
 
+void AkdPlayerController::Look(const FInputActionValue& Value)
+{
+	const FVector2D Vector2D = Value.Get<FVector2D>();
+	AddYawInput(Vector2D.X);
+	AddPitchInput(Vector2D.Y);
+}
+
 void AkdPlayerController::StartJump()
 {
-	if (ACharacter* MyCharacter = Cast<ACharacter>(GetPawn()))
+	if (AkdMyPlayer* MyPlayer = GetMyPlayer())
 	{
-		MyCharacter->Jump();
+		if (!MyPlayer->bIsCrushMode)
+		{
+			MyPlayer->Jump();
+		}
 	}
 }
 
 void AkdPlayerController::StopJump()
 {
-	if (ACharacter* MyCharacter = Cast<ACharacter>(GetPawn()))
+	if (AkdMyPlayer* MyPlayer = GetMyPlayer())
 	{
-		MyCharacter->StopJumping();
-	}
-}
-
-void AkdPlayerController::CrushMode()
-{
-	if (AkdMyPlayer* MyPlayer = Cast<AkdMyPlayer>(GetPawn()))
-	{
-		MyPlayer->ToggleCrushMode();
+		MyPlayer->StopJumping();
 	}
 }
 
@@ -86,6 +92,34 @@ void AkdPlayerController::EnhancedSubSystem()
 {
 	if (UEnhancedInputLocalPlayerSubsystem* SubSystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
-		SubSystem->AddMappingContext(InputMappingContext, 0);
+		if (InputMappingContext)
+		{
+			SubSystem->AddMappingContext(InputMappingContext, 0);
+		}
 	}
+}
+
+void AkdPlayerController::RequestCrushToggle()
+{
+	if (AkdMyPlayer* MyPlayer = GetMyPlayer())
+	{
+		MyPlayer->RequestCrushToggle();
+	}
+}
+
+void AkdPlayerController::HandleCrushMovement(const FInputActionValue& Value)
+{
+	if (AkdMyPlayer* MyPlayer = GetMyPlayer())
+	{
+		// Only valid in Crush Mode
+		if (MyPlayer->bIsCrushMode)
+		{
+			MyPlayer->RequestVerticalMove(Value);
+		}
+	}
+}
+
+TObjectPtr<AkdMyPlayer> AkdPlayerController::GetMyPlayer() const
+{
+	return Cast<AkdMyPlayer>(GetPawn());
 }

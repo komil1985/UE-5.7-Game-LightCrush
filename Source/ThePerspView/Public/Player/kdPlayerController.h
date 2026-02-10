@@ -12,6 +12,7 @@
 struct FInputActionValue;
 class UInputAction;
 class UInputMappingContext;
+class AkdMyPlayer;
 UCLASS()
 class THEPERSPVIEW_API AkdPlayerController : public APlayerController
 {
@@ -21,11 +22,15 @@ public:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
 
+	/*	--	Input Actions --	*/	
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputMappingContext> InputMappingContext;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> MoveAction;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputAction> LookAction;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> MoveUpAction;
@@ -35,18 +40,17 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> CrushAction;
+	/*-----------------------------------------------------------------*/
 
 private:
 	void Move(const FInputActionValue& Value);
-	void MoveUpInShadow(const FInputActionValue& Value);
+	void Look(const FInputActionValue& Value);
 	void StartJump();
 	void StopJump();
-	void CrushMode();
 
 	void EnhancedSubSystem();
-
-	bool bIsInCrushMode;
-
-	FVector SavedLocation = FVector();
-	FRotator SavedRotation = FRotator();
+	void RequestCrushToggle();
+	void HandleCrushMovement(const FInputActionValue& Value);
+	
+	TObjectPtr<AkdMyPlayer> GetMyPlayer() const;
 };

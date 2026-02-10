@@ -9,7 +9,7 @@
 
 class ADirectionalLight;
 class UCharacterMovementComponent;
-
+class AkdMyPlayer;
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class THEPERSPVIEW_API UkdCrushStateComponent : public UActorComponent
 {
@@ -18,25 +18,28 @@ class THEPERSPVIEW_API UkdCrushStateComponent : public UActorComponent
 public:	
 	UkdCrushStateComponent();
 
-	UFUNCTION(BlueprintCallable, Category = "Crush Physics")
+	UFUNCTION(BlueprintCallable, Category = "Crush | Physics")
 	void ToggleShadowTracking(bool bEnable);
 
 	void HandleVerticalInput(float Value);
 
-	UFUNCTION(BlueprintPure, Category = "Crush Physics")
+	UFUNCTION(BlueprintPure, Category = "Crush | Physics")
 	bool IsStandingInShadow() const;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
 	float ShadowCheckFrequency = 0.05f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
 	float ShadowSwimSpeed = 600.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
 	float ShadowBrakingDeceleration = 2000.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
 	bool bShowDebugLines = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
+	float ShadowTraceDistance = 2000.0f;
 
 protected:
 	virtual void BeginPlay() override;
@@ -51,4 +54,5 @@ private:
 	TObjectPtr<ADirectionalLight> DirectionalLightActor;
 
 	FVector CachedLightDirection;
+	TObjectPtr<AkdMyPlayer> CachedOwner = nullptr;
 };

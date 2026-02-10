@@ -20,22 +20,28 @@ UkdCrushStateComponent::UkdCrushStateComponent()
 void UkdCrushStateComponent::BeginPlay()
 {
 	Super::BeginPlay();
+	CachedOwner = Cast<AkdMyPlayer>(GetOwner());
 	FindDirectionalLight();
 }
 
 void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 {
-	AkdMyPlayer* Player = Cast<AkdMyPlayer>(GetOwner());
-	if (!Player) return;
+	if (!CachedOwner) return;
+
+	FTimerManager& TimerManager = GetWorld()->GetTimerManager();
 
 	if (bEnable)
 	{
-		GetWorld()->GetTimerManager().SetTimer(ShadowTimerHandle, this, &UkdCrushStateComponent::UpdateShadowPhysics, ShadowCheckFrequency, true);
-		Player->GetCharacterMovement()->GravityScale = 0.0f;
+		if (TimerManager.TimerExists(ShadowTimerHandle))
+		{
+			TimerManager.ClearTimer(ShadowTimerHandle);
+		}
+		TimerManager.SetTimer(ShadowTimerHandle, this, &UkdCrushStateComponent::UpdateShadowPhysics, ShadowCheckFrequency, true);
+		CachedOwner->GetCharacterMovement()->GravityScale = 0.0f;
 	}
 	else
 	{
-		GetWorld()->GetTimerManager().ClearTimer(ShadowTimerHandle);
+		TimerManager.ClearTimer(ShadowTimerHandle);
 		ResetPhysicsTo3D();
 	}
 }
@@ -68,7 +74,7 @@ bool UkdCrushStateComponent::IsStandingInShadow() const
 	Params.AddIgnoredActor(Owner);
 
 	FVector Start = Owner->GetActorLocation();
-	FVector End = Start + (CachedLightDirection * 50000.0f);
+	FVector End = Start + (CachedLightDirection * ShadowTraceDistance);
 
 	bool bIsHit = GetWorld()->LineTraceSingleByChannel
 	(
@@ -79,11 +85,13 @@ bool UkdCrushStateComponent::IsStandingInShadow() const
 		Params
 	);
 
+#if !UE_BUILD_SHIPPING
 	if (bShowDebugLines)
 	{
 		DrawDebugLine(GetWorld(), Start, bIsHit ? HitResult.ImpactPoint : Start + CachedLightDirection * 1000.0f,
 			bIsHit ? FColor::Green : FColor::Red, false, ShadowCheckFrequency * 1.1f, 0, 2.0f);
 	}
+#endif
 
 	return bIsHit;
 
@@ -91,10 +99,9 @@ bool UkdCrushStateComponent::IsStandingInShadow() const
 
 void UkdCrushStateComponent::UpdateShadowPhysics()
 {
-	AkdMyPlayer* Player = Cast<AkdMyPlayer>(GetOwner());
-	if (!Player) return;
+	if (!CachedOwner) return;
 
-	UCharacterMovementComponent* MoveComp = Player->GetCharacterMovement();
+	UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
 
 	if (IsStandingInShadow())
 	{
@@ -138,9 +145,9 @@ void UkdCrushStateComponent::FindDirectionalLight()
 
 void UkdCrushStateComponent::ResetPhysicsTo3D()
 {
-	if (AkdMyPlayer* Owner = Cast<AkdMyPlayer>(GetOwner()))
+	if (CachedOwner)
 	{
-		UCharacterMovementComponent* MoveComp = Owner->GetCharacterMovement();
+		UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
 
 		MoveComp->SetMovementMode(MOVE_Falling);
 		MoveComp->GravityScale = 1.0f;
