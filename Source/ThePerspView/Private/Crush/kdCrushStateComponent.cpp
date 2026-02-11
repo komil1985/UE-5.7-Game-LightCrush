@@ -13,8 +13,7 @@
 UkdCrushStateComponent::UkdCrushStateComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
-	bShowDebugLines = true;
-	ShadowCheckFrequency = 0.5f;	
+	bShowDebugLines = true;	
 }
 
 void UkdCrushStateComponent::BeginPlay()
@@ -37,7 +36,7 @@ void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 			TimerManager.ClearTimer(ShadowTimerHandle);
 		}
 		TimerManager.SetTimer(ShadowTimerHandle, this, &UkdCrushStateComponent::UpdateShadowPhysics, ShadowCheckFrequency, true);
-		CachedOwner->GetCharacterMovement()->GravityScale = 0.0f;
+		//CachedOwner->GetCharacterMovement()->GravityScale = 0.0f;
 	}
 	else
 	{
@@ -48,32 +47,34 @@ void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 
 void UkdCrushStateComponent::HandleVerticalInput(float Value)
 {
-	// Allow movement only if in a shadow
+	if (FMath::IsNearlyZero(Value)) return;
+
+	// Allow upward movement only if in a shadow
 	if (IsStandingInShadow())
 	{
-		AkdMyPlayer* Owner = Cast<AkdMyPlayer>(GetOwner());
-		if (Owner)
+		if (CachedOwner)
 		{
-			UCharacterMovementComponent* MoveComp = Owner->GetCharacterMovement();
+			//// Direct Velocity Control for snappy 2D feel
+			//UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
+			//FVector CurrentVel = MoveComp->Velocity;
+			//CurrentVel.Z = Value * ShadowSwimSpeed;
+			//MoveComp->Velocity = CurrentVel;
 
-			// Direct Velocity Control for snappy 2D feel
-			FVector CurrentVel = MoveComp->Velocity;
-			CurrentVel.Z = Value * ShadowSwimSpeed;
-			MoveComp->Velocity = CurrentVel;
+			CachedOwner->AddMovementInput(FVector::UpVector, Value);
 		}
 	}
 }
 
 bool UkdCrushStateComponent::IsStandingInShadow() const
 {
-	AActor* Owner = GetOwner();
-	if (!Owner || !GetWorld()) return false;
+	
+	if (!CachedOwner || !GetWorld()) return false;
 	
 	FHitResult HitResult;
 	FCollisionQueryParams Params;
-	Params.AddIgnoredActor(Owner);
+	Params.AddIgnoredActor(CachedOwner);
 
-	FVector Start = Owner->GetActorLocation();
+	FVector Start = CachedOwner->GetActorLocation();
 	FVector End = Start + (CachedLightDirection * ShadowTraceDistance);
 
 	bool bIsHit = GetWorld()->LineTraceSingleByChannel
@@ -109,6 +110,7 @@ void UkdCrushStateComponent::UpdateShadowPhysics()
 		{
 			MoveComp->SetMovementMode(MOVE_Flying);
 			MoveComp->BrakingDecelerationFlying = ShadowBrakingDeceleration;
+			MoveComp->GravityScale = 0.0f;
 		}
 	}
 	else
@@ -116,6 +118,7 @@ void UkdCrushStateComponent::UpdateShadowPhysics()
 		if (MoveComp->MovementMode != MOVE_Falling)
 		{
 			MoveComp->SetMovementMode(MOVE_Falling);
+			MoveComp->GravityScale = 1.0f;
 		}
 	}
 }

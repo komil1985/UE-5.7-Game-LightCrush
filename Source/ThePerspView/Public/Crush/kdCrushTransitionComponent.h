@@ -26,7 +26,7 @@ public:
 
 	/* -- Configuration -- */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Transition")
-	float TransitionDuration = 0.3f;
+	float TransitionDuration = 0.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Transition")
 	FVector PlayerCrushScale = FVector(1.0f, 1.0f, 1.0f);
@@ -41,7 +41,7 @@ protected:
 
 private:
 	UPROPERTY()
-	TObjectPtr<AkdMyPlayer> Owner;
+	TObjectPtr<AkdMyPlayer> CachedOwner;
 
 	FTimerHandle TransitionTimerHandle;
 

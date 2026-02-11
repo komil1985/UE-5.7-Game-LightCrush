@@ -27,7 +27,7 @@ public:
 	bool IsStandingInShadow() const;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
-	float ShadowCheckFrequency = 0.05f;
+	float ShadowCheckFrequency = 0.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
 	float ShadowSwimSpeed = 600.0f;

@@ -45,21 +45,28 @@ void AkdPlayerController::SetupInputComponent()
 
 void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 {
-	if (AkdMyPlayer* MyPlayer = GetMyPlayer())
+	//AkdMyPlayer* MyPlayer = GetMyPlayer();
+	if (!GetMyPlayer()) return;
+	
+	const FVector2D InputAxisVector = InputActionValue.Get<FVector2D>();
+
+	if (!GetMyPlayer()->bIsCrushMode)
 	{
-		if (!MyPlayer->bIsCrushMode)
-		{
-			const FVector2D InputAxisVector = InputActionValue.Get<FVector2D>();
-			const FRotator Rotation = GetControlRotation();
-			const FRotator YawRotation(0.0f, Rotation.Yaw, 0.0f);
+		// Normal 3D Movement
+		const FRotator Rotation = GetControlRotation();
+		const FRotator YawRotation(0.0f, Rotation.Yaw, 0.0f);
 
-			const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-			const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-			MyPlayer->AddMovementInput(ForwardDirection, InputAxisVector.Y);
-			MyPlayer->AddMovementInput(RightDirection, InputAxisVector.X);
-		}
+		GetMyPlayer()->AddMovementInput(ForwardDirection, InputAxisVector.Y);
+		GetMyPlayer()->AddMovementInput(RightDirection, InputAxisVector.X);
 	}
+	else
+	{
+		GetMyPlayer()->AddMovementInput(FVector(0.f, 1.f, 0.f), InputAxisVector.X);
+	}
+	
 }
 
 void AkdPlayerController::Look(const FInputActionValue& Value)
@@ -71,20 +78,20 @@ void AkdPlayerController::Look(const FInputActionValue& Value)
 
 void AkdPlayerController::StartJump()
 {
-	if (AkdMyPlayer* MyPlayer = GetMyPlayer())
+	if (GetMyPlayer())
 	{
-		if (!MyPlayer->bIsCrushMode)
+		if (!GetMyPlayer()->bIsCrushMode)
 		{
-			MyPlayer->Jump();
+			GetMyPlayer()->Jump();
 		}
 	}
 }
 
 void AkdPlayerController::StopJump()
 {
-	if (AkdMyPlayer* MyPlayer = GetMyPlayer())
+	if (GetMyPlayer())
 	{
-		MyPlayer->StopJumping();
+		GetMyPlayer()->StopJumping();
 	}
 }
 
@@ -101,20 +108,20 @@ void AkdPlayerController::EnhancedSubSystem()
 
 void AkdPlayerController::RequestCrushToggle()
 {
-	if (AkdMyPlayer* MyPlayer = GetMyPlayer())
+	if (GetMyPlayer())
 	{
-		MyPlayer->RequestCrushToggle();
+		GetMyPlayer()->RequestCrushToggle();
 	}
 }
 
 void AkdPlayerController::HandleCrushMovement(const FInputActionValue& Value)
 {
-	if (AkdMyPlayer* MyPlayer = GetMyPlayer())
+	if (GetMyPlayer())
 	{
 		// Only valid in Crush Mode
-		if (MyPlayer->bIsCrushMode)
+		if (GetMyPlayer()->bIsCrushMode)
 		{
-			MyPlayer->RequestVerticalMove(Value);
+			GetMyPlayer()->RequestVerticalMove(Value);
 		}
 	}
 }
