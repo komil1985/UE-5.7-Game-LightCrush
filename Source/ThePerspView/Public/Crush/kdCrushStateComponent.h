@@ -27,10 +27,10 @@ public:
 	bool IsStandingInShadow() const;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
-	float ShadowCheckFrequency = 0.5f;
+	float ShadowCheckFrequency = 0.016f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
-	float ShadowSwimSpeed = 600.0f;
+	float ShadowMoveSpeed = 600.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
 	float ShadowBrakingDeceleration = 2000.0f;
@@ -39,7 +39,7 @@ public:
 	bool bShowDebugLines = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
-	float ShadowTraceDistance = 2000.0f;
+	float ShadowTraceDistance = 5000.0f;
 
 protected:
 	virtual void BeginPlay() override;
@@ -50,9 +50,12 @@ protected:
 private:
 	FTimerHandle ShadowTimerHandle;
 
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, Category = "Crush | Lights")
 	TObjectPtr<ADirectionalLight> DirectionalLightActor;
 
 	FVector CachedLightDirection;
+
 	TObjectPtr<AkdMyPlayer> CachedOwner = nullptr;
+
+	bool bCanMoveInShadow = false;
 };

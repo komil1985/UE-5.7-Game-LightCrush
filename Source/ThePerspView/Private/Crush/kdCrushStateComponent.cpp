@@ -54,15 +54,17 @@ void UkdCrushStateComponent::HandleVerticalInput(float Value)
 	{
 		if (CachedOwner)
 		{
-			//// Direct Velocity Control for snappy 2D feel
+			bCanMoveInShadow = true;
+			// Direct Velocity Control for snappy 2D feel
 			//UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
 			//FVector CurrentVel = MoveComp->Velocity;
 			//CurrentVel.Z = Value * ShadowSwimSpeed;
 			//MoveComp->Velocity = CurrentVel;
-
-			CachedOwner->AddMovementInput(FVector::UpVector, Value);
+			
+			CachedOwner->LaunchCharacter(FVector(0, 0, Value * ShadowMoveSpeed), true, true);
 		}
 	}
+	bCanMoveInShadow = false;
 }
 
 bool UkdCrushStateComponent::IsStandingInShadow() const
@@ -106,20 +108,25 @@ void UkdCrushStateComponent::UpdateShadowPhysics()
 
 	if (IsStandingInShadow())
 	{
-		if (MoveComp->MovementMode != MOVE_Flying)
-		{
-			MoveComp->SetMovementMode(MOVE_Flying);
-			MoveComp->BrakingDecelerationFlying = ShadowBrakingDeceleration;
-			MoveComp->GravityScale = 0.0f;
-		}
+		//if (MoveComp->MovementMode != MOVE_Flying)
+		//{
+		//	MoveComp->SetMovementMode(MOVE_Flying);
+		//	MoveComp->BrakingDecelerationFlying = ShadowBrakingDeceleration;
+		//	MoveComp->GravityScale = 0.0f;
+		//	bCanMoveInShadow = true;
+		//}
+		MoveComp->GravityScale = 0.0f;
+		bCanMoveInShadow = true;
 	}
 	else
 	{
-		if (MoveComp->MovementMode != MOVE_Falling)
-		{
-			MoveComp->SetMovementMode(MOVE_Falling);
-			MoveComp->GravityScale = 1.0f;
-		}
+		//if (MoveComp->MovementMode != MOVE_Falling)
+		//{
+		//	MoveComp->SetMovementMode(MOVE_Falling);
+		//	MoveComp->GravityScale = 1.0f;
+		//}
+		MoveComp->GravityScale = 1.0f;
+		bCanMoveInShadow = false;
 	}
 }
 
@@ -152,9 +159,8 @@ void UkdCrushStateComponent::ResetPhysicsTo3D()
 	{
 		UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
 
-		MoveComp->SetMovementMode(MOVE_Falling);
+		//MoveComp->SetMovementMode(MOVE_Falling);
 		MoveComp->GravityScale = 1.0f;
 		MoveComp->SetPlaneConstraintEnabled(false);
 	}
 }
-

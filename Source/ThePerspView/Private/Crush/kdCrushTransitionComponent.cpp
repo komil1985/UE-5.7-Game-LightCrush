@@ -68,28 +68,25 @@ void UkdCrushTransitionComponent::HandleTransitionUpdate()
 			CachedOwner->Camera->bAutoCalculateOrthoPlanes = false;
 			CachedOwner->SpringArm->SetRelativeRotation(FRotator::ZeroRotator);
 		}
-		//else if (!bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Perspective)
-		else
+		else if (!bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Perspective)
 		{
 			CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
 			CachedOwner->SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0f, 0.0f));
 		}
+	}
+	 //4. Check for Finish
+	if (CurrentAlpha >= 1.0f)
+	{
+		if (bTargetCrushMode)
+		{
+			CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
+		}
+		else
+		{
+			CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
+		}
 		FinishTransition();
 	}
-
-	// 4. Check for Finish
-	//if (CurrentAlpha >= 1.0f)
-	//{
-	//	if (bTargetCrushMode)
-	//	{
-	//		CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
-	//	}
-	//	else
-	//	{
-	//		CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
-	//	}
-	//	FinishTransition();
-	//}
 }
 
 void UkdCrushTransitionComponent::FinishTransition()
