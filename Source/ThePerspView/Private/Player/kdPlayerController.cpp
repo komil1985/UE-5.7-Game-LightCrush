@@ -36,9 +36,9 @@ void AkdPlayerController::SetupInputComponent()
 		{
 			EnhancedInputComponent->BindAction(CrushAction, ETriggerEvent::Started, this, &AkdPlayerController::RequestCrushToggle);
 		}
-		if (MoveUpAction)
+		if (MoveInShadowAction)
 		{
-			EnhancedInputComponent->BindAction(MoveUpAction, ETriggerEvent::Triggered, this, &AkdPlayerController::HandleCrushMovement);
+			EnhancedInputComponent->BindAction(MoveInShadowAction, ETriggerEvent::Triggered, this, &AkdPlayerController::HandleShadowMovement);
 		}
 	}
 }
@@ -91,7 +91,10 @@ void AkdPlayerController::StopJump()
 {
 	if (GetMyPlayer())
 	{
-		GetMyPlayer()->StopJumping();
+		if (!GetMyPlayer()->bIsCrushMode)
+		{
+			GetMyPlayer()->StopJumping();
+		}
 	}
 }
 
@@ -110,11 +113,11 @@ void AkdPlayerController::RequestCrushToggle()
 {
 	if (GetMyPlayer())
 	{
-		GetMyPlayer()->RequestCrushToggle();
+		GetMyPlayer()->RequestCrushToggle();		
 	}
 }
 
-void AkdPlayerController::HandleCrushMovement(const FInputActionValue& Value)
+void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
 {
 	if (GetMyPlayer())
 	{
@@ -122,6 +125,7 @@ void AkdPlayerController::HandleCrushMovement(const FInputActionValue& Value)
 		if (GetMyPlayer()->bIsCrushMode)
 		{
 			GetMyPlayer()->RequestVerticalMove(Value);
+			GEngine->AddOnScreenDebugMessage(INDEX_NONE, 5.0f, FColor::Green, TEXT("Launch Activated"));
 		}
 	}
 }

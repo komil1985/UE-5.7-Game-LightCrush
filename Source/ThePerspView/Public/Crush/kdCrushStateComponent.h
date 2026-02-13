@@ -30,7 +30,7 @@ public:
 	float ShadowCheckFrequency = 0.016f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
-	float ShadowMoveSpeed = 600.0f;
+	float ShadowMoveSpeed = 250.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
 	float ShadowBrakingDeceleration = 2000.0f;

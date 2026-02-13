@@ -36,7 +36,6 @@ void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 			TimerManager.ClearTimer(ShadowTimerHandle);
 		}
 		TimerManager.SetTimer(ShadowTimerHandle, this, &UkdCrushStateComponent::UpdateShadowPhysics, ShadowCheckFrequency, true);
-		//CachedOwner->GetCharacterMovement()->GravityScale = 0.0f;
 	}
 	else
 	{
@@ -55,12 +54,7 @@ void UkdCrushStateComponent::HandleVerticalInput(float Value)
 		if (CachedOwner)
 		{
 			bCanMoveInShadow = true;
-			// Direct Velocity Control for snappy 2D feel
-			//UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
-			//FVector CurrentVel = MoveComp->Velocity;
-			//CurrentVel.Z = Value * ShadowSwimSpeed;
-			//MoveComp->Velocity = CurrentVel;
-			
+			Value = 1.0f;
 			CachedOwner->LaunchCharacter(FVector(0, 0, Value * ShadowMoveSpeed), true, true);
 		}
 	}
@@ -69,7 +63,6 @@ void UkdCrushStateComponent::HandleVerticalInput(float Value)
 
 bool UkdCrushStateComponent::IsStandingInShadow() const
 {
-	
 	if (!CachedOwner || !GetWorld()) return false;
 	
 	FHitResult HitResult;
@@ -104,28 +97,14 @@ void UkdCrushStateComponent::UpdateShadowPhysics()
 {
 	if (!CachedOwner) return;
 
-	UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
-
 	if (IsStandingInShadow())
 	{
-		//if (MoveComp->MovementMode != MOVE_Flying)
-		//{
-		//	MoveComp->SetMovementMode(MOVE_Flying);
-		//	MoveComp->BrakingDecelerationFlying = ShadowBrakingDeceleration;
-		//	MoveComp->GravityScale = 0.0f;
-		//	bCanMoveInShadow = true;
-		//}
-		MoveComp->GravityScale = 0.0f;
+		CachedOwner->GetCharacterMovement()->GravityScale = 0.25f;
 		bCanMoveInShadow = true;
 	}
 	else
 	{
-		//if (MoveComp->MovementMode != MOVE_Falling)
-		//{
-		//	MoveComp->SetMovementMode(MOVE_Falling);
-		//	MoveComp->GravityScale = 1.0f;
-		//}
-		MoveComp->GravityScale = 1.0f;
+		CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
 		bCanMoveInShadow = false;
 	}
 }
@@ -157,10 +136,7 @@ void UkdCrushStateComponent::ResetPhysicsTo3D()
 {
 	if (CachedOwner)
 	{
-		UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
-
-		//MoveComp->SetMovementMode(MOVE_Falling);
-		MoveComp->GravityScale = 1.0f;
-		MoveComp->SetPlaneConstraintEnabled(false);
+		CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
+		CachedOwner->GetCharacterMovement()->SetPlaneConstraintEnabled(false);
 	}
 }

@@ -33,7 +33,7 @@ public:
 	TObjectPtr<UInputAction> LookAction;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
-	TObjectPtr<UInputAction> MoveUpAction;
+	TObjectPtr<UInputAction> MoveInShadowAction;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> JumpAction;
@@ -50,7 +50,7 @@ private:
 
 	void EnhancedSubSystem();
 	void RequestCrushToggle();
-	void HandleCrushMovement(const FInputActionValue& Value);
+	void HandleShadowMovement(const FInputActionValue& Value);
 	
 	TObjectPtr<AkdMyPlayer> GetMyPlayer() const;
 };
