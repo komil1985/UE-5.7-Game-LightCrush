@@ -24,10 +24,12 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 {
 	if (!CachedOwner) return;
 
+	// Clear any existing timer to eliminate the previous transition loop
+	GetWorld()->GetTimerManager().ClearTimer(TransitionTimerHandle);
+
 	bTargetCrushMode = bToCrushMode;
 	CurrentAlpha = 0.0f;
 
-	
 	InitialScale = CachedOwner->GetMesh()->GetRelativeScale3D();						// Cache starting values
 	TargetScale = bTargetCrushMode ? PlayerCrushScale : FVector(1.0f, 1.0f, 1.0f);		// Determine Target Scale
 
@@ -67,11 +69,13 @@ void UkdCrushTransitionComponent::HandleTransitionUpdate()
 			CachedOwner->Camera->SetOrthoWidth(OrthoWidth);
 			CachedOwner->Camera->bAutoCalculateOrthoPlanes = false;
 			CachedOwner->SpringArm->SetRelativeRotation(FRotator::ZeroRotator);
+			CachedOwner->SpringArm->bInheritYaw = false;
 		}
 		else if (!bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Perspective)
 		{
 			CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
 			CachedOwner->SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0f, 0.0f));
+			CachedOwner->SpringArm->bInheritYaw = true;
 		}
 	}
 	 //4. Check for Finish

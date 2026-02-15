@@ -6,13 +6,8 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "World/kdFloorBase.h"
 #include "Engine/World.h"
-#include "Kismet/GameplayStatics.h"
 #include "Camera/PlayerCameraManager.h"
-#include "DrawDebugHelpers.h"
-#include "Sound/SoundBase.h"
-#include "Engine/DirectionalLight.h"
 #include "Crush/kdCrushStateComponent.h"
 #include "Crush/kdCrushTransitionComponent.h"
 
@@ -29,7 +24,7 @@ AkdMyPlayer::AkdMyPlayer()
 	SpringArm->bUsePawnControlRotation = true;
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritRoll = false;
-	SpringArm->bInheritYaw = false;
+	SpringArm->bInheritYaw = true;
 	
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
@@ -59,10 +54,8 @@ void AkdMyPlayer::BeginPlay()
 	Super::BeginPlay();
 
 	// Binding Transition Finished Event
-	if (CrushTransitionComponent)
-	{
-		CrushTransitionComponent->OnTransitionComplete.AddDynamic(this, &AkdMyPlayer::OnTransitionFinished);
-	}
+	if (CrushTransitionComponent)	CrushTransitionComponent->OnTransitionComplete.AddDynamic(this, &AkdMyPlayer::OnTransitionFinished);
+	
 }
 
 void AkdMyPlayer::RequestCrushToggle()
@@ -73,10 +66,8 @@ void AkdMyPlayer::RequestCrushToggle()
 	bool bTargetState = !bIsCrushMode;
 
 	// Start Visuals
-	if (CrushTransitionComponent)
-	{
-		CrushTransitionComponent->StartTransition(bTargetState);
-	}
+	if (CrushTransitionComponent)	CrushTransitionComponent->StartTransition(bTargetState);
+	
 }
 
 void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
@@ -85,10 +76,8 @@ void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 	bIsTransitioning = false;
 
 	// Tell the physics engine to start/stop tracking shadows
-	if (CrushStateComponent)
-	{
-		CrushStateComponent->ToggleShadowTracking(bIsCrushMode);
-	}
+	if (CrushStateComponent)	CrushStateComponent->ToggleShadowTracking(bIsCrushMode);
+	
 
 	// Set Plane constraints for 2D movement
 	if (bIsCrushMode)

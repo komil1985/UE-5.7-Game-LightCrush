@@ -7,6 +7,7 @@
 #include "GameFramework/Character.h"
 #include "Player/kdMyPlayer.h"
 
+
 void AkdPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
@@ -71,9 +72,12 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 
 void AkdPlayerController::Look(const FInputActionValue& Value)
 {
-	const FVector2D Vector2D = Value.Get<FVector2D>();
-	AddYawInput(Vector2D.X);
-	AddPitchInput(Vector2D.Y);
+	AkdMyPlayer* MyPlayer = GetMyPlayer();
+	if (!MyPlayer || MyPlayer->bIsCrushMode) return;			// Do not process look input in 2D mode (Crush mode)
+	
+	const FVector2D LookAxisValue = Value.Get<FVector2D>();
+	AddYawInput(LookAxisValue.X);
+	AddPitchInput(-LookAxisValue.Y);	
 }
 
 void AkdPlayerController::StartJump()
