@@ -8,7 +8,7 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCrushTransitionComplete, bool, bIsCrushMode);
 
-
+class UCurveFloat;
 class AkdMyPlayer;
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class THEPERSPVIEW_API UkdCrushTransitionComponent : public UActorComponent
@@ -18,24 +18,25 @@ class THEPERSPVIEW_API UkdCrushTransitionComponent : public UActorComponent
 public:	
 	UkdCrushTransitionComponent();
 
-	UFUNCTION(BlueprintCallable, Category = "Crush | Transition")
+	UFUNCTION(BlueprintCallable, Category = "Crush | System")
 	void StartTransition(bool bToCrushMode);
 
-	UPROPERTY(BlueprintAssignable, Category = "Crush | Events")
+	UPROPERTY(BlueprintAssignable, Category = "Crush | System")
 	FOnCrushTransitionComplete OnTransitionComplete;
 
 	/* -- Configuration -- */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Transition")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings | Transition", meta = (ClampMin = "0.1", UIMin = "0.1"))
 	float TransitionDuration = 0.5f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Transition")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings | Transition")
 	FVector PlayerCrushScale = FVector(1.0f, 1.0f, 1.0f);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Transition")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings | Transition")
 	float OrthoWidth = 1000.0f;
 
 protected:
 	virtual void BeginPlay() override;
+	
 	void HandleTransitionUpdate();
 	void FinishTransition();
 
@@ -47,14 +48,26 @@ private:
 
 	float CurrentAlpha;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Crush | Transition")
+	UPROPERTY(EditDefaultsOnly, Category = "Crush Settings | Transition")
 	float TimerInterval = 0.016f;	// ~60 fps update rate for smooth animations
+
+	UPROPERTY(EditDefaultsOnly, Category = "Crush Settings | Transition")
+	TObjectPtr<UCurveFloat> TransitionCurve;
+
+	UPROPERTY(EditAnywhere, Category = "Crush Settings|Camera")
+	float TargetOrthoWidth = 1024.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Crush Settings|Visuals")
+	FVector CrushScaleTarget = FVector(1.0f, 1.0f, 1.0f);
 
 	// Cache initial values to lerp from
 	FVector InitialScale;
 	FVector TargetScale;
+	float InitialOrthoWidth;
+	float TargetOrthoWidthInternal;
 
-	float InitialOrthoWidth = 0.0f;
-	float TargetOrthoWidth = 0.0f;
 	bool bTargetCrushMode = false;
+	float CurrentElapsedTime;
+
+
 };

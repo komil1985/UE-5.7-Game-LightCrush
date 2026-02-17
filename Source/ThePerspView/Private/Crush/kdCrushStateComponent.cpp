@@ -49,12 +49,11 @@ void UkdCrushStateComponent::HandleVerticalInput(float Value)
 	if (FMath::IsNearlyZero(Value)) return;
 
 	// Allow upward movement only if in a shadow
-	if (IsStandingInShadow())
+	if (bIsInShadow)
 	{
 		if (CachedOwner)
 		{
 			bCanMoveInShadow = true;
-			Value = 1.0f;
 			CachedOwner->LaunchCharacter(FVector(0, 0, Value * ShadowMoveSpeed), true, true);
 		}
 	}
@@ -97,7 +96,9 @@ void UkdCrushStateComponent::UpdateShadowPhysics()
 {
 	if (!CachedOwner) return;
 
-	if (IsStandingInShadow())
+	bIsInShadow = IsStandingInShadow();
+
+	if (bIsInShadow)
 	{
 		CachedOwner->GetCharacterMovement()->GravityScale = 0.25f;
 		bCanMoveInShadow = true;

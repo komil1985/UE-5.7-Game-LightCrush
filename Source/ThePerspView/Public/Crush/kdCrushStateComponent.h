@@ -58,4 +58,5 @@ private:
 	TObjectPtr<AkdMyPlayer> CachedOwner = nullptr;
 
 	bool bCanMoveInShadow = false;
+	bool bIsInShadow = false;
 };

@@ -30,7 +30,7 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 	bTargetCrushMode = bToCrushMode;
 	CurrentAlpha = 0.0f;
 
-	InitialScale = CachedOwner->GetMesh()->GetRelativeScale3D();						// Cache starting values
+	InitialScale = CachedOwner->GetMesh()->GetRelativeScale3D();								// Cache starting values
 	TargetScale = bTargetCrushMode ? PlayerCrushScale : FVector(1.0f, 1.0f, 1.0f);		// Determine Target Scale
 
 	InitialOrthoWidth = CachedOwner->Camera->OrthoWidth;
@@ -49,14 +49,18 @@ void UkdCrushTransitionComponent::HandleTransitionUpdate()
 	}
 
 	// 1. Advance Alpha
-	CurrentAlpha += TimerInterval / TransitionDuration;
-	CurrentAlpha = FMath::Clamp(CurrentAlpha, 0.0f, 1.0f);
+	//CurrentAlpha += TimerInterval / TransitionDuration;
+	CurrentElapsedTime += TimerInterval / TransitionDuration;
+	CurrentAlpha = FMath::Clamp(CurrentElapsedTime, 0.0f, 1.0f);
+
+	// In Update Loop
+	float CurveValue = TransitionCurve ? TransitionCurve->GetFloatValue(CurrentAlpha) : CurrentAlpha;
 
 	// 2. Interpolate Mesh Scale
-	FVector NewScale = FMath::Lerp(InitialScale, TargetScale, CurrentAlpha);
+	FVector NewScale = FMath::Lerp(InitialScale, TargetScale, CurveValue);
 	CachedOwner->GetMesh()->SetRelativeScale3D(NewScale);
 
-	float NewOrthoWidth = FMath::Lerp(InitialOrthoWidth, TargetOrthoWidth, CurrentAlpha);
+	float NewOrthoWidth = FMath::Lerp(InitialOrthoWidth, TargetOrthoWidth, CurveValue);
 	CachedOwner->Camera->SetOrthoWidth(NewOrthoWidth);
 
 	// 3. Interpolate Camera (Optional: Smooth Ortho Transition)

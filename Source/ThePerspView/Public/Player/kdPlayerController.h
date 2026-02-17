@@ -42,6 +42,9 @@ public:
 	TObjectPtr<UInputAction> CrushAction;
 	/*-----------------------------------------------------------------*/
 
+protected:
+	virtual void OnPossess(APawn* InPawn) override;
+
 private:
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
@@ -53,4 +56,5 @@ private:
 	void HandleShadowMovement(const FInputActionValue& Value);
 	
 	TObjectPtr<AkdMyPlayer> GetMyPlayer() const;
+	TObjectPtr<AkdMyPlayer> MyPlayerCache;
 };

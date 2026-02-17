@@ -44,14 +44,21 @@ void AkdPlayerController::SetupInputComponent()
 	}
 }
 
+void AkdPlayerController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+	
+	// Cache the possessed pawn as AkdMyPlayer for easy access
+	MyPlayerCache = Cast<AkdMyPlayer>(InPawn);
+}
+
 void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 {
-	//AkdMyPlayer* MyPlayer = GetMyPlayer();
-	if (!GetMyPlayer()) return;
+	if (!MyPlayerCache) return;
 	
 	const FVector2D InputAxisVector = InputActionValue.Get<FVector2D>();
 
-	if (!GetMyPlayer()->bIsCrushMode)
+	if (!MyPlayerCache->bIsCrushMode)
 	{
 		// Normal 3D Movement
 		const FRotator Rotation = GetControlRotation();
@@ -60,19 +67,19 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-		GetMyPlayer()->AddMovementInput(ForwardDirection, InputAxisVector.Y);
-		GetMyPlayer()->AddMovementInput(RightDirection, InputAxisVector.X);
+		MyPlayerCache->AddMovementInput(ForwardDirection, InputAxisVector.Y);
+		MyPlayerCache->AddMovementInput(RightDirection, InputAxisVector.X);
 	}
 	else
 	{
-		GetMyPlayer()->AddMovementInput(FVector(0.f, 1.f, 0.f), InputAxisVector.X);
+		MyPlayerCache->AddMovementInput(FVector(0.f, 1.f, 0.f), InputAxisVector.X);
 	}
 	
 }
 
 void AkdPlayerController::Look(const FInputActionValue& Value)
 {
-	AkdMyPlayer* MyPlayer = GetMyPlayer();
+	AkdMyPlayer* MyPlayer = MyPlayerCache;
 	if (!MyPlayer || MyPlayer->bIsCrushMode) return;			// Do not process look input in 2D mode (Crush mode)
 	
 	const FVector2D LookAxisValue = Value.Get<FVector2D>();
@@ -82,22 +89,22 @@ void AkdPlayerController::Look(const FInputActionValue& Value)
 
 void AkdPlayerController::StartJump()
 {
-	if (GetMyPlayer())
+	if (MyPlayerCache)
 	{
-		if (!GetMyPlayer()->bIsCrushMode)
+		if (!MyPlayerCache->bIsCrushMode)
 		{
-			GetMyPlayer()->Jump();
+			MyPlayerCache->Jump();
 		}
 	}
 }
 
 void AkdPlayerController::StopJump()
 {
-	if (GetMyPlayer())
+	if (MyPlayerCache)
 	{
-		if (!GetMyPlayer()->bIsCrushMode)
+		if (!MyPlayerCache->bIsCrushMode)
 		{
-			GetMyPlayer()->StopJumping();
+			MyPlayerCache->StopJumping();
 		}
 	}
 }
@@ -115,20 +122,20 @@ void AkdPlayerController::EnhancedSubSystem()
 
 void AkdPlayerController::RequestCrushToggle()
 {
-	if (GetMyPlayer())
+	if (MyPlayerCache)
 	{
-		GetMyPlayer()->RequestCrushToggle();		
+		MyPlayerCache->RequestCrushToggle();
 	}
 }
 
 void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
 {
-	if (GetMyPlayer())
+	if (MyPlayerCache)
 	{
 		// Only valid in Crush Mode
-		if (GetMyPlayer()->bIsCrushMode)
+		if (MyPlayerCache->bIsCrushMode)
 		{
-			GetMyPlayer()->RequestVerticalMove(Value);
+			MyPlayerCache->RequestVerticalMove(Value);
 			GEngine->AddOnScreenDebugMessage(INDEX_NONE, 5.0f, FColor::Green, TEXT("Launch Activated"));
 		}
 	}
