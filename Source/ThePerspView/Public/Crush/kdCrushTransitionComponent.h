@@ -69,5 +69,4 @@ private:
 	bool bTargetCrushMode = false;
 	float CurrentElapsedTime;
 
-
 };

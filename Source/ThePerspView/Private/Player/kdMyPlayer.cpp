@@ -10,6 +10,8 @@
 #include "Camera/PlayerCameraManager.h"
 #include "Crush/kdCrushStateComponent.h"
 #include "Crush/kdCrushTransitionComponent.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystem/kdAttributeSet.h"
 
 AkdMyPlayer::AkdMyPlayer()
 {
@@ -46,6 +48,21 @@ AkdMyPlayer::AkdMyPlayer()
 	bIsCrushMode = false;
 	bIsTransitioning = false;
 	/*-----------------------------------------------------------------------------------------------------------*/
+
+	/* -- GAS Setup -- */	
+	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+	AbilitySystemComponent->SetIsReplicated(true); // Essential for multiplayer, safe for single
+	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
+
+	AttributeSet = CreateDefaultSubobject<UkdAttributeSet>(TEXT("AttributeSet"));
+	/*-----------------------------------------------------------------------------------------------------------*/
+
+
+}
+
+UAbilitySystemComponent* AkdMyPlayer::GetAbilitySystemComponent() const
+{
+	return AbilitySystemComponent;
 }
 
 
@@ -56,6 +73,13 @@ void AkdMyPlayer::BeginPlay()
 	// Binding Transition Finished Event
 	if (CrushTransitionComponent)	CrushTransitionComponent->OnTransitionComplete.AddDynamic(this, &AkdMyPlayer::OnTransitionFinished);
 	
+	// Initialize GAS
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+		InitializeAbilitySystem();
+	}
+
 }
 
 void AkdMyPlayer::RequestCrushToggle()
@@ -93,6 +117,21 @@ void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 	else
 	{
 		GetCharacterMovement()->SetPlaneConstraintEnabled(false);
+	}
+}
+
+void AkdMyPlayer::InitializeAbilitySystem()
+{
+	if (!AbilitySystemComponent) return;
+
+	// Grant startup abilities (Crush, Jump, etc.)
+	for (TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
+	{
+		if (AbilityClass)
+		{
+			FGameplayAbilitySpec Spec(AbilityClass, 1, INDEX_NONE, this);
+			AbilitySystemComponent->GiveAbility(Spec);
+		}
 	}
 }
 

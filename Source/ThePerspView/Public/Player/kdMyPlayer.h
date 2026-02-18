@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "AbilitySystemInterface.h"
+#include "GameplayTagContainer.h"
 #include "InputActionValue.h"
 #include "kdMyPlayer.generated.h"
 
@@ -12,13 +14,19 @@ class UCameraComponent;
 class USpringArmComponent;
 class UkdCrushStateComponent;
 class UkdCrushTransitionComponent;
+class UAbilitySystemComponent;
+class UAttributeSet;
+class UGameplayAbility;
 UCLASS()
-class THEPERSPVIEW_API AkdMyPlayer : public ACharacter
+class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 
 public:
 	AkdMyPlayer();
+
+	// -- IAbilitySystemInterface --
+	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UCameraComponent> Camera;
@@ -48,6 +56,20 @@ protected:
 
 	UFUNCTION()
 	void OnTransitionFinished(bool bNewCrushState);
+
+	/* -- GAS Components -- */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
+	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
+
+	UPROPERTY()
+	TObjectPtr<UAttributeSet> AttributeSet;
+
+	/* -- Initial Setup -- */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Abilities")
+	TArray<TSubclassOf<UGameplayAbility>> DefaultAbilities;
+
+	/** Initialize GAS (Attributes, Tags) */
+	void InitializeAbilitySystem();
 
 private:
 	UPROPERTY(EditAnywhere, Category = "Crush | Movement")
