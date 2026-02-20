@@ -14,8 +14,8 @@ class UCameraComponent;
 class USpringArmComponent;
 class UkdCrushStateComponent;
 class UkdCrushTransitionComponent;
-class UAbilitySystemComponent;
-class UAttributeSet;
+class UkdAbilitySystemComponent;
+class UkdAttributeSet;
 class UGameplayAbility;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
@@ -59,10 +59,10 @@ protected:
 
 	/* -- GAS Components -- */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
-	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
+	TObjectPtr<UkdAbilitySystemComponent> AbilitySystemComponent;
 
 	UPROPERTY()
-	TObjectPtr<UAttributeSet> AttributeSet;
+	TObjectPtr<UkdAttributeSet> AttributeSet;
 
 	/* -- Initial Setup -- */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Abilities")

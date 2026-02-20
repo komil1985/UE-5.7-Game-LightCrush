@@ -18,7 +18,13 @@ public:
 
 	static void InitializeNativeGameplayTags();
 
-protected:
+	// Abilities
+	FGameplayTag Abilities_LightCrush;
+	FGameplayTag Abilities_ShadowJump;
+
+	//Attributes
+	FGameplayTag Attributes_ShadowStamina;
+	FGameplayTag Attributes_MaxShadowStamina;
 
 private:
 	static FkdGameplayTags GameplayTags;

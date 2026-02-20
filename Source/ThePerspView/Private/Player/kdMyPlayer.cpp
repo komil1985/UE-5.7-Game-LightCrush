@@ -10,7 +10,7 @@
 #include "Camera/PlayerCameraManager.h"
 #include "Crush/kdCrushStateComponent.h"
 #include "Crush/kdCrushTransitionComponent.h"
-#include "AbilitySystemComponent.h"
+#include "AbilitySystem/kdAbilitySystemComponent.h"
 #include "AbilitySystem/kdAttributeSet.h"
 
 AkdMyPlayer::AkdMyPlayer()
@@ -50,7 +50,7 @@ AkdMyPlayer::AkdMyPlayer()
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 	/* -- GAS Setup -- */	
-	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+	AbilitySystemComponent = CreateDefaultSubobject<UkdAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 	AbilitySystemComponent->SetIsReplicated(true); // Essential for multiplayer, safe for single
 	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
 
