@@ -10,6 +10,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCrushTransitionComplete, bool, bI
 
 class UCurveFloat;
 class AkdMyPlayer;
+class UTimelineComponent;
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class THEPERSPVIEW_API UkdCrushTransitionComponent : public UActorComponent
 {
@@ -48,6 +49,15 @@ private:
 
 	float CurrentAlpha;
 
+	UPROPERTY()
+	TObjectPtr<UTimelineComponent> CrushTimeline;		// Timeline for smooth transition 
+
+	UFUNCTION()
+	void HandleTimelineUpdate(float Value);
+
+	UFUNCTION()
+	void HandleTimelineFinished();
+
 	UPROPERTY(EditDefaultsOnly, Category = "Crush Settings | Transition")
 	float TimerInterval = 0.016f;	// ~60 fps update rate for smooth animations
 
@@ -55,7 +65,7 @@ private:
 	TObjectPtr<UCurveFloat> TransitionCurve;
 
 	UPROPERTY(EditAnywhere, Category = "Crush Settings|Camera")
-	float TargetOrthoWidth = 1024.0f;
+	float TargetOrthoWidth = 1000.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Crush Settings|Visuals")
 	FVector CrushScaleTarget = FVector(1.0f, 1.0f, 1.0f);

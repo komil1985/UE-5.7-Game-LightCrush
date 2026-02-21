@@ -21,6 +21,8 @@ void UkdCrushStateComponent::BeginPlay()
 	Super::BeginPlay();
 	CachedOwner = Cast<AkdMyPlayer>(GetOwner());
 	FindDirectionalLight();
+
+	LastShadowCheckTime = 0.0f;
 }
 
 void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
@@ -94,7 +96,37 @@ bool UkdCrushStateComponent::IsStandingInShadow() const
 
 void UkdCrushStateComponent::UpdateShadowPhysics()
 {
-	if (!CachedOwner) return;
+	if (!CachedOwner || !GetWorld()) return;
+
+	// Adaptive throttle: compute desired interval based on movement
+	const float CurrentTime = GetWorld()->GetTimeSeconds();
+
+	// Determine if player is moving (small threshold)
+	const float MovementSpeed = CachedOwner->GetVelocity().Size();
+	const bool bIsMoving = MovementSpeed > 1.0f;
+
+	// Choose interval
+	const float DesiredInterval = bIsMoving ? ShadowCheckFrequencyMoving : ShadowCheckFrequency;
+
+	// Skip if called too soon
+	if (CurrentTime - LastShadowCheckTime < DesiredInterval)
+	{
+		return;
+	}
+	LastShadowCheckTime = CurrentTime;
+
+	// Only run shadow logic when in crush mode or when moving and likely to enter shadow
+	if (!CachedOwner->bIsCrushMode && !bIsMoving)
+	{
+		// If not in crush mode and not moving, ensure physics are normal and skip trace
+		if (CachedOwner->GetCharacterMovement()->GravityScale != 1.0f)
+		{
+			CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
+		}
+		bIsInShadow = false;
+		bCanMoveInShadow = false;
+		return;
+	}
 
 	bIsInShadow = IsStandingInShadow();
 
