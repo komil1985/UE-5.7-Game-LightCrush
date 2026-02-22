@@ -11,8 +11,6 @@
 UkdCrushTransitionComponent::UkdCrushTransitionComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
-	//TimerInterval = 0.016f;	// High refresh rate for smooth animation
-	//CurrentElapsedTime = 0.0f;
 
 	CrushTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("CrushTimeline"));
 }
@@ -40,12 +38,7 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 {
 	if (!CachedOwner || !TransitionCurve) return;
 
-	// Clear any existing timer to eliminate the previous transition loop
-	//GetWorld()->GetTimerManager().ClearTimer(TransitionTimerHandle);
-
 	bTargetCrushMode = bToCrushMode;
-	//CurrentAlpha = 0.0f;
-	//CurrentElapsedTime = 0.0f;
 
 	InitialScale = CachedOwner->GetMesh()->GetRelativeScale3D();						// Cache starting values
 	TargetScale = bTargetCrushMode ? PlayerCrushScale : FVector(1.0f, 1.0f, 1.0f);		// Determine Target Scale
@@ -56,86 +49,20 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 	CrushTimeline->SetPlayRate(1.0f / TransitionDuration);
 	CrushTimeline->PlayFromStart();
 
-	// Start the Loop
-	//GetWorld()->GetTimerManager().SetTimer(TransitionTimerHandle, this, &UkdCrushTransitionComponent::HandleTransitionUpdate, TimerInterval, true);
-}
-
-void UkdCrushTransitionComponent::HandleTransitionUpdate()
-{
-	if (!CachedOwner)
-	{
-		GetWorld()->GetTimerManager().ClearTimer(TransitionTimerHandle);
-		return;
-	}
-
-	// 1. Advance Alpha
-	//CurrentAlpha += TimerInterval / TransitionDuration;
-	CurrentElapsedTime += TimerInterval;
-	CurrentAlpha = FMath::Clamp(CurrentElapsedTime / TransitionDuration, 0.0f, 1.0f);
-
-	// In Update Loop
-	float CurveValue = TransitionCurve ? TransitionCurve->GetFloatValue(CurrentAlpha) : CurrentAlpha;
-
-	// 2. Interpolate Mesh Scale
-	FVector NewScale = FMath::Lerp(InitialScale, TargetScale, CurveValue);
-	CachedOwner->GetMesh()->SetRelativeScale3D(NewScale);
-
-	float NewOrthoWidth = FMath::Lerp(InitialOrthoWidth, TargetOrthoWidth, CurveValue);
-	CachedOwner->Camera->SetOrthoWidth(NewOrthoWidth);
-
-	// 3. Interpolate Camera (Optional: Smooth Ortho Transition)
-	// Note: Switching ProjectionMode is instant, so we usually do it at 50%
-	if (CurrentAlpha >= 0.5f)
-	{
-		if (bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Orthographic)
-		{
-			CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
-			CachedOwner->Camera->SetOrthoWidth(OrthoWidth);
-			CachedOwner->Camera->bAutoCalculateOrthoPlanes = false;
-			CachedOwner->SpringArm->SetRelativeRotation(FRotator::ZeroRotator);
-			CachedOwner->SpringArm->bInheritYaw = false;
-		}
-		else if (!bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Perspective)
-		{
-			CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
-			CachedOwner->SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0f, 0.0f));
-			CachedOwner->SpringArm->bInheritYaw = true;
-		}
-	}
-	 //4. Check for Finish
-	if (CurrentAlpha >= 1.0f)
-	{
-		//if (bTargetCrushMode)
-		//{
-		//	CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
-		//}
-		//else
-		//{
-		//	CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
-		//}
-		FinishTransition();
-	}
-}
-
-void UkdCrushTransitionComponent::FinishTransition()
-{
-	GetWorld()->GetTimerManager().ClearTimer(TransitionTimerHandle);
-
-	if (OnTransitionComplete.IsBound())
-	{
-		OnTransitionComplete.Broadcast(bTargetCrushMode);
-	}
 }
 
 void UkdCrushTransitionComponent::HandleTimelineUpdate(float Value)
 {
 	if (!CachedOwner) return;
 
+	// In Update Loop
+	float CurveValue = TransitionCurve ? TransitionCurve->GetFloatValue(Value) : Value;
+
 	// Curve value drives interpolation
-	FVector NewScale = FMath::Lerp(InitialScale, TargetScale, Value);
+	FVector NewScale = FMath::Lerp(InitialScale, TargetScale, CurveValue);
 	CachedOwner->GetMesh()->SetRelativeScale3D(NewScale);
 
-	float NewOrthoWidth = FMath::Lerp(InitialOrthoWidth, TargetOrthoWidthInternal, Value);
+	float NewOrthoWidth = FMath::Lerp(InitialOrthoWidth, TargetOrthoWidthInternal, CurveValue);
 	CachedOwner->Camera->SetOrthoWidth(NewOrthoWidth);
 
 	// Switch projection at midpoint
@@ -144,7 +71,7 @@ void UkdCrushTransitionComponent::HandleTimelineUpdate(float Value)
 		if (bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Orthographic)
 		{
 			CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
-			CachedOwner->Camera->SetOrthoWidth(OrthoWidth);
+			CachedOwner->Camera->SetOrthoWidth(NewOrthoWidth);
 			CachedOwner->Camera->bAutoCalculateOrthoPlanes = false;
 			CachedOwner->SpringArm->SetRelativeRotation(FRotator::ZeroRotator);
 			CachedOwner->SpringArm->bInheritYaw = false;

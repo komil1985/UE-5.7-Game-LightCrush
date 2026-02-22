@@ -7,7 +7,6 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/World.h"
-#include "Camera/PlayerCameraManager.h"
 #include "Crush/kdCrushStateComponent.h"
 #include "Crush/kdCrushTransitionComponent.h"
 #include "AbilitySystem/kdAbilitySystemComponent.h"
@@ -57,14 +56,12 @@ AkdMyPlayer::AkdMyPlayer()
 	AttributeSet = CreateDefaultSubobject<UkdAttributeSet>(TEXT("AttributeSet"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
-
 }
 
 UAbilitySystemComponent* AkdMyPlayer::GetAbilitySystemComponent() const
 {
 	return AbilitySystemComponent;
 }
-
 
 void AkdMyPlayer::BeginPlay()
 {

@@ -38,9 +38,6 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	
-	void HandleTransitionUpdate();
-	void FinishTransition();
-
 private:
 	UPROPERTY()
 	TObjectPtr<AkdMyPlayer> CachedOwner;
