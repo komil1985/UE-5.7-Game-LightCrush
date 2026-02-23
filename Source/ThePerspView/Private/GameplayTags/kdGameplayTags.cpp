@@ -30,4 +30,26 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 		FName("Abilities.ShadowJump"),
 		FString("Ability to jump while in shadow")
 	);
+
+	// States Tags
+	GameplayTags.State_CrushMode = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("State.CrushMode"),
+		FString("Crush Mode State")
+	);
+
+	GameplayTags.State_InShadow = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("State.InShadow"),
+		FString("In Shadow State")
+	);
+
+	GameplayTags.State_Exhausted = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("State.Exhausted"),
+		FString("Exhausted State")
+	);
+
+	// Interaction Tags
+	GameplayTags.Interact_CrushOnly = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Interact.CrushOnly"),
+		FString("Interact in Crush Only")
+	);
 }

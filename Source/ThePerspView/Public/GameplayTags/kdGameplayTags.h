@@ -26,6 +26,14 @@ public:
 	FGameplayTag Attributes_ShadowStamina;
 	FGameplayTag Attributes_MaxShadowStamina;
 
+	//States
+	FGameplayTag State_CrushMode;
+	FGameplayTag State_InShadow;
+	FGameplayTag State_Exhausted;
+
+	//Interactions
+	FGameplayTag Interact_CrushOnly;
+
 private:
 	static FkdGameplayTags GameplayTags;
 };
