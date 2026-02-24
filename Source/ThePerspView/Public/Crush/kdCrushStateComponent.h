@@ -10,6 +10,7 @@
 class ADirectionalLight;
 class UCharacterMovementComponent;
 class AkdMyPlayer;
+class UGameplayEffect;
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class THEPERSPVIEW_API UkdCrushStateComponent : public UActorComponent
 {
@@ -62,6 +63,13 @@ private:
 
 	TObjectPtr<AkdMyPlayer> CachedOwner = nullptr;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Crush | Effects", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UGameplayEffect> ShadowDrainEffect;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Crush | Effects", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UGameplayEffect> ShadowDrainEffectClass;
+
 	bool bCanMoveInShadow = false;
 	bool bIsInShadow = false;
+	bool bHasDrainEffectApplied = false;
 };

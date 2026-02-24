@@ -8,7 +8,8 @@
 #include "Engine/DirectionalLight.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/World.h"
-
+#include "AbilitySystem/kdAbilitySystemComponent.h"
+#include "GameplayTags/kdGameplayTags.h"
 
 UkdCrushStateComponent::UkdCrushStateComponent()
 {
@@ -134,6 +135,19 @@ void UkdCrushStateComponent::UpdateShadowPhysics()
 	{
 		CachedOwner->GetCharacterMovement()->GravityScale = 0.25f;
 		bCanMoveInShadow = true;
+		if (!bHasDrainEffectApplied)
+		{
+			if (CachedOwner && CachedOwner->GetAbilitySystemComponent())
+			{
+				CachedOwner->GetAbilitySystemComponent()->ApplyGameplayEffectToSelf(ShadowDrainEffect, 1.0, CachedOwner->GetAbilitySystemComponent()->MakeEffectContext());
+				bHasDrainEffectApplied = true;
+			}
+		}
+		else
+		{
+			CachedOwner->GetAbilitySystemComponent()->RemoveActiveEffectsWithTags(CachedOwner->GetAbilitySystemComponent()->GetOwnedGameplayTags());
+			bHasDrainEffectApplied = false;
+		}
 	}
 	else
 	{

@@ -11,6 +11,7 @@
 #include "Crush/kdCrushTransitionComponent.h"
 #include "AbilitySystem/kdAbilitySystemComponent.h"
 #include "AbilitySystem/kdAttributeSet.h"
+#include "GameplayTags/kdGameplayTags.h"
 
 AkdMyPlayer::AkdMyPlayer()
 {
@@ -74,6 +75,7 @@ void AkdMyPlayer::BeginPlay()
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UkdAttributeSet::GetShadowStaminaAttribute()).AddUObject(this, &AkdMyPlayer::OnShadowStaminaChanged);
 		InitializeAbilitySystem();
 	}
 
@@ -89,6 +91,24 @@ void AkdMyPlayer::RequestCrushToggle()
 	// Start Visuals
 	if (CrushTransitionComponent)	CrushTransitionComponent->StartTransition(bTargetState);
 	
+}
+
+void AkdMyPlayer::OnShadowStaminaChanged(const FOnAttributeChangeData& Data)
+{
+	float NewValue = Data.NewValue;
+	// Update UI (call HUD or widget)
+	// If stamina <= 0, add Exhausted tag to ASC to block ability activation
+	if (AbilitySystemComponent)
+	{
+		if (NewValue <= 0.0f)
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(FkdGameplayTags::Get().State_Exhausted);
+		}
+		else
+		{
+			AbilitySystemComponent->RemoveLooseGameplayTag(FkdGameplayTags::Get().State_Exhausted);
+		}
+	}
 }
 
 void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
