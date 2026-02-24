@@ -6,7 +6,8 @@
 #include "GameFramework/Character.h"
 #include "AbilitySystemInterface.h"
 #include "InputActionValue.h"
-#include "GameplayEffectTypes.h"
+#include "AbilitySystemComponent.h"
+//#include "GameplayEffectTypes.h"
 #include "kdMyPlayer.generated.h"
 
 
@@ -51,7 +52,6 @@ public:
 	UFUNCTION()
 	void RequestCrushToggle();
 
-	UFUNCTION()
 	void OnShadowStaminaChanged(const FOnAttributeChangeData& Data);
 
 protected:

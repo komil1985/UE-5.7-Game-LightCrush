@@ -63,8 +63,8 @@ private:
 
 	TObjectPtr<AkdMyPlayer> CachedOwner = nullptr;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Crush | Effects", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UGameplayEffect> ShadowDrainEffect;
+	FGameplayEffectSpecHandle ShadowDrainEffectHandle;
+	FGameplayEffectSpec ShadowDrainEffectSpec;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Crush | Effects", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UGameplayEffect> ShadowDrainEffectClass;

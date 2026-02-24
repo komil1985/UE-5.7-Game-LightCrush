@@ -96,7 +96,7 @@ void AkdMyPlayer::RequestCrushToggle()
 void AkdMyPlayer::OnShadowStaminaChanged(const FOnAttributeChangeData& Data)
 {
 	float NewValue = Data.NewValue;
-	// Update UI (call HUD or widget)
+
 	// If stamina <= 0, add Exhausted tag to ASC to block ability activation
 	if (AbilitySystemComponent)
 	{

@@ -135,24 +135,21 @@ void UkdCrushStateComponent::UpdateShadowPhysics()
 	{
 		CachedOwner->GetCharacterMovement()->GravityScale = 0.25f;
 		bCanMoveInShadow = true;
-		if (!bHasDrainEffectApplied)
+		if (!bHasDrainEffectApplied && ShadowDrainEffectHandle.IsValid())
 		{
 			if (CachedOwner && CachedOwner->GetAbilitySystemComponent())
 			{
-				CachedOwner->GetAbilitySystemComponent()->ApplyGameplayEffectToSelf(ShadowDrainEffect, 1.0, CachedOwner->GetAbilitySystemComponent()->MakeEffectContext());
+				ShadowDrainEffectHandle = CachedOwner->GetAbilitySystemComponent()->ApplyGameplayEffectSpecToSelf(ShadowDrainEffectSpec);
 				bHasDrainEffectApplied = true;
 			}
-		}
-		else
-		{
-			CachedOwner->GetAbilitySystemComponent()->RemoveActiveEffectsWithTags(CachedOwner->GetAbilitySystemComponent()->GetOwnedGameplayTags());
-			bHasDrainEffectApplied = false;
 		}
 	}
 	else
 	{
 		CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
 		bCanMoveInShadow = false;
+		CachedOwner->GetAbilitySystemComponent()->RemoveActiveGameplayEffect(ShadowDrainEffectHandle);
+		bHasDrainEffectApplied = false;
 	}
 }
 
