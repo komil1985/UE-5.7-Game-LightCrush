@@ -45,8 +45,8 @@ AkdMyPlayer::AkdMyPlayer()
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
-	bIsCrushMode = false;
-	bIsTransitioning = false;
+	//bIsCrushMode = false;
+	//bIsTransitioning = false;
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 	/* -- GAS Setup -- */	
@@ -75,7 +75,6 @@ void AkdMyPlayer::BeginPlay()
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
-		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UkdAttributeSet::GetShadowStaminaAttribute()).AddUObject(this, &AkdMyPlayer::OnShadowStaminaChanged);
 		InitializeAbilitySystem();
 	}
 
@@ -83,45 +82,27 @@ void AkdMyPlayer::BeginPlay()
 
 void AkdMyPlayer::RequestCrushToggle()
 {
-	if (bIsTransitioning) return;
+	if (AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode)) return;
 
-	bIsTransitioning = true;
-	bool bTargetState = !bIsCrushMode;
+	//bIsTransitioning = true;
+	//bool bTargetState = !bIsCrushMode;
 
 	// Start Visuals
-	if (CrushTransitionComponent)	CrushTransitionComponent->StartTransition(bTargetState);
+	if (CrushTransitionComponent)	CrushTransitionComponent->StartTransition(AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode));
 	
-}
-
-void AkdMyPlayer::OnShadowStaminaChanged(const FOnAttributeChangeData& Data)
-{
-	float NewValue = Data.NewValue;
-
-	// If stamina <= 0, add Exhausted tag to ASC to block ability activation
-	if (AbilitySystemComponent)
-	{
-		if (NewValue <= 0.0f)
-		{
-			AbilitySystemComponent->AddLooseGameplayTag(FkdGameplayTags::Get().State_Exhausted);
-		}
-		else
-		{
-			AbilitySystemComponent->RemoveLooseGameplayTag(FkdGameplayTags::Get().State_Exhausted);
-		}
-	}
 }
 
 void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 {
-	bIsCrushMode = bNewCrushState;
-	bIsTransitioning = false;
+	//bIsCrushMode = bNewCrushState;
+	//bIsTransitioning = false;
 
 	// Tell the physics engine to start/stop tracking shadows
-	if (CrushStateComponent)	CrushStateComponent->ToggleShadowTracking(bIsCrushMode);
+	if (CrushStateComponent)	CrushStateComponent->ToggleShadowTracking(AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode));
 	
 
 	// Set Plane constraints for 2D movement
-	if (bIsCrushMode)
+	if (AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 	{
 		GetCharacterMovement()->SetPlaneConstraintNormal(PlaneConstraintNormal);
 		GetCharacterMovement()->SetPlaneConstraintEnabled(true);

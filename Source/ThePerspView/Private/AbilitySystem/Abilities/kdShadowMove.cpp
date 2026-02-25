@@ -43,7 +43,7 @@ void UkdShadowMove::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
     if (Player)
     {
         // Optionally set a tag to indicate ability active
-        ActorInfo->AbilitySystemComponent->AddLooseGameplayTag(FkdGameplayTags::Get().Abilities_ShadowJump);
+        ActorInfo->AbilitySystemComponent->AddLooseGameplayTag(FkdGameplayTags::Get().Ability_ShadowJump);
 
         // Let player handle vertical input; ability remains active until stamina exhausted or cancelled
     }
@@ -53,7 +53,7 @@ void UkdShadowMove::EndAbility(const FGameplayAbilitySpecHandle Handle, const FG
 {
     if (ActorInfo && ActorInfo->AbilitySystemComponent.IsValid())
     {
-        ActorInfo->AbilitySystemComponent->RemoveLooseGameplayTag(FkdGameplayTags::Get().Abilities_ShadowJump);
+        ActorInfo->AbilitySystemComponent->RemoveLooseGameplayTag(FkdGameplayTags::Get().Ability_ShadowJump);
     }
     Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

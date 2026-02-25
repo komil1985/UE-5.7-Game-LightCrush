@@ -35,5 +35,7 @@ public:
     FGameplayAttributeData MaxShadowStamina;
 	ATTRIBUTE_ACCESSORS(UkdAttributeSet, MaxShadowStamina);
 
+protected:
+    virtual void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data);
 
 };

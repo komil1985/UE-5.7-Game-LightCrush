@@ -19,15 +19,17 @@ public:
 	static void InitializeNativeGameplayTags();
 
 	// Abilities
-	FGameplayTag Abilities_LightCrush;
-	FGameplayTag Abilities_ShadowJump;
+	FGameplayTag Ability_LightCrush;
+	FGameplayTag Ability_ShadowJump;
+	FGameplayTag Ability_Block_Crush;
 
 	//Attributes
-	FGameplayTag Attributes_ShadowStamina;
-	FGameplayTag Attributes_MaxShadowStamina;
+	FGameplayTag Attribute_ShadowStamina;
+	FGameplayTag Attribute_MaxShadowStamina;
 
 	//States
 	FGameplayTag State_CrushMode;
+	FGameplayTag State_Transitioning;
 	FGameplayTag State_InShadow;
 	FGameplayTag State_Exhausted;
 

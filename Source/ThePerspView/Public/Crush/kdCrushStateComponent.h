@@ -63,13 +63,6 @@ private:
 
 	TObjectPtr<AkdMyPlayer> CachedOwner = nullptr;
 
-	FGameplayEffectSpecHandle ShadowDrainEffectHandle;
-	FGameplayEffectSpec ShadowDrainEffectSpec;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Crush | Effects", meta = (AllowPrivateAccess = "true"))
-	TSubclassOf<UGameplayEffect> ShadowDrainEffectClass;
-
 	bool bCanMoveInShadow = false;
 	bool bIsInShadow = false;
-	bool bHasDrainEffectApplied = false;
 };

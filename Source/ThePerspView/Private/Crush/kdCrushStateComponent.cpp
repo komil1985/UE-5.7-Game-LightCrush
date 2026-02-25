@@ -117,7 +117,8 @@ void UkdCrushStateComponent::UpdateShadowPhysics()
 	LastShadowCheckTime = CurrentTime;
 
 	// Only run shadow logic when in crush mode or when moving and likely to enter shadow
-	if (!CachedOwner->bIsCrushMode && !bIsMoving)
+	UAbilitySystemComponent* ASC = CachedOwner->GetAbilitySystemComponent();
+	if (!ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode) && !bIsMoving)
 	{
 		// If not in crush mode and not moving, ensure physics are normal and skip trace
 		if (CachedOwner->GetCharacterMovement()->GravityScale != 1.0f)
@@ -128,28 +129,18 @@ void UkdCrushStateComponent::UpdateShadowPhysics()
 		bCanMoveInShadow = false;
 		return;
 	}
-
+	const FkdGameplayTags& Tags = FkdGameplayTags::Get();
 	bIsInShadow = IsStandingInShadow();
 
 	if (bIsInShadow)
 	{
 		CachedOwner->GetCharacterMovement()->GravityScale = 0.25f;
-		bCanMoveInShadow = true;
-		if (!bHasDrainEffectApplied && ShadowDrainEffectHandle.IsValid())
-		{
-			if (CachedOwner && CachedOwner->GetAbilitySystemComponent())
-			{
-				ShadowDrainEffectHandle = CachedOwner->GetAbilitySystemComponent()->ApplyGameplayEffectSpecToSelf(ShadowDrainEffectSpec);
-				bHasDrainEffectApplied = true;
-			}
-		}
+		ASC->AddLooseGameplayTag(Tags.State_InShadow);
 	}
 	else
 	{
 		CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
-		bCanMoveInShadow = false;
-		CachedOwner->GetAbilitySystemComponent()->RemoveActiveGameplayEffect(ShadowDrainEffectHandle);
-		bHasDrainEffectApplied = false;
+		ASC->RemoveLooseGameplayTag(Tags.State_InShadow);
 	}
 }
 
@@ -171,7 +162,9 @@ void UkdCrushStateComponent::FindDirectionalLight()
 		else
 		{
 			CachedLightDirection = FVector(0, 0, 1); // Default to upward light if no directional light found
+		#if !UE_BUILD_SHIPPING
 			UE_LOG(LogTemp, Warning, TEXT("CrushStateComponent: No DirectionalLight found!"));
+		#endif
 		}
 	}
 }

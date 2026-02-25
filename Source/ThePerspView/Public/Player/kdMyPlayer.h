@@ -41,18 +41,17 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UkdCrushTransitionComponent> CrushTransitionComponent;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crush | State")
-	bool bIsCrushMode;		// Crush mode state flag
+	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crush | State")
+	//bool bIsCrushMode;		// Crush mode state flag
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crush | State")
-	bool bIsTransitioning;		// Prevents spamming the toggle button
+	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crush | State")
+	//bool bIsTransitioning;		// Prevents spamming the toggle button
+
 	UFUNCTION()
 	void RequestVerticalMove(const FInputActionValue& Value);
 
 	UFUNCTION()
 	void RequestCrushToggle();
-
-	void OnShadowStaminaChanged(const FOnAttributeChangeData& Data);
 
 protected:
 	virtual void BeginPlay() override;
@@ -61,7 +60,7 @@ protected:
 	void OnTransitionFinished(bool bNewCrushState);
 
 	/* -- GAS Components -- */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities", meta = (AllowPrivateAccess = true))
 	TObjectPtr<UkdAbilitySystemComponent> AbilitySystemComponent;
 
 	UPROPERTY()

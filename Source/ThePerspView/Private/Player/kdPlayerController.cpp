@@ -6,6 +6,9 @@
 #include "EnhancedInputComponent.h"
 #include "GameFramework/Character.h"
 #include "Player/kdMyPlayer.h"
+#include "GameplayTags/kdGameplayTags.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystem/kdAbilitySystemComponent.h"
 
 
 void AkdPlayerController::BeginPlay()
@@ -13,6 +16,7 @@ void AkdPlayerController::BeginPlay()
 	Super::BeginPlay();
 	
 	EnhancedSubSystem();
+	ASC = MyPlayerCache ? MyPlayerCache->GetAbilitySystemComponent() : nullptr;
 }
 
 void AkdPlayerController::SetupInputComponent()
@@ -57,8 +61,8 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 	if (!MyPlayerCache) return;
 	
 	const FVector2D InputAxisVector = InputActionValue.Get<FVector2D>();
-
-	if (!MyPlayerCache->bIsCrushMode)
+	
+	if (!ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 	{
 		// Normal 3D Movement
 		const FRotator Rotation = GetControlRotation();
@@ -80,7 +84,7 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 void AkdPlayerController::Look(const FInputActionValue& Value)
 {
 	AkdMyPlayer* MyPlayer = MyPlayerCache;
-	if (!MyPlayer || MyPlayer->bIsCrushMode) return;			// Do not process look input in 2D mode (Crush mode)
+	if (!MyPlayer || ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode)) return;			// Do not process look input in 2D mode (Crush mode)
 	
 	const FVector2D LookAxisValue = Value.Get<FVector2D>();
 	AddYawInput(LookAxisValue.X);
@@ -91,7 +95,7 @@ void AkdPlayerController::StartJump()
 {
 	if (MyPlayerCache)
 	{
-		if (!MyPlayerCache->bIsCrushMode)
+		if (!ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 		{
 			MyPlayerCache->Jump();
 		}
@@ -102,7 +106,7 @@ void AkdPlayerController::StopJump()
 {
 	if (MyPlayerCache)
 	{
-		if (!MyPlayerCache->bIsCrushMode)
+		if (!ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 		{
 			MyPlayerCache->StopJumping();
 		}
@@ -133,7 +137,7 @@ void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
 	if (MyPlayerCache)
 	{
 		// Only valid in Crush Mode
-		if (MyPlayerCache->bIsCrushMode)
+		if (ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 		{
 			MyPlayerCache->RequestVerticalMove(Value);
 			GEngine->AddOnScreenDebugMessage(INDEX_NONE, 5.0f, FColor::Green, TEXT("Launch Activated"));

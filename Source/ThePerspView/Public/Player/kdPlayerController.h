@@ -13,6 +13,7 @@ struct FInputActionValue;
 class UInputAction;
 class UInputMappingContext;
 class AkdMyPlayer;
+class UAbilitySystemComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdPlayerController : public APlayerController
 {
@@ -57,4 +58,5 @@ private:
 	
 	TObjectPtr<AkdMyPlayer> GetMyPlayer() const;
 	TObjectPtr<AkdMyPlayer> MyPlayerCache;
+	UAbilitySystemComponent* ASC;
 };
