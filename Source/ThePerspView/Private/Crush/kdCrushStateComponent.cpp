@@ -118,6 +118,7 @@ void UkdCrushStateComponent::UpdateShadowPhysics()
 
 	// Only run shadow logic when in crush mode or when moving and likely to enter shadow
 	UAbilitySystemComponent* ASC = CachedOwner->GetAbilitySystemComponent();
+	if (!ASC) return;
 	if (!ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode) && !bIsMoving)
 	{
 		// If not in crush mode and not moving, ensure physics are normal and skip trace

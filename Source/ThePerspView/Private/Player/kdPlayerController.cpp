@@ -140,7 +140,9 @@ void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
 		if (ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 		{
 			MyPlayerCache->RequestVerticalMove(Value);
+#if !UE_BUILD_SHIPPING
 			GEngine->AddOnScreenDebugMessage(INDEX_NONE, 5.0f, FColor::Green, TEXT("Launch Activated"));
+#endif
 		}
 	}
 }

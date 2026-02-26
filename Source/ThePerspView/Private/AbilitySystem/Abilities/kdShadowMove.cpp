@@ -10,6 +10,13 @@
 UkdShadowMove::UkdShadowMove()
 {
     InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+
+    const FkdGameplayTags& Tags = FkdGameplayTags::Get();
+
+    ActivationRequiredTags.AddTag(Tags.State_CrushMode);
+    ActivationRequiredTags.AddTag(Tags.State_InShadow);
+
+    ActivationBlockedTags.AddTag(Tags.State_Exhausted);
 }
 
 bool UkdShadowMove::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
@@ -40,11 +47,13 @@ void UkdShadowMove::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
     // Example: call into player to perform vertical movement (player handles input)
     AActor* Avatar = ActorInfo->AvatarActor.Get();
     AkdMyPlayer* Player = Cast<AkdMyPlayer>(Avatar);
+    if (!Player) return;
+    
     if (Player)
     {
         // Optionally set a tag to indicate ability active
         ActorInfo->AbilitySystemComponent->AddLooseGameplayTag(FkdGameplayTags::Get().Ability_ShadowJump);
-
+        Player->LaunchCharacter(FVector(0.f, 0.f, 800.f), false, true);
         // Let player handle vertical input; ability remains active until stamina exhausted or cancelled
     }
 }
