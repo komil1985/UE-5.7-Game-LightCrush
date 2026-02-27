@@ -51,7 +51,7 @@ AkdMyPlayer::AkdMyPlayer()
 
 	/* -- GAS Setup -- */	
 	AbilitySystemComponent = CreateDefaultSubobject<UkdAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
-	AbilitySystemComponent->SetIsReplicated(true); // Essential for multiplayer, safe for single
+	AbilitySystemComponent->SetIsReplicated(false); // Essential for multiplayer, safe for single
 	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
 
 	AttributeSet = CreateDefaultSubobject<UkdAttributeSet>(TEXT("AttributeSet"));
@@ -82,11 +82,60 @@ void AkdMyPlayer::BeginPlay()
 
 void AkdMyPlayer::RequestCrushToggle()
 {
-	if (!AbilitySystemComponent) return;
-	
-	const FGameplayTag Container = FkdGameplayTags::Get().Ability_LightCrush;
-	AbilitySystemComponent->TryActivateAbilitiesByTag(FGameplayTagContainer(Container));
+	if (!AbilitySystemComponent)
+	{
+#if !UE_BUILD_SHIPPING
+		UE_LOG(LogTemp, Warning, TEXT("RequestCrushToggle: No AbilitySystemComponent"));
+#endif
+		return;
+	}
 
+	// Debug: Check what tags we have
+	FGameplayTagContainer DebugTags;
+	AbilitySystemComponent->GetOwnedGameplayTags(DebugTags);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Current tags before toggle: %s"), *DebugTags.ToStringSimple());
+#endif
+
+
+	// Try to activate the crush ability by class
+	if (DefaultAbilities.Num() > 0)
+	{
+		for (TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
+		{
+			// Find the CrushToggle ability in your default abilities list
+			if (AbilityClass && AbilityClass->GetName().Contains("CrushToggle"))
+			{
+				FGameplayAbilitySpec* Spec = AbilitySystemComponent->FindAbilitySpecFromClass(AbilityClass);
+
+				if (Spec && Spec->Handle.IsValid())
+				{
+					bool bActivated = AbilitySystemComponent->TryActivateAbility(Spec->Handle);
+#if !UE_BUILD_SHIPPING
+					UE_LOG(LogTemp, Log, TEXT("Attempting to activate crush ability: %s"),
+						bActivated ? TEXT("SUCCESS") : TEXT("FAILED"));
+#endif
+				}
+				else
+				{
+#if !UE_BUILD_SHIPPING
+					UE_LOG(LogTemp, Warning, TEXT("Crush ability not found in granted abilities!"));
+#endif
+				}
+				return;
+			}
+		}
+	}
+
+	// Fallback: Try by tag
+	FGameplayTagContainer AbilityTag;
+	AbilityTag.AddTag(FkdGameplayTags::Get().Ability_LightCrush);
+
+	bool bActivated = AbilitySystemComponent->TryActivateAbilitiesByTag(AbilityTag);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Attempting to activate by tag: %s"),
+		bActivated ? TEXT("SUCCESS") : TEXT("FAILED"));
+#endif
 }
 
 void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
@@ -113,7 +162,17 @@ void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 
 void AkdMyPlayer::InitializeAbilitySystem()
 {
-	if (!AbilitySystemComponent) return;
+	if (!AbilitySystemComponent)
+	{
+#if !UE_BUILD_SHIPPING
+		UE_LOG(LogTemp, Error, TEXT("InitializeAbilitySystem: No AbilitySystemComponent!"));
+#endif
+		return;
+	}
+
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("InitializeAbilitySystem: Starting with %d default abilities"), DefaultAbilities.Num());
+#endif
 
 	// Grant startup abilities (Crush, Jump, etc.)
 	for (TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
@@ -122,10 +181,49 @@ void AkdMyPlayer::InitializeAbilitySystem()
 		{
 			FGameplayAbilitySpec Spec(AbilityClass, 1, INDEX_NONE, this);
 			AbilitySystemComponent->GiveAbility(Spec);
+
+#if !UE_BUILD_SHIPPING
+			UE_LOG(LogTemp, Log, TEXT("Granted ability: %s"), *AbilityClass->GetName());
+#endif
+		}
+		else
+		{
+#if !UE_BUILD_SHIPPING
+			UE_LOG(LogTemp, Warning, TEXT("Found null ability class in DefaultAbilities array"));
+#endif
 		}
 	}
-}
 
+	// List all granted abilities after giving them
+	const TArray<FGameplayAbilitySpec>& Specs = AbilitySystemComponent->GetActivatableAbilities();
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Total activatable abilities after grant: %d"), Specs.Num());
+#endif
+	for (const FGameplayAbilitySpec& Spec : Specs)
+	{
+		if (Spec.Ability)
+		{
+			UE_LOG(LogTemp, Log, TEXT(" - Active ability: %s"), *Spec.Ability->GetName());
+
+			// Check if this ability has the LightCrush tag
+			const FGameplayTagContainer& AbilityTags = Spec.Ability->AbilityTags;
+#if !UE_BUILD_SHIPPING
+			UE_LOG(LogTemp, Log, TEXT("   Tags: %s"), *AbilityTags.ToStringSimple());
+#endif
+		}
+	}
+
+	// Initialize attributes with default values
+	if (AttributeSet)
+	{
+		AbilitySystemComponent->GetSpawnedAttributes_Mutable().Add(AttributeSet);
+
+		// Set initial stamina values
+		AttributeSet->SetMaxShadowStamina(100.0f);
+		AttributeSet->SetShadowStamina(100.0f);
+	}
+}
+ 
 void AkdMyPlayer::RequestVerticalMove(const FInputActionValue& Value)
 {
 	if (CrushStateComponent)

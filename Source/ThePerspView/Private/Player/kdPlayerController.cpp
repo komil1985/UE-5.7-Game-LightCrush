@@ -45,6 +45,11 @@ void AkdPlayerController::SetupInputComponent()
 			EnhancedInputComponent->BindAction(MoveInShadowAction, ETriggerEvent::Triggered, this, &AkdPlayerController::HandleShadowMovement);
 		}
 	}
+
+	// Add a debug key (F9) to force toggle
+	FInputKeyBinding K(FKey("F9"), EInputEvent::IE_Pressed);
+	K.KeyDelegate.BindDelegate(this, &AkdPlayerController::DebugToggleCrush);
+	InputComponent->KeyBindings.Add(K);
 }
 
 void AkdPlayerController::OnPossess(APawn* InPawn)
@@ -55,7 +60,7 @@ void AkdPlayerController::OnPossess(APawn* InPawn)
 	MyPlayerCache = Cast<AkdMyPlayer>(InPawn);
 	if (MyPlayerCache)
 	{
-		ASC = MyPlayerCache->GetAbilitySystemComponent();
+		MyASC = MyPlayerCache->GetAbilitySystemComponent();
 	}
 }
 
@@ -65,7 +70,7 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 	
 	const FVector2D InputAxisVector = InputActionValue.Get<FVector2D>();
 	
-	if (!ASC || !ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+	if (!MyASC || !MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 	{
 		// Normal 3D Movement
 		const FRotator Rotation = GetControlRotation();
@@ -87,7 +92,7 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 void AkdPlayerController::Look(const FInputActionValue& Value)
 {
 	AkdMyPlayer* MyPlayer = MyPlayerCache;
-	if (!MyPlayer || !ASC || ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode)) return;			// Do not process look input in 2D mode (Crush mode)
+	if (!MyPlayer || !MyASC || MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode)) return;			// Do not process look input in 2D mode (Crush mode)
 	
 	const FVector2D LookAxisValue = Value.Get<FVector2D>();
 	AddYawInput(LookAxisValue.X);
@@ -98,7 +103,7 @@ void AkdPlayerController::StartJump()
 {
 	if (MyPlayerCache)
 	{
-		if (!ASC || !ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+		if (!MyASC || !MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 		{
 			MyPlayerCache->Jump();
 		}
@@ -109,7 +114,7 @@ void AkdPlayerController::StopJump()
 {
 	if (MyPlayerCache)
 	{
-		if (!ASC || !ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+		if (!MyASC || !MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 		{
 			MyPlayerCache->StopJumping();
 		}
@@ -140,7 +145,7 @@ void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
 	if (MyPlayerCache)
 	{
 		// Only valid in Crush Mode
-		if (ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+		if (MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 		{
 			MyPlayerCache->RequestVerticalMove(Value);
 #if !UE_BUILD_SHIPPING
@@ -153,4 +158,29 @@ void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
 TObjectPtr<AkdMyPlayer> AkdPlayerController::GetMyPlayer() const
 {
 	return Cast<AkdMyPlayer>(GetPawn());
+}
+
+void AkdPlayerController::DebugToggleCrush()
+{
+	if (MyPlayerCache)
+	{
+		UE_LOG(LogTemp, Log, TEXT("DEBUG: Forcing crush mode toggle"));
+
+		// Directly modify the tag for testing
+		UAbilitySystemComponent* ASC = MyPlayerCache->GetAbilitySystemComponent();
+		if (ASC)
+		{
+			const FkdGameplayTags& MyTags = FkdGameplayTags::Get();
+			if (ASC->HasMatchingGameplayTag(MyTags.State_CrushMode))
+			{
+				ASC->RemoveLooseGameplayTag(MyTags.State_CrushMode);
+				UE_LOG(LogTemp, Log, TEXT("DEBUG: Removed crush mode tag"));
+			}
+			else
+			{
+				ASC->AddLooseGameplayTag(MyTags.State_CrushMode);
+				UE_LOG(LogTemp, Log, TEXT("DEBUG: Added crush mode tag"));
+			}
+		}
+	}
 }

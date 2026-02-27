@@ -12,12 +12,48 @@ Ukd_CrushToggle::Ukd_CrushToggle()
 {
     InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
+    // Add the ability tag so it can be found by tag activation
+    FGameplayTag AbilityTag = FkdGameplayTags::Get().Ability_LightCrush;
+    if (AbilityTag.IsValid())
+    {
+        AbilityTags.AddTag(AbilityTag);
+#if !UE_BUILD_SHIPPING
+        UE_LOG(LogTemp, Log, TEXT("Ukd_CrushToggle: Added ability tag %s"), *AbilityTag.ToString());
+#endif
+    }
+    else
+    {
+#if !UE_BUILD_SHIPPING
+        UE_LOG(LogTemp, Error, TEXT("Ukd_CrushToggle: Ability_LightCrush tag is invalid!"));
+#endif
+    }
+
     ActivationBlockedTags.AddTag(FkdGameplayTags::Get().State_Transitioning);
     ActivationBlockedTags.AddTag(FkdGameplayTags::Get().State_Exhausted);
+
 }
 
 void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
+#if !UE_BUILD_SHIPPING
+    UE_LOG(LogTemp, Log, TEXT("CrushToggle ActivateAbility called"));
+
+    if (ActorInfo && ActorInfo->AbilitySystemComponent.IsValid())
+    {
+        FGameplayTagContainer Tags;
+        ActorInfo->AbilitySystemComponent->GetOwnedGameplayTags(Tags);
+        UE_LOG(LogTemp, Log, TEXT("Current tags: %s"), *Tags.ToStringSimple());
+    }
+#endif
+
+    if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
+    {
+#if !UE_BUILD_SHIPPING
+        UE_LOG(LogTemp, Warning, TEXT("CrushToggle: CommitAbility failed"));
+#endif
+        return;
+    }
+
     if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
     {
         EndAbility(Handle, ActorInfo, ActivationInfo, true, true);

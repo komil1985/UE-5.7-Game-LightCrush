@@ -15,8 +15,19 @@ UkdAssetManager& UkdAssetManager::Get()
 
 void UkdAssetManager::StartInitialLoading()
 {
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("UkdAssetManager::StartInitialLoading - Asset manager initializing"));
+#endif
+
 	Super::StartInitialLoading();
+
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("UkdAssetManager: Initializing gameplay tags..."));
+#endif
 
 	FkdGameplayTags::InitializeNativeGameplayTags();
 
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("UkdAssetManager initialization complete"));
+#endif
 }

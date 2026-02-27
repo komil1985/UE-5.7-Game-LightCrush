@@ -58,5 +58,7 @@ private:
 	
 	TObjectPtr<AkdMyPlayer> GetMyPlayer() const;
 	TObjectPtr<AkdMyPlayer> MyPlayerCache;
-	UAbilitySystemComponent* ASC;
+	TObjectPtr<UAbilitySystemComponent> MyASC;
+
+	void DebugToggleCrush();
 };
