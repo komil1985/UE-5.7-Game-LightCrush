@@ -69,10 +69,9 @@ private:
 
 	// Cache initial values to lerp from
 	FVector InitialScale;
-	FVector TargetScale;
+	FVector TargetScaleCache;
 	float InitialOrthoWidth;
-	float TargetOrthoWidthInternal;
-
+	float TargetOrthoWidthCache;
 	bool bTargetCrushMode = false;
 	float CurrentElapsedTime;
 

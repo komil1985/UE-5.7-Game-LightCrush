@@ -47,15 +47,20 @@ void UkdShadowMove::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
     // Example: call into player to perform vertical movement (player handles input)
     AActor* Avatar = ActorInfo->AvatarActor.Get();
     AkdMyPlayer* Player = Cast<AkdMyPlayer>(Avatar);
-    if (!Player) return;
-    
-    if (Player)
+    if (!Player)
     {
-        // Optionally set a tag to indicate ability active
-        ActorInfo->AbilitySystemComponent->AddLooseGameplayTag(FkdGameplayTags::Get().Ability_ShadowJump);
-        Player->LaunchCharacter(FVector(0.f, 0.f, 800.f), false, true);
-        // Let player handle vertical input; ability remains active until stamina exhausted or cancelled
+        EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
     }
+    
+    // Launch the player upwards.
+    Player->LaunchCharacter(FVector(0.f, 0.f, 800.f), false, true);
+
+    // optionally add a gameplay cue for visual feedback here
+
+    // end the ability immediately
+	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+
 }
 
 void UkdShadowMove::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)

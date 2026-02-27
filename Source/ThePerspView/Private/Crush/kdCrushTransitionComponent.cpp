@@ -40,11 +40,23 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 
 	bTargetCrushMode = bToCrushMode;
 
-	InitialScale = CachedOwner->GetMesh()->GetRelativeScale3D();						// Cache starting values
-	TargetScale = bTargetCrushMode ? PlayerCrushScale : FVector(1.0f, 1.0f, 1.0f);		// Determine Target Scale
+	InitialScale = CachedOwner->GetMesh()->GetRelativeScale3D();							// Cache starting values
+	TargetScaleCache = bTargetCrushMode ? PlayerCrushScale : FVector(1.0f, 1.0f, 1.0f);		// Determine Target Scale
 
 	InitialOrthoWidth = CachedOwner->Camera->OrthoWidth;
-	TargetOrthoWidth = bTargetCrushMode ? OrthoWidth : InitialOrthoWidth;
+	TargetOrthoWidthCache = bTargetCrushMode ? OrthoWidth : InitialOrthoWidth;
+
+	// Set projection mode early to avoid pop (or blend later)
+	if (bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Orthographic)
+	{
+		CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
+		CachedOwner->Camera->SetOrthoWidth(TargetOrthoWidthCache);
+		CachedOwner->Camera->bAutoCalculateOrthoPlanes = false;
+	}
+	else if (!bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Perspective)
+	{
+		CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
+	}
 
 	CrushTimeline->SetPlayRate(1.0f / TransitionDuration);
 	CrushTimeline->PlayFromStart();
@@ -59,30 +71,42 @@ void UkdCrushTransitionComponent::HandleTimelineUpdate(float Value)
 	float CurveValue = TransitionCurve ? TransitionCurve->GetFloatValue(Value) : Value;
 
 	// Curve value drives interpolation
-	FVector NewScale = FMath::Lerp(InitialScale, TargetScale, CurveValue);
+	FVector NewScale = FMath::Lerp(InitialScale, TargetScaleCache, CurveValue);
 	CachedOwner->GetMesh()->SetRelativeScale3D(NewScale);
 
-	float NewOrthoWidth = FMath::Lerp(InitialOrthoWidth, TargetOrthoWidthInternal, CurveValue);
+	float NewOrthoWidth = FMath::Lerp(InitialOrthoWidth, TargetOrthoWidthCache, CurveValue);
 	CachedOwner->Camera->SetOrthoWidth(NewOrthoWidth);
 
-	// Switch projection at midpoint
-	if (Value >= 0.5f)
+	// Optionally adjust spring arm rotation based on mode
+	if (bTargetCrushMode)
 	{
-		if (bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Orthographic)
-		{
-			CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
-			CachedOwner->Camera->SetOrthoWidth(NewOrthoWidth);
-			CachedOwner->Camera->bAutoCalculateOrthoPlanes = false;
-			CachedOwner->SpringArm->SetRelativeRotation(FRotator::ZeroRotator);
-			CachedOwner->SpringArm->bInheritYaw = false;
-		}
-		else if (!bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Perspective)
-		{
-			CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
-			CachedOwner->SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0f, 0.0f));
-			CachedOwner->SpringArm->bInheritYaw = true;
-		}
+		CachedOwner->SpringArm->SetRelativeRotation(FRotator::ZeroRotator);
+		CachedOwner->SpringArm->bInheritYaw = false;
 	}
+	else
+	{
+		CachedOwner->SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0f, 0.0f));
+		CachedOwner->SpringArm->bInheritYaw = true;
+	}
+
+	//// Switch projection at midpoint
+	//if (Value >= 0.5f)
+	//{
+	//	if (bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Orthographic)
+	//	{
+	//		CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
+	//		CachedOwner->Camera->SetOrthoWidth(NewOrthoWidth);
+	//		CachedOwner->Camera->bAutoCalculateOrthoPlanes = false;
+	//		CachedOwner->SpringArm->SetRelativeRotation(FRotator::ZeroRotator);
+	//		CachedOwner->SpringArm->bInheritYaw = false;
+	//	}
+	//	else if (!bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Perspective)
+	//	{
+	//		CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
+	//		CachedOwner->SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0f, 0.0f));
+	//		CachedOwner->SpringArm->bInheritYaw = true;
+	//	}
+	//}
 }
 
 void UkdCrushTransitionComponent::HandleTimelineFinished()

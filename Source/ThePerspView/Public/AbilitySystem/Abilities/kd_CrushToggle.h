@@ -6,6 +6,7 @@
 #include "Abilities/GameplayAbility.h"
 #include "kd_CrushToggle.generated.h"
 
+class UkdCrushTransitionComponent;
 /**
  * 
  */
@@ -30,5 +31,11 @@ protected:
         const FGameplayAbilityActivationInfo ActivationInfo,
         bool bReplicateEndAbility,
         bool bWasCancelled) override;
+
+    UFUNCTION()
+    void OnTransitionFinished(bool bNewCrushMode);
+
+    UPROPERTY()
+    TObjectPtr<UkdCrushTransitionComponent> CachedTransitionComp;
 	
 };

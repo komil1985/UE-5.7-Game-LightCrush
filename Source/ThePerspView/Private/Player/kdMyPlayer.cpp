@@ -82,25 +82,18 @@ void AkdMyPlayer::BeginPlay()
 
 void AkdMyPlayer::RequestCrushToggle()
 {
-	if (AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode)) return;
-
-	//bIsTransitioning = true;
-	//bool bTargetState = !bIsCrushMode;
-
-	// Start Visuals
-	if (CrushTransitionComponent)	CrushTransitionComponent->StartTransition(AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode));
+	if (!AbilitySystemComponent) return;
 	
+	const FGameplayTag Container = FkdGameplayTags::Get().Ability_LightCrush;
+	AbilitySystemComponent->TryActivateAbilitiesByTag(FGameplayTagContainer(Container));
+
 }
 
 void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 {
-	//bIsCrushMode = bNewCrushState;
-	//bIsTransitioning = false;
-
 	// Tell the physics engine to start/stop tracking shadows
-	if (CrushStateComponent)	CrushStateComponent->ToggleShadowTracking(AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode));
+	if (CrushStateComponent) CrushStateComponent->ToggleShadowTracking(AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode));
 	
-
 	// Set Plane constraints for 2D movement
 	if (AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 	{
