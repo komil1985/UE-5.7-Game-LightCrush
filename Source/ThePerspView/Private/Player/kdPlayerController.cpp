@@ -16,7 +16,6 @@ void AkdPlayerController::BeginPlay()
 	Super::BeginPlay();
 	
 	EnhancedSubSystem();
-	ASC = MyPlayerCache ? MyPlayerCache->GetAbilitySystemComponent() : nullptr;
 }
 
 void AkdPlayerController::SetupInputComponent()
@@ -54,6 +53,10 @@ void AkdPlayerController::OnPossess(APawn* InPawn)
 	
 	// Cache the possessed pawn as AkdMyPlayer for easy access
 	MyPlayerCache = Cast<AkdMyPlayer>(InPawn);
+	if (MyPlayerCache)
+	{
+		ASC = MyPlayerCache->GetAbilitySystemComponent();
+	}
 }
 
 void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
@@ -62,7 +65,7 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 	
 	const FVector2D InputAxisVector = InputActionValue.Get<FVector2D>();
 	
-	if (!ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+	if (!ASC || !ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 	{
 		// Normal 3D Movement
 		const FRotator Rotation = GetControlRotation();
@@ -84,7 +87,7 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 void AkdPlayerController::Look(const FInputActionValue& Value)
 {
 	AkdMyPlayer* MyPlayer = MyPlayerCache;
-	if (!MyPlayer || ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode)) return;			// Do not process look input in 2D mode (Crush mode)
+	if (!MyPlayer || !ASC || ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode)) return;			// Do not process look input in 2D mode (Crush mode)
 	
 	const FVector2D LookAxisValue = Value.Get<FVector2D>();
 	AddYawInput(LookAxisValue.X);
@@ -95,7 +98,7 @@ void AkdPlayerController::StartJump()
 {
 	if (MyPlayerCache)
 	{
-		if (!ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+		if (!ASC || !ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 		{
 			MyPlayerCache->Jump();
 		}
@@ -106,7 +109,7 @@ void AkdPlayerController::StopJump()
 {
 	if (MyPlayerCache)
 	{
-		if (!ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+		if (!ASC || !ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 		{
 			MyPlayerCache->StopJumping();
 		}

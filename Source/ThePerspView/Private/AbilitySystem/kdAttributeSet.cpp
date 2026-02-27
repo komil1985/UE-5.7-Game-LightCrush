@@ -11,20 +11,32 @@ UkdAttributeSet::UkdAttributeSet()
 
 void UkdAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
 {
-	// Handle Shadow Stamina clamping and exhaustion state 
     if (Data.EvaluatedData.Attribute == GetShadowStaminaAttribute())
     {
-        ShadowStamina.SetCurrentValue(
-            FMath::Clamp(ShadowStamina.GetCurrentValue(), 0.f, MaxShadowStamina.GetCurrentValue())
-        );
+        float NewStamina = FMath::Clamp(ShadowStamina.GetCurrentValue(), 0.f, MaxShadowStamina.GetCurrentValue());
+        ShadowStamina.SetCurrentValue(NewStamina);
 
-        if (ShadowStamina.GetCurrentValue() <= 0.f)
+        UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent();
+        if (!ASC) return;
+
+        const FkdGameplayTags& Tags = FkdGameplayTags::Get();
+
+        if (NewStamina <= 0.f)
         {
-            if (UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent())
-            {
-                ASC->AddLooseGameplayTag(FkdGameplayTags::Get().State_Exhausted);
-                ASC->RemoveLooseGameplayTag(FkdGameplayTags::Get().State_CrushMode);
-            }
+            ASC->AddLooseGameplayTag(Tags.State_Exhausted);
+            ASC->RemoveLooseGameplayTag(Tags.State_CrushMode);
         }
+        else
+        {
+            ASC->RemoveLooseGameplayTag(Tags.State_Exhausted);
+        }
+    }
+}
+
+void UkdAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
+{
+    if (Attribute == GetShadowStaminaAttribute())
+    {
+        NewValue = FMath::Clamp(NewValue, 0.f, GetMaxShadowStamina());
     }
 }

@@ -49,12 +49,14 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	void UpdateShadowPhysics();
 	void FindDirectionalLight();
 	void ResetPhysicsTo3D();
 
 private:
-	FTimerHandle ShadowTimerHandle;
+	//FTimerHandle ShadowTimerHandle;
+	float TimeSinceLastShadowCheck = 0.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Crush | Lights")
 	TObjectPtr<ADirectionalLight> DirectionalLightActor;

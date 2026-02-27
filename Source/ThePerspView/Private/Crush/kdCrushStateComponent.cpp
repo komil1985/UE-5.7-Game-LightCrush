@@ -26,23 +26,60 @@ void UkdCrushStateComponent::BeginPlay()
 	LastShadowCheckTime = 0.0f;
 }
 
-void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
+void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
-	if (!CachedOwner) return;
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	FTimerManager& TimerManager = GetWorld()->GetTimerManager();
+	if (!CachedOwner || !GetWorld()) return;
 
-	if (bEnable)
+	// Determine desired interval based on movement
+	const float MovementSpeed = CachedOwner->GetVelocity().Size();
+	const bool bIsMoving = MovementSpeed > 1.0f;
+	const float DesiredInterval = bIsMoving ? ShadowCheckFrequencyMoving : ShadowCheckFrequency;
+
+	TimeSinceLastShadowCheck += DeltaTime;
+	if (TimeSinceLastShadowCheck < DesiredInterval)
+		return;
+
+	TimeSinceLastShadowCheck = 0.0f;
+
+	// Only run shadow logic when in crush mode or when moving (to detect entering shadows)
+	UAbilitySystemComponent* ASC = CachedOwner->GetAbilitySystemComponent();
+	if (!ASC) return;
+
+	const FkdGameplayTags& Tags = FkdGameplayTags::Get();
+	const bool bInCrushMode = ASC->HasMatchingGameplayTag(Tags.State_CrushMode);
+
+	if (!bInCrushMode && !bIsMoving)
 	{
-		if (TimerManager.TimerExists(ShadowTimerHandle))
-		{
-			TimerManager.ClearTimer(ShadowTimerHandle);
-		}
-		TimerManager.SetTimer(ShadowTimerHandle, this, &UkdCrushStateComponent::UpdateShadowPhysics, ShadowCheckFrequency, true);
+		// Ensure normal gravity and exit early
+		if (CachedOwner->GetCharacterMovement()->GravityScale != 1.0f)
+			CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
+		bIsInShadow = false;
+		return;
+	}
+
+	bIsInShadow = IsStandingInShadow();
+
+	if (bIsInShadow)
+	{
+		CachedOwner->GetCharacterMovement()->GravityScale = 0.25f;
+		ASC->AddLooseGameplayTag(Tags.State_InShadow);
 	}
 	else
 	{
-		TimerManager.ClearTimer(ShadowTimerHandle);
+		CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
+		ASC->RemoveLooseGameplayTag(Tags.State_InShadow);
+	}
+}
+
+void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
+{
+	if (!CachedOwner) return;
+	
+	SetComponentTickEnabled(bEnable);
+	if (!bEnable)
+	{
 		ResetPhysicsTo3D();
 	}
 }
