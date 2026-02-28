@@ -36,7 +36,19 @@ void UkdCrushTransitionComponent::BeginPlay()
 
 void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 {
-	if (!CachedOwner || !TransitionCurve) return;
+	UE_LOG(LogTemp, Log, TEXT("StartTransition called with bToCrushMode=%d"), bToCrushMode);
+	//if (!CachedOwner || !TransitionCurve) return;
+
+	if (!CachedOwner)
+	{
+		UE_LOG(LogTemp, Error, TEXT("CachedOwner is null"));
+		return;
+	}
+	if (!TransitionCurve)
+	{
+		UE_LOG(LogTemp, Error, TEXT("TransitionCurve is null. Assign a curve in the component defaults "));
+		return;
+	}
 
 	bTargetCrushMode = bToCrushMode;
 
@@ -65,6 +77,8 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 
 void UkdCrushTransitionComponent::HandleTimelineUpdate(float Value)
 {
+	UE_LOG(LogTemp, Verbose, TEXT("Timeline update: %f"), Value); // Verbose to avoid spam
+
 	if (!CachedOwner) return;
 
 	// In Update Loop
@@ -89,7 +103,7 @@ void UkdCrushTransitionComponent::HandleTimelineUpdate(float Value)
 		CachedOwner->SpringArm->bInheritYaw = true;
 	}
 
-	//// Switch projection at midpoint
+	// Switch projection at midpoint
 	//if (Value >= 0.5f)
 	//{
 	//	if (bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Orthographic)
@@ -113,6 +127,7 @@ void UkdCrushTransitionComponent::HandleTimelineFinished()
 {
 	if (OnTransitionComplete.IsBound())
 	{
+		UE_LOG(LogTemp, Log, TEXT("Timeline finished, broadcasting OnTransitionComplete"));
 		OnTransitionComplete.Broadcast(bTargetCrushMode);
 	}
 }

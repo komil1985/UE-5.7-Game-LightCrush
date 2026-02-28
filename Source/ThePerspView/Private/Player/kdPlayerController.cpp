@@ -38,18 +38,13 @@ void AkdPlayerController::SetupInputComponent()
 		}
 		if (CrushAction)
 		{
-			EnhancedInputComponent->BindAction(CrushAction, ETriggerEvent::Started, this, &AkdPlayerController::RequestCrushToggle);
+			EnhancedInputComponent->BindAction(CrushAction, ETriggerEvent::Started, this, &AkdPlayerController::CrushToggleRequest);
 		}
 		if (MoveInShadowAction)
 		{
 			EnhancedInputComponent->BindAction(MoveInShadowAction, ETriggerEvent::Triggered, this, &AkdPlayerController::HandleShadowMovement);
 		}
 	}
-
-	// Add a debug key (F9) to force toggle
-	FInputKeyBinding K(FKey("F9"), EInputEvent::IE_Pressed);
-	K.KeyDelegate.BindDelegate(this, &AkdPlayerController::DebugToggleCrush);
-	InputComponent->KeyBindings.Add(K);
 }
 
 void AkdPlayerController::OnPossess(APawn* InPawn)
@@ -132,7 +127,7 @@ void AkdPlayerController::EnhancedSubSystem()
 	}
 }
 
-void AkdPlayerController::RequestCrushToggle()
+void AkdPlayerController::CrushToggleRequest()
 {
 	if (MyPlayerCache)
 	{
@@ -142,6 +137,7 @@ void AkdPlayerController::RequestCrushToggle()
 
 void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
 {
+	if (!MyPlayerCache || !MyASC) return;
 	if (MyPlayerCache)
 	{
 		// Only valid in Crush Mode

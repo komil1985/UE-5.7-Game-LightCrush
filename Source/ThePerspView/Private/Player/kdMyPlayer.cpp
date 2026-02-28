@@ -12,6 +12,7 @@
 #include "AbilitySystem/kdAbilitySystemComponent.h"
 #include "AbilitySystem/kdAttributeSet.h"
 #include "GameplayTags/kdGameplayTags.h"
+#include "AbilitySystem/Abilities/kd_CrushToggle.h"
 
 AkdMyPlayer::AkdMyPlayer()
 {
@@ -82,60 +83,22 @@ void AkdMyPlayer::BeginPlay()
 
 void AkdMyPlayer::RequestCrushToggle()
 {
-	if (!AbilitySystemComponent)
+	if (!AbilitySystemComponent) return;
+
+	// Find the CrushToggle ability class in the DefaultAbilities array
+	for (TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
 	{
-#if !UE_BUILD_SHIPPING
-		UE_LOG(LogTemp, Warning, TEXT("RequestCrushToggle: No AbilitySystemComponent"));
-#endif
-		return;
-	}
-
-	// Debug: Check what tags we have
-	FGameplayTagContainer DebugTags;
-	AbilitySystemComponent->GetOwnedGameplayTags(DebugTags);
-#if !UE_BUILD_SHIPPING
-	UE_LOG(LogTemp, Log, TEXT("Current tags before toggle: %s"), *DebugTags.ToStringSimple());
-#endif
-
-
-	// Try to activate the crush ability by class
-	if (DefaultAbilities.Num() > 0)
-	{
-		for (TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
+		if (AbilityClass && AbilityClass->IsChildOf(Ukd_CrushToggle::StaticClass()))
 		{
-			// Find the CrushToggle ability in your default abilities list
-			if (AbilityClass && AbilityClass->GetName().Contains("CrushToggle"))
-			{
-				FGameplayAbilitySpec* Spec = AbilitySystemComponent->FindAbilitySpecFromClass(AbilityClass);
-
-				if (Spec && Spec->Handle.IsValid())
-				{
-					bool bActivated = AbilitySystemComponent->TryActivateAbility(Spec->Handle);
-#if !UE_BUILD_SHIPPING
-					UE_LOG(LogTemp, Log, TEXT("Attempting to activate crush ability: %s"),
-						bActivated ? TEXT("SUCCESS") : TEXT("FAILED"));
-#endif
-				}
-				else
-				{
-#if !UE_BUILD_SHIPPING
-					UE_LOG(LogTemp, Warning, TEXT("Crush ability not found in granted abilities!"));
-#endif
-				}
-				return;
-			}
+			AbilitySystemComponent->TryActivateAbilityByClass(AbilityClass);
+			return;
 		}
 	}
 
-	// Fallback: Try by tag
+	// Fallback: try by tag (if you still want it)
 	FGameplayTagContainer AbilityTag;
 	AbilityTag.AddTag(FkdGameplayTags::Get().Ability_LightCrush);
-
-	bool bActivated = AbilitySystemComponent->TryActivateAbilitiesByTag(AbilityTag);
-#if !UE_BUILD_SHIPPING
-	UE_LOG(LogTemp, Log, TEXT("Attempting to activate by tag: %s"),
-		bActivated ? TEXT("SUCCESS") : TEXT("FAILED"));
-#endif
+	AbilitySystemComponent->TryActivateAbilitiesByTag(AbilityTag);
 }
 
 void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)

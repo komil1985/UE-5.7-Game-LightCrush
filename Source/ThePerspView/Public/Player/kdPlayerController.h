@@ -53,7 +53,7 @@ private:
 	void StopJump();
 
 	void EnhancedSubSystem();
-	void RequestCrushToggle();
+	void CrushToggleRequest();
 	void HandleShadowMovement(const FInputActionValue& Value);
 	
 	TObjectPtr<AkdMyPlayer> GetMyPlayer() const;

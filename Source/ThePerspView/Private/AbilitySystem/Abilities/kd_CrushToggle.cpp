@@ -17,14 +17,11 @@ Ukd_CrushToggle::Ukd_CrushToggle()
     if (AbilityTag.IsValid())
     {
         AbilityTags.AddTag(AbilityTag);
-#if !UE_BUILD_SHIPPING
-        UE_LOG(LogTemp, Log, TEXT("Ukd_CrushToggle: Added ability tag %s"), *AbilityTag.ToString());
-#endif
     }
     else
     {
 #if !UE_BUILD_SHIPPING
-        UE_LOG(LogTemp, Error, TEXT("Ukd_CrushToggle: Ability_LightCrush tag is invalid!"));
+        UE_LOG(LogTemp, Error, TEXT("Ability_LightCrush tag not yet initialized - skipping."));
 #endif
     }
 
