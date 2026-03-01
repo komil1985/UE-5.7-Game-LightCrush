@@ -103,6 +103,16 @@ void AkdMyPlayer::RequestCrushToggle()
 
 void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 {
+	if (!AbilitySystemComponent) return;
+
+	const FkdGameplayTags& MyTags = FkdGameplayTags::Get();
+	bool bInCrushMode = AbilitySystemComponent->HasMatchingGameplayTag(MyTags.State_CrushMode);
+
+#if UE_BUILD_SHIPPING
+	// Log state
+	UE_LOG(LogTemp, Log, TEXT("OnTransitionFinished - bNewCrushState=%d, bInCrushMode=%d"), bNewCrushState, bInCrushMode);
+#endif
+
 	// Tell the physics engine to start/stop tracking shadows
 	if (CrushStateComponent) CrushStateComponent->ToggleShadowTracking(AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode));
 	
@@ -120,7 +130,13 @@ void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 	else
 	{
 		GetCharacterMovement()->SetPlaneConstraintEnabled(false);
+		GetCharacterMovement()->SetPlaneConstraintNormal(FVector::ZeroVector); // important!
 	}
+
+#if UE_BUILD_SHIPPING
+	// Log final constraint state
+	UE_LOG(LogTemp, Log, TEXT("PlaneConstraintEnabled: %d"), GetCharacterMovement()->GetPlaneConstraintEnabled());
+#endif
 }
 
 void AkdMyPlayer::InitializeAbilitySystem()
@@ -189,8 +205,8 @@ void AkdMyPlayer::InitializeAbilitySystem()
  
 void AkdMyPlayer::RequestVerticalMove(const FInputActionValue& Value)
 {
-	if (CrushStateComponent)
+/*	if (CrushStateComponent)
 	{
 		CrushStateComponent->HandleVerticalInput(Value.Get<float>());
-	}
+	}*/
 }

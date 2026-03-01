@@ -21,6 +21,7 @@ UkdShadowMove::UkdShadowMove()
 
 bool UkdShadowMove::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
+    UE_LOG(LogTemp, Log, TEXT("ShadowMove CanActivateAbility called"));
     if (!ActorInfo || !ActorInfo->AbilitySystemComponent.IsValid()) return false;
 
     // Require crush mode and in-shadow tag
@@ -38,6 +39,16 @@ bool UkdShadowMove::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, 
 
 void UkdShadowMove::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
+    // Apply cost before committing
+    if (ShadowMoveCostEffect)
+    {
+        FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(ShadowMoveCostEffect, GetAbilityLevel());
+        if (SpecHandle.IsValid())
+        {
+            ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, SpecHandle);
+        }
+    }
+
     if (!CommitAbility(Handle, ActorInfo, ActivationInfo)) // consumes cost if any
     {
         EndAbility(Handle, ActorInfo, ActivationInfo, true, true);

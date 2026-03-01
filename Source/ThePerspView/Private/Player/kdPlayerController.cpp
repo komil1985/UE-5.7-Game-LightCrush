@@ -138,16 +138,27 @@ void AkdPlayerController::CrushToggleRequest()
 void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
 {
 	if (!MyPlayerCache || !MyASC) return;
-	if (MyPlayerCache)
+	
+	// Only activate if in crush mode AND in shadow (the ability will also check)
+	if (MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
 	{
-		// Only valid in Crush Mode
-		if (MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
-		{
-			MyPlayerCache->RequestVerticalMove(Value);
+		// Try to activate the shadow move ability by tag
+		FGameplayTagContainer AbilityTag;
+		AbilityTag.AddTag(FkdGameplayTags::Get().Ability_ShadowJump);
+		bool bActivated = MyASC->TryActivateAbilitiesByTag(AbilityTag);
+
 #if !UE_BUILD_SHIPPING
-			GEngine->AddOnScreenDebugMessage(INDEX_NONE, 5.0f, FColor::Green, TEXT("Launch Activated"));
-#endif
+		if (bActivated)
+		{
+			GEngine->AddOnScreenDebugMessage(INDEX_NONE, 1.0f, FColor::Green, TEXT("ShadowMove Activated"));
+			UE_LOG(LogTemp, Log, TEXT("ShadowMove Activated"));
 		}
+		else
+		{
+			GEngine->AddOnScreenDebugMessage(INDEX_NONE, 1.0f, FColor::Red, TEXT("ShadowMove Failed"));
+			UE_LOG(LogTemp, Warning, TEXT("ShadowMove Failed"));
+		}
+#endif
 	}
 }
 
