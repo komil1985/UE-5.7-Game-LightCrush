@@ -6,17 +6,19 @@
 #include "GameplayTags/kdGameplayTags.h"
 #include "Player/kdMyPlayer.h"
 #include "AbilitySystem/kdAttributeSet.h"
+#include "Crush/kdCrushStateComponent.h"
 
 UkdShadowMove::UkdShadowMove()
 {
     InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
-    const FkdGameplayTags& Tags = FkdGameplayTags::Get();
+    const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
+    
 
-    ActivationRequiredTags.AddTag(Tags.State_CrushMode);
-    ActivationRequiredTags.AddTag(Tags.State_InShadow);
+    ActivationRequiredTags.AddTag(StateTags.State_CrushMode);
+    ActivationRequiredTags.AddTag(StateTags.State_InShadow);
 
-    ActivationBlockedTags.AddTag(Tags.State_Exhausted);
+    ActivationBlockedTags.AddTag(StateTags.State_Exhausted);
 }
 
 bool UkdShadowMove::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
@@ -25,9 +27,9 @@ bool UkdShadowMove::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, 
     if (!ActorInfo || !ActorInfo->AbilitySystemComponent.IsValid()) return false;
 
     // Require crush mode and in-shadow tag
-    const FkdGameplayTags& Tags = FkdGameplayTags::Get();
-    if (!ActorInfo->AbilitySystemComponent->HasMatchingGameplayTag(Tags.State_CrushMode)) return false;
-    if (!ActorInfo->AbilitySystemComponent->HasMatchingGameplayTag(Tags.State_InShadow)) return false;
+    const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
+    if (!ActorInfo->AbilitySystemComponent->HasMatchingGameplayTag(StateTags.State_CrushMode)) return false;
+    if (!ActorInfo->AbilitySystemComponent->HasMatchingGameplayTag(StateTags.State_InShadow)) return false;
 
     // Check stamina
     const UkdAttributeSet* AttrSet = Cast<UkdAttributeSet>(ActorInfo->AbilitySystemComponent->GetAttributeSet(UkdAttributeSet::StaticClass()));
@@ -65,7 +67,8 @@ void UkdShadowMove::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
     }
     
     // Launch the player upwards.
-    Player->LaunchCharacter(FVector(0.f, 0.f, 800.f), false, true);
+    //Player->LaunchCharacter(FVector(0.f, 0.f, 800.f), false, true);
+	Player->CrushStateComponent->HandleVerticalInput(1.0f);
 
     // optionally add a gameplay cue for visual feedback here
 

@@ -105,8 +105,8 @@ void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 {
 	if (!AbilitySystemComponent) return;
 
-	const FkdGameplayTags& MyTags = FkdGameplayTags::Get();
-	bool bInCrushMode = AbilitySystemComponent->HasMatchingGameplayTag(MyTags.State_CrushMode);
+	const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
+	bool bInCrushMode = AbilitySystemComponent->HasMatchingGameplayTag(StateTags.State_CrushMode);
 
 #if UE_BUILD_SHIPPING
 	// Log state
@@ -114,23 +114,22 @@ void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 #endif
 
 	// Tell the physics engine to start/stop tracking shadows
-	if (CrushStateComponent) CrushStateComponent->ToggleShadowTracking(AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode));
-	
+	//if (CrushStateComponent) CrushStateComponent->ToggleShadowTracking(AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode));
+	if (!bInCrushMode) return;
 	// Set Plane constraints for 2D movement
-	if (AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+	if (bInCrushMode)
 	{
-		GetCharacterMovement()->SetPlaneConstraintNormal(PlaneConstraintNormal);
-		GetCharacterMovement()->SetPlaneConstraintEnabled(true);
-
 		// Align Player to (X) axis
 		FVector NewLocation = GetActorLocation();
 		NewLocation.X = PlaneConstraintXValue;
 		SetActorLocation(NewLocation);
+
+		GetCharacterMovement()->SetPlaneConstraintNormal(PlaneConstraintNormal);
+		GetCharacterMovement()->SetPlaneConstraintEnabled(true);
 	}
 	else
 	{
 		GetCharacterMovement()->SetPlaneConstraintEnabled(false);
-		GetCharacterMovement()->SetPlaneConstraintNormal(FVector::ZeroVector); // important!
 	}
 
 #if UE_BUILD_SHIPPING
@@ -205,8 +204,8 @@ void AkdMyPlayer::InitializeAbilitySystem()
  
 void AkdMyPlayer::RequestVerticalMove(const FInputActionValue& Value)
 {
-/*	if (CrushStateComponent)
+	if (CrushStateComponent)
 	{
 		CrushStateComponent->HandleVerticalInput(Value.Get<float>());
-	}*/
+	}
 }

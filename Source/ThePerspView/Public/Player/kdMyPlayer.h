@@ -78,7 +78,7 @@ private:
 	FVector PlaneConstraintNormal = FVector(1.f, 0.f, 0.f);		// Lock x axis movement
 
 	UPROPERTY(EditAnywhere, Category = "Crush | Movement")
-	float PlaneConstraintXValue = 0.f;
+	float PlaneConstraintXValue = 0.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Crush | Visuals")
 	UMaterialInterface* CrushPostProcessMaterial; // Assign M_CrushOutline here in Blueprint

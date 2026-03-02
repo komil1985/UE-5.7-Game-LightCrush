@@ -52,23 +52,23 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 
 	bTargetCrushMode = bToCrushMode;
 
-	InitialScale = CachedOwner->GetMesh()->GetRelativeScale3D();							// Cache starting values
+	InitialScale = CachedOwner->GetMesh()->GetRelativeScale3D();							// Cache starting scale values
 	TargetScaleCache = bTargetCrushMode ? PlayerCrushScale : FVector(1.0f, 1.0f, 1.0f);		// Determine Target Scale
 
 	InitialOrthoWidth = CachedOwner->Camera->OrthoWidth;
 	TargetOrthoWidthCache = bTargetCrushMode ? OrthoWidth : InitialOrthoWidth;
 
 	// Set projection mode early to avoid pop (or blend later)
-	if (bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Orthographic)
-	{
-		CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
-		CachedOwner->Camera->SetOrthoWidth(TargetOrthoWidthCache);
-		CachedOwner->Camera->bAutoCalculateOrthoPlanes = false;
-	}
-	else if (!bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Perspective)
-	{
-		CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
-	}
+	//if (bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Orthographic)
+	//{
+	//	CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
+	//	CachedOwner->Camera->SetOrthoWidth(TargetOrthoWidthCache);
+	//	CachedOwner->Camera->bAutoCalculateOrthoPlanes = false;
+	//}
+	//else if (!bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Perspective)
+	//{
+	//	CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
+	//}
 
 	CrushTimeline->SetPlayRate(1.0f / TransitionDuration);
 	CrushTimeline->PlayFromStart();
@@ -92,35 +92,35 @@ void UkdCrushTransitionComponent::HandleTimelineUpdate(float Value)
 	CachedOwner->Camera->SetOrthoWidth(NewOrthoWidth);
 
 	// Optionally adjust spring arm rotation based on mode
-	if (bTargetCrushMode)
-	{
-		CachedOwner->SpringArm->SetRelativeRotation(FRotator::ZeroRotator);
-		CachedOwner->SpringArm->bInheritYaw = false;
-	}
-	else
-	{
-		CachedOwner->SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0f, 0.0f));
-		CachedOwner->SpringArm->bInheritYaw = true;
-	}
+	//if (bTargetCrushMode)
+	//{
+	//	CachedOwner->SpringArm->SetRelativeRotation(FRotator::ZeroRotator);
+	//	CachedOwner->SpringArm->bInheritYaw = false;
+	//}
+	//else
+	//{
+	//	CachedOwner->SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0f, 0.0f));
+	//	CachedOwner->SpringArm->bInheritYaw = true;
+	//}
 
 	// Switch projection at midpoint
-	//if (Value >= 0.5f)
-	//{
-	//	if (bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Orthographic)
-	//	{
-	//		CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
-	//		CachedOwner->Camera->SetOrthoWidth(NewOrthoWidth);
-	//		CachedOwner->Camera->bAutoCalculateOrthoPlanes = false;
-	//		CachedOwner->SpringArm->SetRelativeRotation(FRotator::ZeroRotator);
-	//		CachedOwner->SpringArm->bInheritYaw = false;
-	//	}
-	//	else if (!bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Perspective)
-	//	{
-	//		CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
-	//		CachedOwner->SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0f, 0.0f));
-	//		CachedOwner->SpringArm->bInheritYaw = true;
-	//	}
-	//}
+	if (Value >= 0.5f)
+	{
+		if (bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Orthographic)
+		{
+			CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
+			CachedOwner->Camera->SetOrthoWidth(NewOrthoWidth);
+			CachedOwner->Camera->bAutoCalculateOrthoPlanes = false;
+			CachedOwner->SpringArm->SetRelativeRotation(FRotator::ZeroRotator);
+			CachedOwner->SpringArm->bInheritYaw = false;
+		}
+		else if (!bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Perspective)
+		{
+			CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
+			CachedOwner->SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0f, 0.0f));
+			CachedOwner->SpringArm->bInheritYaw = true;
+		}
+	}
 }
 
 void UkdCrushTransitionComponent::HandleTimelineFinished()

@@ -8,7 +8,6 @@
 #include "Player/kdMyPlayer.h"
 #include "GameplayTags/kdGameplayTags.h"
 #include "AbilitySystemComponent.h"
-#include "AbilitySystem/kdAbilitySystemComponent.h"
 
 
 void AkdPlayerController::BeginPlay()
@@ -150,8 +149,10 @@ void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
 #if !UE_BUILD_SHIPPING
 		if (bActivated)
 		{
+			MyPlayerCache->RequestVerticalMove(Value);
 			GEngine->AddOnScreenDebugMessage(INDEX_NONE, 1.0f, FColor::Green, TEXT("ShadowMove Activated"));
 			UE_LOG(LogTemp, Log, TEXT("ShadowMove Activated"));
+			
 		}
 		else
 		{

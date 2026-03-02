@@ -6,6 +6,7 @@
 #include "AbilitySystemComponent.h"
 #include "Player/kdMyPlayer.h"
 #include "Crush/kdCrushTransitionComponent.h"
+#include "Crush/kdCrushStateComponent.h"
 
 
 Ukd_CrushToggle::Ukd_CrushToggle()
@@ -48,11 +49,6 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 #if !UE_BUILD_SHIPPING
         UE_LOG(LogTemp, Warning, TEXT("CrushToggle: CommitAbility failed"));
 #endif
-        return;
-    }
-
-    if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
-    {
         EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
         return;
     }
@@ -96,16 +92,25 @@ void Ukd_CrushToggle::OnTransitionFinished(bool bNewCrushMode)
 
     if (ASC)
     {
-        const FkdGameplayTags& Tags = FkdGameplayTags::Get();
+        const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
 
         // Set final crush mode tag
         if (bNewCrushMode)
-            ASC->AddLooseGameplayTag(Tags.State_CrushMode);
+        {
+            ASC->AddLooseGameplayTag(StateTags.State_CrushMode);
+        }
         else
-            ASC->RemoveLooseGameplayTag(Tags.State_CrushMode);
-
+        {
+            ASC->RemoveLooseGameplayTag(StateTags.State_CrushMode);
+        }
+        
+        AkdMyPlayer* Player = Cast<AkdMyPlayer>(CurrentActorInfo->AvatarActor.Get());
+        if (Player && Player->CrushStateComponent)
+        {
+            Player->CrushStateComponent->ToggleShadowTracking(bNewCrushMode);
+        }
         // Remove transitioning tag
-        ASC->RemoveLooseGameplayTag(Tags.State_Transitioning);
+        ASC->RemoveLooseGameplayTag(StateTags.State_Transitioning);
     }
 
     // Unbind delegate to avoid multiple calls
