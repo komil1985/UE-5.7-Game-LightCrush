@@ -48,7 +48,7 @@ public:
 	//bool bIsTransitioning;		// Prevents spamming the toggle button
 
 	UFUNCTION()
-	void RequestVerticalMove(const FInputActionValue& Value);
+	void RequestVerticalMove();
 
 	UFUNCTION()
 	void RequestCrushToggle();

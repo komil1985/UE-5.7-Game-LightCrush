@@ -13,6 +13,7 @@
 #include "AbilitySystem/kdAttributeSet.h"
 #include "GameplayTags/kdGameplayTags.h"
 #include "AbilitySystem/Abilities/kd_CrushToggle.h"
+#include "AbilitySystem/Abilities/kdShadowMove.h"
 
 AkdMyPlayer::AkdMyPlayer()
 {
@@ -96,9 +97,9 @@ void AkdMyPlayer::RequestCrushToggle()
 	}
 
 	// Fallback: try by tag (if you still want it)
-	FGameplayTagContainer AbilityTag;
-	AbilityTag.AddTag(FkdGameplayTags::Get().Ability_LightCrush);
-	AbilitySystemComponent->TryActivateAbilitiesByTag(AbilityTag);
+	//FGameplayTagContainer AbilityTag;
+	//AbilityTag.AddTag(FkdGameplayTags::Get().Ability_LightCrush);
+	//AbilitySystemComponent->TryActivateAbilitiesByTag(AbilityTag);
 }
 
 void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
@@ -108,21 +109,18 @@ void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 	const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
 	bool bInCrushMode = AbilitySystemComponent->HasMatchingGameplayTag(StateTags.State_CrushMode);
 
-#if UE_BUILD_SHIPPING
-	// Log state
-	UE_LOG(LogTemp, Log, TEXT("OnTransitionFinished - bNewCrushState=%d, bInCrushMode=%d"), bNewCrushState, bInCrushMode);
-#endif
+	if (!bInCrushMode) return;
 
 	// Tell the physics engine to start/stop tracking shadows
-	//if (CrushStateComponent) CrushStateComponent->ToggleShadowTracking(AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode));
-	if (!bInCrushMode) return;
+	if (CrushStateComponent) CrushStateComponent->ToggleShadowTracking(bInCrushMode);
+
 	// Set Plane constraints for 2D movement
 	if (bInCrushMode)
 	{
 		// Align Player to (X) axis
-		FVector NewLocation = GetActorLocation();
-		NewLocation.X = PlaneConstraintXValue;
-		SetActorLocation(NewLocation);
+		//FVector NewLocation = GetActorLocation();
+		//NewLocation.X = PlaneConstraintXValue;
+		//SetActorLocation(NewLocation);
 
 		GetCharacterMovement()->SetPlaneConstraintNormal(PlaneConstraintNormal);
 		GetCharacterMovement()->SetPlaneConstraintEnabled(true);
@@ -131,26 +129,11 @@ void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 	{
 		GetCharacterMovement()->SetPlaneConstraintEnabled(false);
 	}
-
-#if UE_BUILD_SHIPPING
-	// Log final constraint state
-	UE_LOG(LogTemp, Log, TEXT("PlaneConstraintEnabled: %d"), GetCharacterMovement()->GetPlaneConstraintEnabled());
-#endif
 }
 
 void AkdMyPlayer::InitializeAbilitySystem()
 {
-	if (!AbilitySystemComponent)
-	{
-#if !UE_BUILD_SHIPPING
-		UE_LOG(LogTemp, Error, TEXT("InitializeAbilitySystem: No AbilitySystemComponent!"));
-#endif
-		return;
-	}
-
-#if !UE_BUILD_SHIPPING
-	UE_LOG(LogTemp, Log, TEXT("InitializeAbilitySystem: Starting with %d default abilities"), DefaultAbilities.Num());
-#endif
+	if (!AbilitySystemComponent) return;
 
 	// Grant startup abilities (Crush, Jump, etc.)
 	for (TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
@@ -159,35 +142,17 @@ void AkdMyPlayer::InitializeAbilitySystem()
 		{
 			FGameplayAbilitySpec Spec(AbilityClass, 1, INDEX_NONE, this);
 			AbilitySystemComponent->GiveAbility(Spec);
-
-#if !UE_BUILD_SHIPPING
-			UE_LOG(LogTemp, Log, TEXT("Granted ability: %s"), *AbilityClass->GetName());
-#endif
-		}
-		else
-		{
-#if !UE_BUILD_SHIPPING
-			UE_LOG(LogTemp, Warning, TEXT("Found null ability class in DefaultAbilities array"));
-#endif
 		}
 	}
 
 	// List all granted abilities after giving them
 	const TArray<FGameplayAbilitySpec>& Specs = AbilitySystemComponent->GetActivatableAbilities();
-#if !UE_BUILD_SHIPPING
-	UE_LOG(LogTemp, Log, TEXT("Total activatable abilities after grant: %d"), Specs.Num());
-#endif
 	for (const FGameplayAbilitySpec& Spec : Specs)
 	{
 		if (Spec.Ability)
 		{
-			UE_LOG(LogTemp, Log, TEXT(" - Active ability: %s"), *Spec.Ability->GetName());
-
-			// Check if this ability has the LightCrush tag
+			 //Check if this ability has the LightCrush tag
 			const FGameplayTagContainer& AbilityTags = Spec.Ability->AbilityTags;
-#if !UE_BUILD_SHIPPING
-			UE_LOG(LogTemp, Log, TEXT("   Tags: %s"), *AbilityTags.ToStringSimple());
-#endif
 		}
 	}
 
@@ -202,10 +167,16 @@ void AkdMyPlayer::InitializeAbilitySystem()
 	}
 }
  
-void AkdMyPlayer::RequestVerticalMove(const FInputActionValue& Value)
+void AkdMyPlayer::RequestVerticalMove()
 {
-	if (CrushStateComponent)
+/*	if (CrushStateComponent)
 	{
 		CrushStateComponent->HandleVerticalInput(Value.Get<float>());
+	}*/
+
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->TryActivateAbilityByClass(UkdShadowMove::StaticClass());
 	}
+
 }

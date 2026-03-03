@@ -8,6 +8,7 @@
 #include "Player/kdMyPlayer.h"
 #include "GameplayTags/kdGameplayTags.h"
 #include "AbilitySystemComponent.h"
+#include "AbilitySystem/Abilities/kdShadowMove.h"
 
 
 void AkdPlayerController::BeginPlay()
@@ -134,61 +135,19 @@ void AkdPlayerController::CrushToggleRequest()
 	}
 }
 
-void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
+void AkdPlayerController::HandleShadowMovement()
 {
 	if (!MyPlayerCache || !MyASC) return;
 	
 	// Only activate if in crush mode AND in shadow (the ability will also check)
-	if (MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+	if (MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode) && MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_InShadow))
 	{
-		// Try to activate the shadow move ability by tag
-		FGameplayTagContainer AbilityTag;
-		AbilityTag.AddTag(FkdGameplayTags::Get().Ability_ShadowJump);
-		bool bActivated = MyASC->TryActivateAbilitiesByTag(AbilityTag);
-
-#if !UE_BUILD_SHIPPING
-		if (bActivated)
-		{
-			MyPlayerCache->RequestVerticalMove(Value);
-			GEngine->AddOnScreenDebugMessage(INDEX_NONE, 1.0f, FColor::Green, TEXT("ShadowMove Activated"));
-			UE_LOG(LogTemp, Log, TEXT("ShadowMove Activated"));
-			
-		}
-		else
-		{
-			GEngine->AddOnScreenDebugMessage(INDEX_NONE, 1.0f, FColor::Red, TEXT("ShadowMove Failed"));
-			UE_LOG(LogTemp, Warning, TEXT("ShadowMove Failed"));
-		}
-#endif
+		MyPlayerCache->RequestVerticalMove();
+		//MyASC->TryActivateAbilityByClass(UkdShadowMove::StaticClass());
 	}
 }
 
 TObjectPtr<AkdMyPlayer> AkdPlayerController::GetMyPlayer() const
 {
 	return Cast<AkdMyPlayer>(GetPawn());
-}
-
-void AkdPlayerController::DebugToggleCrush()
-{
-	if (MyPlayerCache)
-	{
-		UE_LOG(LogTemp, Log, TEXT("DEBUG: Forcing crush mode toggle"));
-
-		// Directly modify the tag for testing
-		UAbilitySystemComponent* ASC = MyPlayerCache->GetAbilitySystemComponent();
-		if (ASC)
-		{
-			const FkdGameplayTags& MyTags = FkdGameplayTags::Get();
-			if (ASC->HasMatchingGameplayTag(MyTags.State_CrushMode))
-			{
-				ASC->RemoveLooseGameplayTag(MyTags.State_CrushMode);
-				UE_LOG(LogTemp, Log, TEXT("DEBUG: Removed crush mode tag"));
-			}
-			else
-			{
-				ASC->AddLooseGameplayTag(MyTags.State_CrushMode);
-				UE_LOG(LogTemp, Log, TEXT("DEBUG: Added crush mode tag"));
-			}
-		}
-	}
 }

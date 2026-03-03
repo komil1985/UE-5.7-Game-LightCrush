@@ -54,11 +54,10 @@ private:
 
 	void EnhancedSubSystem();
 	void CrushToggleRequest();
-	void HandleShadowMovement(const FInputActionValue& Value);
+	void HandleShadowMovement();
 	
 	TObjectPtr<AkdMyPlayer> GetMyPlayer() const;
 	TObjectPtr<AkdMyPlayer> MyPlayerCache;
 	TObjectPtr<UAbilitySystemComponent> MyASC;
 
-	void DebugToggleCrush();
 };

@@ -65,18 +65,10 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	if (bIsInShadow)
 	{
 		CachedOwner->GetCharacterMovement()->GravityScale = 0.25f;
-		ASC->AddLooseGameplayTag(Tags.State_InShadow);
-#if !UE_BUILD_SHIPPING
-		UE_LOG(LogTemp, Warning, TEXT("Player is in shadow, tag added"));
-#endif
 	}
 	else
 	{
 		CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
-		ASC->RemoveLooseGameplayTag(Tags.State_InShadow);
-#if !UE_BUILD_SHIPPING
-		UE_LOG(LogTemp, Warning, TEXT("Player is not in shadow, tag removed"));
-#endif
 	}
 }
 
@@ -174,16 +166,16 @@ void UkdCrushStateComponent::UpdateShadowPhysics()
 	const FkdGameplayTags& Tags = FkdGameplayTags::Get();
 	bIsInShadow = IsStandingInShadow();
 
-	//if (bIsInShadow)
-	//{
-	//	CachedOwner->GetCharacterMovement()->GravityScale = 0.25f;
-	//	ASC->AddLooseGameplayTag(Tags.State_InShadow);
-	//}
-	//else
-	//{
-	//	CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
-	//	ASC->RemoveLooseGameplayTag(Tags.State_InShadow);
-	//}
+	if (bIsInShadow)
+	{
+		CachedOwner->GetCharacterMovement()->GravityScale = 0.25f;
+		ASC->AddLooseGameplayTag(Tags.State_InShadow);
+	}
+	else
+	{
+		CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
+		ASC->RemoveLooseGameplayTag(Tags.State_InShadow);
+	}
 }
 
 void UkdCrushStateComponent::FindDirectionalLight()

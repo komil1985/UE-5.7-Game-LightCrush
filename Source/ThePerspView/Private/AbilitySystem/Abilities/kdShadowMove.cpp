@@ -23,7 +23,6 @@ UkdShadowMove::UkdShadowMove()
 
 bool UkdShadowMove::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
-    UE_LOG(LogTemp, Log, TEXT("ShadowMove CanActivateAbility called"));
     if (!ActorInfo || !ActorInfo->AbilitySystemComponent.IsValid()) return false;
 
     // Require crush mode and in-shadow tag
@@ -40,7 +39,18 @@ bool UkdShadowMove::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, 
 }
 
 void UkdShadowMove::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
-{
+{    
+    // call into player to perform vertical movement (player handles input)
+    AActor* Avatar = ActorInfo->AvatarActor.Get();
+    AkdMyPlayer* Player = Cast<AkdMyPlayer>(Avatar);
+
+    if (Player && ActorInfo->AbilitySystemComponent.IsValid())
+    {
+        // Launch the player upwards.
+        ActorInfo->AbilitySystemComponent->AddLooseGameplayTag(FkdGameplayTags::Get().Ability_ShadowJump);
+        Player->LaunchCharacter(FVector(0.f, 0.f, 650.f), true, true);
+    }
+
     // Apply cost before committing
     if (ShadowMoveCostEffect)
     {
@@ -51,29 +61,16 @@ void UkdShadowMove::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
         }
     }
 
-    if (!CommitAbility(Handle, ActorInfo, ActivationInfo)) // consumes cost if any
+    if (!Player || !CommitAbility(Handle, ActorInfo, ActivationInfo)) // consumes cost if any
     {
         EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
         return;
     }
 
-    // Example: call into player to perform vertical movement (player handles input)
-    AActor* Avatar = ActorInfo->AvatarActor.Get();
-    AkdMyPlayer* Player = Cast<AkdMyPlayer>(Avatar);
-    if (!Player)
-    {
-        EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-    }
-    
-    // Launch the player upwards.
-    //Player->LaunchCharacter(FVector(0.f, 0.f, 800.f), false, true);
-	Player->CrushStateComponent->HandleVerticalInput(1.0f);
-
     // optionally add a gameplay cue for visual feedback here
 
     // end the ability immediately
-	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+	EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 
 }
 
@@ -83,5 +80,5 @@ void UkdShadowMove::EndAbility(const FGameplayAbilitySpecHandle Handle, const FG
     {
         ActorInfo->AbilitySystemComponent->RemoveLooseGameplayTag(FkdGameplayTags::Get().Ability_ShadowJump);
     }
-    Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+    //Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
