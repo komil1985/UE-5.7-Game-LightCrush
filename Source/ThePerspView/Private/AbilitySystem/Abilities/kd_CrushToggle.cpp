@@ -19,12 +19,6 @@ Ukd_CrushToggle::Ukd_CrushToggle()
     {
         AbilityTags.AddTag(AbilityTag);
     }
-    else
-    {
-#if !UE_BUILD_SHIPPING
-        UE_LOG(LogTemp, Error, TEXT("Ability_LightCrush tag not yet initialized - skipping."));
-#endif
-    }
 
     ActivationBlockedTags.AddTag(FkdGameplayTags::Get().State_Transitioning);
     ActivationBlockedTags.AddTag(FkdGameplayTags::Get().State_Exhausted);
@@ -46,11 +40,20 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 
     if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
     {
-#if !UE_BUILD_SHIPPING
-        UE_LOG(LogTemp, Warning, TEXT("CrushToggle: CommitAbility failed"));
-#endif
         EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
         return;
+    }
+
+    if (ActorInfo->AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode) && CrushDrainEffect)
+    {
+        FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(CrushDrainEffect, GetAbilityLevel());
+        if (SpecHandle.IsValid())
+        {
+            // Store the active effect handle so we can remove it later
+            FActiveGameplayEffectHandle DrainEffectHandle = ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, SpecHandle);
+            // Store this handle in a member variable or tag for later removal
+            // For simplicity, we can add a tag and later remove all effects with that tag.
+        }
     }
 
     UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
@@ -102,6 +105,11 @@ void Ukd_CrushToggle::OnTransitionFinished(bool bNewCrushMode)
         else
         {
             ASC->RemoveLooseGameplayTag(StateTags.State_CrushMode);
+            // Remove all drain effects when exiting crush mode
+            if (CrushDrainEffect)
+            {
+                ASC->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(StateTags.State_CrushMode)); // or a specific tag
+            }
         }
         
         AkdMyPlayer* Player = Cast<AkdMyPlayer>(CurrentActorInfo->AvatarActor.Get());

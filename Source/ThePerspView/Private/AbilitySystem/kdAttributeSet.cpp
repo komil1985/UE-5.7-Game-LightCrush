@@ -24,7 +24,15 @@ void UkdAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
         if (NewStamina <= 0.f)
         {
             ASC->AddLooseGameplayTag(Tags.State_Exhausted);
-            ASC->RemoveLooseGameplayTag(Tags.State_CrushMode);
+            // Remove crush mode tag and cancel any active crush ability
+            if (ASC->HasMatchingGameplayTag(Tags.State_CrushMode))
+            {
+                ASC->RemoveLooseGameplayTag(Tags.State_CrushMode);
+                // Cancel abilities with the crush tag
+                FGameplayTagContainer CrushAbilityTag;
+                CrushAbilityTag.AddTag(Tags.Ability_LightCrush); // assuming this tag is on the crush ability
+                ASC->CancelAbilities(&CrushAbilityTag);
+            }
         }
         else
         {

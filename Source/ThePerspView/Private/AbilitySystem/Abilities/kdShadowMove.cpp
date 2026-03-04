@@ -13,12 +13,16 @@ UkdShadowMove::UkdShadowMove()
     InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
     const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
-    
 
     ActivationRequiredTags.AddTag(StateTags.State_CrushMode);
     ActivationRequiredTags.AddTag(StateTags.State_InShadow);
 
     ActivationBlockedTags.AddTag(StateTags.State_Exhausted);
+
+    // Set the cost effect
+    static ConstructorHelpers::FObjectFinder<UClass> CostEffectClass(TEXT("/Game/ThePerspView/AbilitySystem/Effects/kdShadowDrain")); // adjust path
+    if (CostEffectClass.Succeeded()) CostGameplayEffectClass = CostEffectClass.Object;
+    
 }
 
 bool UkdShadowMove::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
@@ -40,45 +44,35 @@ bool UkdShadowMove::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, 
 
 void UkdShadowMove::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {    
-    // call into player to perform vertical movement (player handles input)
-    AActor* Avatar = ActorInfo->AvatarActor.Get();
-    AkdMyPlayer* Player = Cast<AkdMyPlayer>(Avatar);
 
-    if (Player && ActorInfo->AbilitySystemComponent.IsValid())
-    {
-        // Launch the player upwards.
-        ActorInfo->AbilitySystemComponent->AddLooseGameplayTag(FkdGameplayTags::Get().Ability_ShadowJump);
-        Player->LaunchCharacter(FVector(0.f, 0.f, 650.f), true, true);
-    }
-
-    // Apply cost before committing
-    if (ShadowMoveCostEffect)
-    {
-        FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(ShadowMoveCostEffect, GetAbilityLevel());
-        if (SpecHandle.IsValid())
-        {
-            ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, SpecHandle);
-        }
-    }
-
-    if (!Player || !CommitAbility(Handle, ActorInfo, ActivationInfo)) // consumes cost if any
+    if (!CommitAbility(Handle, ActorInfo, ActivationInfo)) // consumes cost if any
     {
         EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
         return;
     }
 
-    // optionally add a gameplay cue for visual feedback here
+    // call into player to perform vertical movement (player handles input)
+    AActor* Avatar = ActorInfo->AvatarActor.Get();
+    AkdMyPlayer* Player = Cast<AkdMyPlayer>(Avatar);
+
+    if (Player)
+    {
+        // Launch the player upwards.
+        Player->LaunchCharacter(FVector(0.f, 0.f, LaunchZStrength), true, true);
+
+        // optionally add a gameplay cue for visual feedback here
+    }
 
     // end the ability immediately
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-
 }
 
 void UkdShadowMove::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+    Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+    
     if (ActorInfo && ActorInfo->AbilitySystemComponent.IsValid())
     {
         ActorInfo->AbilitySystemComponent->RemoveLooseGameplayTag(FkdGameplayTags::Get().Ability_ShadowJump);
     }
-    //Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

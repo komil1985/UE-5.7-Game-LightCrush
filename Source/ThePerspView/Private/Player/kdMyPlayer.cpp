@@ -95,32 +95,19 @@ void AkdMyPlayer::RequestCrushToggle()
 			return;
 		}
 	}
-
-	// Fallback: try by tag (if you still want it)
-	//FGameplayTagContainer AbilityTag;
-	//AbilityTag.AddTag(FkdGameplayTags::Get().Ability_LightCrush);
-	//AbilitySystemComponent->TryActivateAbilitiesByTag(AbilityTag);
 }
 
 void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 {
 	if (!AbilitySystemComponent) return;
 
-	const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
-	bool bInCrushMode = AbilitySystemComponent->HasMatchingGameplayTag(StateTags.State_CrushMode);
-
-	if (!bInCrushMode) return;
-
-	// Tell the physics engine to start/stop tracking shadows
-	if (CrushStateComponent) CrushStateComponent->ToggleShadowTracking(bInCrushMode);
-
 	// Set Plane constraints for 2D movement
-	if (bInCrushMode)
+	if (bNewCrushState)
 	{
 		// Align Player to (X) axis
-		//FVector NewLocation = GetActorLocation();
-		//NewLocation.X = PlaneConstraintXValue;
-		//SetActorLocation(NewLocation);
+		FVector NewLocation = GetActorLocation();
+		NewLocation.X = PlaneConstraintXValue;
+		SetActorLocation(NewLocation);
 
 		GetCharacterMovement()->SetPlaneConstraintNormal(PlaneConstraintNormal);
 		GetCharacterMovement()->SetPlaneConstraintEnabled(true);
@@ -129,6 +116,8 @@ void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 	{
 		GetCharacterMovement()->SetPlaneConstraintEnabled(false);
 	}
+	// Tell the physics engine to start/stop tracking shadows
+	if (CrushStateComponent) CrushStateComponent->ToggleShadowTracking(bNewCrushState);
 }
 
 void AkdMyPlayer::InitializeAbilitySystem()
@@ -169,14 +158,8 @@ void AkdMyPlayer::InitializeAbilitySystem()
  
 void AkdMyPlayer::RequestVerticalMove()
 {
-/*	if (CrushStateComponent)
-	{
-		CrushStateComponent->HandleVerticalInput(Value.Get<float>());
-	}*/
-
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->TryActivateAbilityByClass(UkdShadowMove::StaticClass());
 	}
-
 }

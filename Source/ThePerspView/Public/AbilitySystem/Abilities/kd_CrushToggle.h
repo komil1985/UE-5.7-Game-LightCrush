@@ -37,5 +37,8 @@ protected:
 
     UPROPERTY()
     TObjectPtr<UkdCrushTransitionComponent> CachedTransitionComp;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Crush")
+    TSubclassOf<UGameplayEffect> CrushDrainEffect;
 	
 };

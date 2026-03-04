@@ -33,8 +33,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
 	float ShadowCheckFrequencyMoving = 0.016f;		// higher frequency when moving
 
-	float LastShadowCheckTime;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
 	float ShadowMoveSpeed = 250.0f;
 
@@ -50,21 +48,21 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-	void UpdateShadowPhysics();
 	void FindDirectionalLight();
 	void ResetPhysicsTo3D();
 
 private:
-	//FTimerHandle ShadowTimerHandle;
 	float TimeSinceLastShadowCheck = 0.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Crush | Lights")
 	TObjectPtr<ADirectionalLight> DirectionalLightActor;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Crush")
+	float CrushGravityScale = 0.25f;
+
 	FVector CachedLightDirection;
 
 	TObjectPtr<AkdMyPlayer> CachedOwner = nullptr;
 
-	bool bCanMoveInShadow = false;
 	bool bIsInShadow = false;
 };

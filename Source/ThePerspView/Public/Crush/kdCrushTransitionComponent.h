@@ -61,12 +61,6 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Crush Settings | Transition")
 	TObjectPtr<UCurveFloat> TransitionCurve;
 
-	UPROPERTY(EditAnywhere, Category = "Crush Settings|Camera")
-	float TargetOrthoWidth = 1000.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Crush Settings|Visuals")
-	FVector CrushScaleTarget = FVector(1.0f, 1.0f, 1.0f);
-
 	// Cache initial values to lerp from
 	FVector InitialScale;
 	FVector TargetScaleCache;

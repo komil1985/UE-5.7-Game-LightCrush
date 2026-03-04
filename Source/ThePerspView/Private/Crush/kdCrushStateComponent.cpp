@@ -24,7 +24,6 @@ void UkdCrushStateComponent::BeginPlay()
 	CachedOwner = Cast<AkdMyPlayer>(GetOwner());
 	FindDirectionalLight();
 
-	LastShadowCheckTime = 0.0f;
 }
 
 void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -33,7 +32,24 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 	if (!CachedOwner || !GetWorld()) return;
 
-	// Determine desired interval based on movement
+	// Only run shadow logic when in crush mode or when moving (to detect entering shadows)
+	UAbilitySystemComponent* ASC = CachedOwner->GetAbilitySystemComponent();
+	if (!ASC) return;
+
+	const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
+	const bool bInCrushMode = ASC->HasMatchingGameplayTag(StateTags.State_CrushMode);
+
+	if (!bInCrushMode)
+	{
+		// Ensure normal gravity and exit early
+		if (CachedOwner->GetCharacterMovement()->GravityScale != 1.0f)
+			CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
+		if(ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
+			ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
+		return;
+	}
+
+	// Adaptive interval based on movement speed
 	const float MovementSpeed = CachedOwner->GetVelocity().Size();
 	const bool bIsMoving = MovementSpeed > 1.0f;
 	const float DesiredInterval = bIsMoving ? ShadowCheckFrequencyMoving : ShadowCheckFrequency;
@@ -41,34 +57,22 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	TimeSinceLastShadowCheck += DeltaTime;
 	if (TimeSinceLastShadowCheck < DesiredInterval)
 		return;
-
 	TimeSinceLastShadowCheck = 0.0f;
 
-	// Only run shadow logic when in crush mode or when moving (to detect entering shadows)
-	UAbilitySystemComponent* ASC = CachedOwner->GetAbilitySystemComponent();
-	if (!ASC) return;
 
-	const FkdGameplayTags& Tags = FkdGameplayTags::Get();
-	const bool bInCrushMode = ASC->HasMatchingGameplayTag(Tags.State_CrushMode);
-
-	if (!bInCrushMode && !bIsMoving)
-	{
-		// Ensure normal gravity and exit early
-		if (CachedOwner->GetCharacterMovement()->GravityScale != 1.0f)
-			CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
-		bIsInShadow = false;
-		return;
-	}
-
+	// Perform shadow check
 	bIsInShadow = IsStandingInShadow();
 
+	// Apply physics changes based on shadow state
 	if (bIsInShadow)
 	{
-		CachedOwner->GetCharacterMovement()->GravityScale = 0.25f;
+		CachedOwner->GetCharacterMovement()->GravityScale = CrushGravityScale;
+		if (!ASC->HasMatchingGameplayTag(StateTags.State_InShadow)) ASC->AddLooseGameplayTag(StateTags.State_InShadow);
 	}
 	else
 	{
 		CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
+		if (ASC->HasMatchingGameplayTag(StateTags.State_InShadow)) ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
 	}
 }
 
@@ -77,10 +81,8 @@ void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 	if (!CachedOwner) return;
 	
 	SetComponentTickEnabled(bEnable);
-	if (!bEnable)
-	{
-		ResetPhysicsTo3D();
-	}
+	if (!bEnable) ResetPhysicsTo3D();
+	
 }
 
 void UkdCrushStateComponent::HandleVerticalInput(float Value)
@@ -90,10 +92,8 @@ void UkdCrushStateComponent::HandleVerticalInput(float Value)
 	// Allow upward movement only if in a shadow
 	if (CachedOwner && CachedOwner->GetAbilitySystemComponent()->HasMatchingGameplayTag(FkdGameplayTags::Get().State_InShadow))
 	{		
-		bCanMoveInShadow = true;
 		CachedOwner->LaunchCharacter(FVector(0, 0, Value * ShadowMoveSpeed), true, true);
 	}
-	bCanMoveInShadow = false;
 }
 
 bool UkdCrushStateComponent::IsStandingInShadow() const
@@ -126,56 +126,6 @@ bool UkdCrushStateComponent::IsStandingInShadow() const
 
 	return bIsHit;
 
-}
-
-void UkdCrushStateComponent::UpdateShadowPhysics()
-{
-	if (!CachedOwner || !GetWorld()) return;
-
-	// Adaptive throttle: compute desired interval based on movement
-	const float CurrentTime = GetWorld()->GetTimeSeconds();
-
-	// Determine if player is moving (small threshold)
-	const float MovementSpeed = CachedOwner->GetVelocity().Size();
-	const bool bIsMoving = MovementSpeed > 1.0f;
-
-	// Choose interval
-	const float DesiredInterval = bIsMoving ? ShadowCheckFrequencyMoving : ShadowCheckFrequency;
-
-	// Skip if called too soon
-	if (CurrentTime - LastShadowCheckTime < DesiredInterval)
-	{
-		return;
-	}
-	LastShadowCheckTime = CurrentTime;
-
-	// Only run shadow logic when in crush mode or when moving and likely to enter shadow
-	UAbilitySystemComponent* ASC = CachedOwner->GetAbilitySystemComponent();
-	if (!ASC) return;
-	if (!ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode) && !bIsMoving)
-	{
-		// If not in crush mode and not moving, ensure physics are normal and skip trace
-		if (CachedOwner->GetCharacterMovement()->GravityScale != 1.0f)
-		{
-			CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
-		}
-		bIsInShadow = false;
-		bCanMoveInShadow = false;
-		return;
-	}
-	const FkdGameplayTags& Tags = FkdGameplayTags::Get();
-	bIsInShadow = IsStandingInShadow();
-
-	if (bIsInShadow)
-	{
-		CachedOwner->GetCharacterMovement()->GravityScale = 0.25f;
-		ASC->AddLooseGameplayTag(Tags.State_InShadow);
-	}
-	else
-	{
-		CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
-		ASC->RemoveLooseGameplayTag(Tags.State_InShadow);
-	}
 }
 
 void UkdCrushStateComponent::FindDirectionalLight()

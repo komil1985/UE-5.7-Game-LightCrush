@@ -39,16 +39,8 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 	UE_LOG(LogTemp, Log, TEXT("StartTransition called with bToCrushMode=%d"), bToCrushMode);
 	//if (!CachedOwner || !TransitionCurve) return;
 
-	if (!CachedOwner)
-	{
-		UE_LOG(LogTemp, Error, TEXT("CachedOwner is null"));
-		return;
-	}
-	if (!TransitionCurve)
-	{
-		UE_LOG(LogTemp, Error, TEXT("TransitionCurve is null. Assign a curve in the component defaults "));
-		return;
-	}
+	if (!CachedOwner) return;
+	if (!TransitionCurve) return;
 
 	bTargetCrushMode = bToCrushMode;
 
@@ -58,18 +50,6 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 	InitialOrthoWidth = CachedOwner->Camera->OrthoWidth;
 	TargetOrthoWidthCache = bTargetCrushMode ? OrthoWidth : InitialOrthoWidth;
 
-	// Set projection mode early to avoid pop (or blend later)
-	//if (bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Orthographic)
-	//{
-	//	CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);
-	//	CachedOwner->Camera->SetOrthoWidth(TargetOrthoWidthCache);
-	//	CachedOwner->Camera->bAutoCalculateOrthoPlanes = false;
-	//}
-	//else if (!bTargetCrushMode && CachedOwner->Camera->ProjectionMode != ECameraProjectionMode::Perspective)
-	//{
-	//	CachedOwner->Camera->SetProjectionMode(ECameraProjectionMode::Perspective);
-	//}
-
 	CrushTimeline->SetPlayRate(1.0f / TransitionDuration);
 	CrushTimeline->PlayFromStart();
 
@@ -77,8 +57,6 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 
 void UkdCrushTransitionComponent::HandleTimelineUpdate(float Value)
 {
-	UE_LOG(LogTemp, Verbose, TEXT("Timeline update: %f"), Value); // Verbose to avoid spam
-
 	if (!CachedOwner) return;
 
 	// In Update Loop
@@ -90,18 +68,6 @@ void UkdCrushTransitionComponent::HandleTimelineUpdate(float Value)
 
 	float NewOrthoWidth = FMath::Lerp(InitialOrthoWidth, TargetOrthoWidthCache, CurveValue);
 	CachedOwner->Camera->SetOrthoWidth(NewOrthoWidth);
-
-	// Optionally adjust spring arm rotation based on mode
-	//if (bTargetCrushMode)
-	//{
-	//	CachedOwner->SpringArm->SetRelativeRotation(FRotator::ZeroRotator);
-	//	CachedOwner->SpringArm->bInheritYaw = false;
-	//}
-	//else
-	//{
-	//	CachedOwner->SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0f, 0.0f));
-	//	CachedOwner->SpringArm->bInheritYaw = true;
-	//}
 
 	// Switch projection at midpoint
 	if (Value >= 0.5f)
@@ -127,7 +93,6 @@ void UkdCrushTransitionComponent::HandleTimelineFinished()
 {
 	if (OnTransitionComplete.IsBound())
 	{
-		UE_LOG(LogTemp, Log, TEXT("Timeline finished, broadcasting OnTransitionComplete"));
 		OnTransitionComplete.Broadcast(bTargetCrushMode);
 	}
 }
