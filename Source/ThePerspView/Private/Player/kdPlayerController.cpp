@@ -6,7 +6,6 @@
 #include "EnhancedInputComponent.h"
 #include "GameFramework/Character.h"
 #include "Player/kdMyPlayer.h"
-#include "GameplayTags/kdGameplayTags.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/Abilities/kdShadowMove.h"
 
@@ -65,7 +64,7 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 	
 	const FVector2D InputAxisVector = InputActionValue.Get<FVector2D>();
 	
-	if (!MyASC || !MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+	if (!MyASC || !MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode))
 	{
 		// Normal 3D Movement
 		const FRotator Rotation = GetControlRotation();
@@ -87,7 +86,7 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 void AkdPlayerController::Look(const FInputActionValue& Value)
 {
 	AkdMyPlayer* MyPlayer = MyPlayerCache;
-	if (!MyPlayer || !MyASC || MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode)) return;			// Do not process look input in 2D mode (Crush mode)
+	if (!MyPlayer || !MyASC || MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode)) return;			// Do not process look input in 2D mode (Crush mode)
 	
 	const FVector2D LookAxisValue = Value.Get<FVector2D>();
 	AddYawInput(LookAxisValue.X);
@@ -98,7 +97,7 @@ void AkdPlayerController::StartJump()
 {
 	if (MyPlayerCache)
 	{
-		if (!MyASC || !MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+		if (!MyASC || !MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode))
 		{
 			MyPlayerCache->Jump();
 		}
@@ -109,7 +108,7 @@ void AkdPlayerController::StopJump()
 {
 	if (MyPlayerCache)
 	{
-		if (!MyASC || !MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+		if (!MyASC || !MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode))
 		{
 			MyPlayerCache->StopJumping();
 		}
@@ -140,10 +139,10 @@ void AkdPlayerController::HandleShadowMovement()
 	if (!MyPlayerCache || !MyASC) return;
 	
 	// Only activate if in crush mode AND in shadow (the ability will also check)
-	if (MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode) && MyASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_InShadow))
+	if (MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode) && MyASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 	{
-		MyPlayerCache->RequestVerticalMove();
-		//MyASC->TryActivateAbilityByClass(UkdShadowMove::StaticClass());
+		//MyPlayerCache->RequestVerticalMove();
+		MyASC->TryActivateAbilityByClass(UkdShadowMove::StaticClass());
 	}
 }
 

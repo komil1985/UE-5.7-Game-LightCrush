@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "GameplayTags/kdGameplayTags.h"
 #include "kdPlayerController.generated.h"
 
 /**
@@ -59,5 +60,7 @@ private:
 	TObjectPtr<AkdMyPlayer> GetMyPlayer() const;
 	TObjectPtr<AkdMyPlayer> MyPlayerCache;
 	TObjectPtr<UAbilitySystemComponent> MyASC;
+
+	const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
 
 };
