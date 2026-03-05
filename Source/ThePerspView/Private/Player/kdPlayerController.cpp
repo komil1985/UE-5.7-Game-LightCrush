@@ -86,7 +86,7 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 void AkdPlayerController::Look(const FInputActionValue& Value)
 {
 	AkdMyPlayer* MyPlayer = MyPlayerCache;
-	if (!MyPlayer || !MyASC || MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode)) return;			// Do not process look input in 2D mode (Crush mode)
+	if (!MyPlayer || !MyASC || MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode)) return;			// look input is not processed in 2D mode (Crush mode)
 	
 	const FVector2D LookAxisValue = Value.Get<FVector2D>();
 	AddYawInput(LookAxisValue.X);
@@ -141,8 +141,7 @@ void AkdPlayerController::HandleShadowMovement()
 	// Only activate if in crush mode AND in shadow (the ability will also check)
 	if (MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode) && MyASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 	{
-		//MyPlayerCache->RequestVerticalMove();
-		MyASC->TryActivateAbilityByClass(UkdShadowMove::StaticClass());
+ 		MyPlayerCache->RequestVerticalMove();
 	}
 }
 

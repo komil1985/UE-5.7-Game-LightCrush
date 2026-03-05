@@ -158,8 +158,20 @@ void AkdMyPlayer::InitializeAbilitySystem()
  
 void AkdMyPlayer::RequestVerticalMove()
 {
-	if (AbilitySystemComponent)
+	//if (AbilitySystemComponent)
+	//{
+	//	AbilitySystemComponent->TryActivateAbilityByClass(UkdShadowMove::StaticClass());
+	//}
+
+	if (!AbilitySystemComponent) return;
+
+	// Find the CrushToggle ability class in the DefaultAbilities array
+	for (TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
 	{
-		AbilitySystemComponent->TryActivateAbilityByClass(UkdShadowMove::StaticClass());
+		if (AbilityClass && AbilityClass->IsChildOf(UkdShadowMove::StaticClass()))
+		{
+			AbilitySystemComponent->TryActivateAbilityByClass(AbilityClass);
+			return;
+		}
 	}
 }

@@ -14,6 +14,8 @@ UkdShadowMove::UkdShadowMove()
 
     const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
 
+	AbilityTags.AddTag(StateTags.Ability_ShadowJump);
+
     ActivationRequiredTags.AddTag(StateTags.State_CrushMode);
     ActivationRequiredTags.AddTag(StateTags.State_InShadow);
 
@@ -55,12 +57,21 @@ void UkdShadowMove::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
     AActor* Avatar = ActorInfo->AvatarActor.Get();
     AkdMyPlayer* Player = Cast<AkdMyPlayer>(Avatar);
 
-    if (Player)
+    const FkdGameplayTags& Tags = FkdGameplayTags::Get();
+
+    if (Player && ActorInfo->AbilitySystemComponent->HasMatchingGameplayTag(Tags.Ability_ShadowJump))
     {
         // Launch the player upwards.
         Player->LaunchCharacter(FVector(0.f, 0.f, LaunchZStrength), true, true);
+        GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green, TEXT("Jump in shadow!"));
+		UE_LOG(LogTemp, Log, TEXT("Player launched with strength: %f"), LaunchZStrength);
 
         // optionally add a gameplay cue for visual feedback here
+    }
+    else
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("Can't jump in shadow!"));
+		UE_LOG(LogTemp, Warning, TEXT("Player does not have the Ability_ShadowJump tag, cannot perform shadow jump."));
     }
 
     // end the ability immediately
@@ -70,9 +81,4 @@ void UkdShadowMove::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
 void UkdShadowMove::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
     Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
-    
-    if (ActorInfo && ActorInfo->AbilitySystemComponent.IsValid())
-    {
-        ActorInfo->AbilitySystemComponent->RemoveLooseGameplayTag(FkdGameplayTags::Get().Ability_ShadowJump);
-    }
 }
