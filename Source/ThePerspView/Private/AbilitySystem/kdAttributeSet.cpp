@@ -23,7 +23,11 @@ void UkdAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 
         if (NewStamina <= 0.f)
         {
-            ASC->AddLooseGameplayTag(Tags.State_Exhausted);
+            if (!ASC->HasMatchingGameplayTag(Tags.State_Exhausted))
+            {
+                ASC->AddLooseGameplayTag(Tags.State_Exhausted);
+            }
+            
             // Remove crush mode tag and cancel any active crush ability
             if (ASC->HasMatchingGameplayTag(Tags.State_CrushMode))
             {
@@ -36,7 +40,10 @@ void UkdAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
         }
         else
         {
-            ASC->RemoveLooseGameplayTag(Tags.State_Exhausted);
+            if (ASC->HasMatchingGameplayTag(Tags.State_Exhausted))
+            {
+                ASC->RemoveLooseGameplayTag(Tags.State_Exhausted);
+            }
         }
     }
 }

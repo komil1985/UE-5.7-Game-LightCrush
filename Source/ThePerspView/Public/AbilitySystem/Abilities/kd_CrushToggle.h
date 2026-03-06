@@ -40,5 +40,8 @@ protected:
 
     UPROPERTY(EditDefaultsOnly, Category = "Crush")
     TSubclassOf<UGameplayEffect> CrushDrainEffect;
+
+private:
+    FActiveGameplayEffectHandle ShadowDrainEffectHandle;
 	
 };

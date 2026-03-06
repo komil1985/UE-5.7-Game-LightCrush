@@ -14,14 +14,20 @@ Ukd_CrushToggle::Ukd_CrushToggle()
     InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
     // Add the ability tag so it can be found by tag activation
-    FGameplayTag AbilityTag = FkdGameplayTags::Get().Ability_LightCrush;
-    if (AbilityTag.IsValid())
+    //FGameplayTag AbilityTag = FkdGameplayTags::Get().Ability_LightCrush;
+    //if (AbilityTag.IsValid())
+    //{
+    //    AbilityTags.AddTag(AbilityTag);
+    //}
+
+	const FkdGameplayTags& Tags = FkdGameplayTags::Get();
+    if (Tags.Ability_LightCrush.IsValid())
     {
-        AbilityTags.AddTag(AbilityTag);
+        AbilityTags.AddTag(Tags.Ability_LightCrush);
     }
 
-    ActivationBlockedTags.AddTag(FkdGameplayTags::Get().State_Transitioning);
-    ActivationBlockedTags.AddTag(FkdGameplayTags::Get().State_Exhausted);
+    ActivationBlockedTags.AddTag(Tags.State_Transitioning);
+    ActivationBlockedTags.AddTag(Tags.State_Exhausted);
 
 }
 
@@ -74,6 +80,16 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 
     bool bTargetCrushMode = !ASC->HasMatchingGameplayTag(Tags.State_CrushMode);
 
+    // --- Apply drain effect when entering crush mode ---
+    if (bTargetCrushMode && CrushDrainEffect)
+    {
+        FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(CrushDrainEffect, GetAbilityLevel());
+        if (SpecHandle.IsValid())
+        {
+            ShadowDrainEffectHandle = ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, SpecHandle);
+        }
+    }
+
     ASC->AddLooseGameplayTag(Tags.State_Transitioning);
 
     if (!CachedTransitionComp->OnTransitionComplete.Contains(this, TEXT("OnTransitionFinished")))
@@ -86,7 +102,31 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 
 void Ukd_CrushToggle::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
-	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+    {
+		const FkdGameplayTags& Tags = FkdGameplayTags::Get();
+        if (ASC->HasMatchingGameplayTag(Tags.State_Transitioning))
+        {
+            ASC->RemoveLooseGameplayTag(Tags.State_Transitioning);
+        }
+    }
+
+    if (CachedTransitionComp)
+    {
+        CachedTransitionComp->OnTransitionComplete.RemoveDynamic(this, &Ukd_CrushToggle::OnTransitionFinished);
+    }
+
+    // Optionally remove drain effect if still active
+    if (ShadowDrainEffectHandle.IsValid())
+    {
+        if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+        {
+            ASC->RemoveActiveGameplayEffect(ShadowDrainEffectHandle);
+        }
+        ShadowDrainEffectHandle.Invalidate();
+    }
+
+    Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
 void Ukd_CrushToggle::OnTransitionFinished(bool bNewCrushMode)
@@ -106,19 +146,25 @@ void Ukd_CrushToggle::OnTransitionFinished(bool bNewCrushMode)
         {
             ASC->RemoveLooseGameplayTag(StateTags.State_CrushMode);
             // Remove all drain effects when exiting crush mode
-            if (CrushDrainEffect)
+            if (ShadowDrainEffectHandle.IsValid())
             {
-                ASC->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(StateTags.State_CrushMode)); // or a specific tag
+                ASC->RemoveActiveGameplayEffect(ShadowDrainEffectHandle);
+                ShadowDrainEffectHandle.Invalidate();
             }
         }
         
+		// Update shadow tracking in player
         AkdMyPlayer* Player = Cast<AkdMyPlayer>(CurrentActorInfo->AvatarActor.Get());
         if (Player && Player->CrushStateComponent)
         {
             Player->CrushStateComponent->ToggleShadowTracking(bNewCrushMode);
         }
-        // Remove transitioning tag
-        ASC->RemoveLooseGameplayTag(StateTags.State_Transitioning);
+        
+        // Remove transitioning tag – but only if we are still the active ability
+        if (ASC->HasMatchingGameplayTag(StateTags.State_Transitioning))
+        {
+            ASC->RemoveLooseGameplayTag(StateTags.State_Transitioning);
+        }
     }
 
     // Unbind delegate to avoid multiple calls

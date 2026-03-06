@@ -59,7 +59,7 @@ void UkdShadowMove::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
 
     const FkdGameplayTags& Tags = FkdGameplayTags::Get();
 
-    if (Player && ActorInfo->AbilitySystemComponent->HasMatchingGameplayTag(Tags.Ability_ShadowJump))
+    if (Player)
     {
         // Launch the player upwards.
         Player->LaunchCharacter(FVector(0.f, 0.f, LaunchZStrength), true, true);
