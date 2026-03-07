@@ -56,11 +56,15 @@ private:
 	void EnhancedSubSystem();
 	void CrushToggleRequest();
 	void HandleShadowMovement();
+	void PrintTags();
 	
 	TObjectPtr<AkdMyPlayer> GetMyPlayer() const;
 	TObjectPtr<AkdMyPlayer> MyPlayerCache;
 	TObjectPtr<UAbilitySystemComponent> MyASC;
 
 	const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
+	
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputAction> DebugPrintTagsAction;
 
 };

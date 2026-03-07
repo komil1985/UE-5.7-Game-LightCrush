@@ -70,6 +70,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Abilities")
 	TArray<TSubclassOf<UGameplayAbility>> DefaultAbilities;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Effects")
+	TSubclassOf<UGameplayEffect> RegenEffectClass;
+
 	/** Initialize GAS (Attributes, Tags) */
 	void InitializeAbilitySystem();
 
@@ -84,8 +87,8 @@ private:
 	UMaterialInterface* CrushPostProcessMaterial; // Assign M_CrushOutline here in Blueprint
 
 	// Dynamic instance so we can fade it in/out
-	UPROPERTY()
-	UMaterialInstanceDynamic* CrushPPInstance;
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UMaterialInstanceDynamic> CrushPPInstance;
 
 	// Weighted blendable to control intensity
 	FWeightedBlendable CrushBlendable;

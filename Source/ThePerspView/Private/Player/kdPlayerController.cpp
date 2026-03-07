@@ -43,6 +43,10 @@ void AkdPlayerController::SetupInputComponent()
 		{
 			EnhancedInputComponent->BindAction(MoveInShadowAction, ETriggerEvent::Triggered, this, &AkdPlayerController::HandleShadowMovement);
 		}
+		if (DebugPrintTagsAction)
+		{
+			EnhancedInputComponent->BindAction(DebugPrintTagsAction, ETriggerEvent::Started, this, &AkdPlayerController::PrintTags);
+		}
 	}
 }
 
@@ -143,6 +147,17 @@ void AkdPlayerController::HandleShadowMovement()
 	{
  		MyPlayerCache->RequestVerticalMove();
 	}
+}
+
+void AkdPlayerController::PrintTags()
+{
+	if (MyPlayerCache && MyPlayerCache->GetAbilitySystemComponent())
+	{
+		FGameplayTagContainer TagsContainer;
+		MyPlayerCache->GetAbilitySystemComponent()->GetOwnedGameplayTags(TagsContainer);
+		UE_LOG(LogTemp, Log, TEXT("Current tags: %s"), *TagsContainer.ToStringSimple());
+	}
+	
 }
 
 TObjectPtr<AkdMyPlayer> AkdPlayerController::GetMyPlayer() const

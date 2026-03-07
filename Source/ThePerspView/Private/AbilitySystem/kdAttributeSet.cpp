@@ -5,8 +5,16 @@
 #include "GameplayTags/kdGameplayTags.h"
 #include "GameplayEffectExtension.h"
 
-UkdAttributeSet::UkdAttributeSet()
+
+UkdAttributeSet::UkdAttributeSet(){}
+
+
+void UkdAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
 {
+    if (Attribute == GetShadowStaminaAttribute())
+    {
+        NewValue = FMath::Clamp(NewValue, 0.f, GetMaxShadowStamina());
+    }
 }
 
 void UkdAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
@@ -15,6 +23,8 @@ void UkdAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
     {
         float NewStamina = FMath::Clamp(ShadowStamina.GetCurrentValue(), 0.f, MaxShadowStamina.GetCurrentValue());
         ShadowStamina.SetCurrentValue(NewStamina);
+
+        UE_LOG(LogTemp, Log, TEXT("Stamina changed to: %f"), NewStamina);
 
         UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent();
         if (!ASC) return;
@@ -45,13 +55,5 @@ void UkdAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
                 ASC->RemoveLooseGameplayTag(Tags.State_Exhausted);
             }
         }
-    }
-}
-
-void UkdAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
-{
-    if (Attribute == GetShadowStaminaAttribute())
-    {
-        NewValue = FMath::Clamp(NewValue, 0.f, GetMaxShadowStamina());
     }
 }

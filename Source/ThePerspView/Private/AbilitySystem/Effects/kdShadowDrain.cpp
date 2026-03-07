@@ -26,4 +26,5 @@ UkdShadowDrain::UkdShadowDrain()
     RequiredTags.AddTag(Tags.State_InShadow);
 
     OngoingTagRequirements.RequireTags = RequiredTags;
+
 }

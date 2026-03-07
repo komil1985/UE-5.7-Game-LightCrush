@@ -91,7 +91,16 @@ void AkdMyPlayer::RequestCrushToggle()
 	{
 		if (AbilityClass && AbilityClass->IsChildOf(Ukd_CrushToggle::StaticClass()))
 		{
-			AbilitySystemComponent->TryActivateAbilityByClass(AbilityClass);
+			FGameplayAbilitySpec* Spec = AbilitySystemComponent->FindAbilitySpecFromClass(AbilityClass);
+			if (Spec)
+			{
+				bool bActivated = AbilitySystemComponent->TryActivateAbility(Spec->Handle);
+				UE_LOG(LogTemp, Log, TEXT("RequestCrushToggle: TryActivateAbility returned %d"), bActivated);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("RequestCrushToggle: Could not find ability spec for class %s"), *AbilityClass->GetName());
+			}
 			return;
 		}
 	}
@@ -154,8 +163,27 @@ void AkdMyPlayer::InitializeAbilitySystem()
 		AttributeSet->SetMaxShadowStamina(100.0f);
 		AttributeSet->SetShadowStamina(100.0f);
 	}
+
+	if (AbilitySystemComponent)
+	{
+		// load or reference your regen effect
+		if (RegenEffectClass)
+		{
+			FGameplayEffectContextHandle EffectContext = AbilitySystemComponent->MakeEffectContext();
+			EffectContext.AddSourceObject(this);
+			FGameplayEffectSpecHandle SpecHandle = AbilitySystemComponent->MakeOutgoingSpec(RegenEffectClass, 1, EffectContext);
+			if (SpecHandle.IsValid())
+			{
+				AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Failed to find GE_ShadowStaminaRegen class!"));
+		}
+	}
 }
- 
+
 void AkdMyPlayer::RequestVerticalMove()
 {
 	//if (AbilitySystemComponent)
