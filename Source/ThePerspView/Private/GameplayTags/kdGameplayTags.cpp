@@ -89,6 +89,15 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.State_Exhausted.ToString());
 #endif
 
+	// Effect Tags
+	GameplayTags.Effect_ShadowDrain = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Effect.ShadowDrain"),
+		FString("Tag applied by the shadow drain effect")
+	);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Effect_ShadowDrain.ToString());
+#endif
+
 	// Interaction Tags
 	GameplayTags.Interact_CrushOnly = UGameplayTagsManager::Get().AddNativeGameplayTag(
 		FName("Interact.CrushOnly"),

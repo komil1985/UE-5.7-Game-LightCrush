@@ -33,6 +33,9 @@ public:
 	FGameplayTag State_InShadow;
 	FGameplayTag State_Exhausted;
 
+	//Effects
+	FGameplayTag Effect_ShadowDrain;
+
 	//Interactions
 	FGameplayTag Interact_CrushOnly;
 

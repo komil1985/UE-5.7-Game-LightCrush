@@ -78,6 +78,12 @@ void AkdMyPlayer::BeginPlay()
 	{
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
 		InitializeAbilitySystem();
+
+		// Bind to tag changes for CrushMode
+		AbilitySystemComponent->RegisterGameplayTagEvent(
+			FkdGameplayTags::Get().State_CrushMode,
+			EGameplayTagEventType::NewOrRemoved
+		).AddUObject(this, &AkdMyPlayer::OnCrushModeTagChanged);
 	}
 
 }
@@ -127,6 +133,20 @@ void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 	}
 	// Tell the physics engine to start/stop tracking shadows
 	if (CrushStateComponent) CrushStateComponent->ToggleShadowTracking(bNewCrushState);
+}
+
+void AkdMyPlayer::OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+{
+	if (NewCount == 0)
+	{
+		// Crush mode was removed – revert to 3D
+		if (CrushTransitionComponent)
+		{
+			CrushTransitionComponent->StartTransition(false);
+		}
+		// Also ensure physics are reset (ToggleShadowTracking will be called when transition finishes)
+		// Optionally, you can force an immediate reset here if needed, but better to let the transition handle it.
+	}
 }
 
 void AkdMyPlayer::InitializeAbilitySystem()

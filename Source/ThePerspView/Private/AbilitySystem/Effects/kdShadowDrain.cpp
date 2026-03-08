@@ -14,11 +14,13 @@ UkdShadowDrain::UkdShadowDrain()
     FGameplayModifierInfo Modifier;
     Modifier.Attribute = UkdAttributeSet::GetShadowStaminaAttribute();
     Modifier.ModifierOp = EGameplayModOp::Additive;
-    Modifier.ModifierMagnitude = FScalableFloat(-5.f);
-
+    Modifier.ModifierMagnitude = FScalableFloat(-1.0f);
     Modifiers.Add(Modifier);
 
     const FkdGameplayTags& Tags = FkdGameplayTags::Get();
+
+    FGameplayTagContainer GrantedTags;
+	GrantedTags.AddTag(Tags.Effect_ShadowDrain);
 
     // Only active while crushing AND in shadow
     FGameplayTagContainer RequiredTags;

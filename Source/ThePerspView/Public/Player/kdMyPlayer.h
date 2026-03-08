@@ -59,6 +59,9 @@ protected:
 	UFUNCTION()
 	void OnTransitionFinished(bool bNewCrushState);
 
+	UFUNCTION()
+	void OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
+
 	/* -- GAS Components -- */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities", meta = (AllowPrivateAccess = true))
 	TObjectPtr<UkdAbilitySystemComponent> AbilitySystemComponent;

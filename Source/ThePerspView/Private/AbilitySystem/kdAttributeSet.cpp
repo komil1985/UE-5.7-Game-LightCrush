@@ -46,6 +46,11 @@ void UkdAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
                 FGameplayTagContainer CrushAbilityTag;
                 CrushAbilityTag.AddTag(Tags.Ability_LightCrush); // assuming this tag is on the crush ability
                 ASC->CancelAbilities(&CrushAbilityTag);
+
+                // Remove the drain effect by its granted tag
+                FGameplayTagContainer DrainTag;
+                DrainTag.AddTag(Tags.Effect_ShadowDrain);
+                ASC->RemoveActiveEffectsWithGrantedTags(DrainTag);
             }
         }
         else
