@@ -107,6 +107,15 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Interact_CrushOnly.ToString());
 #endif
 
+	// Data Tags
+	GameplayTags.Data_StaminaDelta = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Data.StaminaDelta"),
+		FString("Stamina Delta Data Tag")
+	);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Data_StaminaDelta.ToString());
+#endif
+
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("Gameplay tags initialization complete!"));
 #endif

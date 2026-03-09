@@ -44,21 +44,41 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		// Ensure normal gravity and exit early
 		if (CachedOwner->GetCharacterMovement()->GravityScale != 1.0f)
 			CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
-		if(ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
+		if (ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 			ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
 		return;
 	}
 
-	// Adaptive interval based on movement speed
+	// Adaptive interval based on movement speed (stamina handling)
 	const float MovementSpeed = CachedOwner->GetVelocity().Size();
 	const bool bIsMoving = MovementSpeed > 1.0f;
+	float StaminaDelta = 0.0f;
+
+	if (bIsMoving)
+	{
+		TimeSinceLastMove = 0.0f;
+		StaminaDelta = -StaminaDrainRate * DeltaTime;
+	}
+	else
+	{
+		TimeSinceLastMove += DeltaTime;
+		if (TimeSinceLastMove >= RegenDelay)
+		{
+			StaminaDelta = StaminaRegenRate * DeltaTime;
+		}
+	}
+
+	if (!FMath::IsNearlyZero(StaminaDelta))
+	{
+		ApplyStaminaDelta(StaminaDelta);
+	}
+	// --- End stamina handling ---
+
+	// Adaptive interval based on movement speed
 	const float DesiredInterval = bIsMoving ? ShadowCheckFrequencyMoving : ShadowCheckFrequency;
-
 	TimeSinceLastShadowCheck += DeltaTime;
-	if (TimeSinceLastShadowCheck < DesiredInterval)
-		return;
+	if (TimeSinceLastShadowCheck < DesiredInterval) return;
 	TimeSinceLastShadowCheck = 0.0f;
-
 
 	// Perform shadow check
 	bIsInShadow = IsStandingInShadow();
@@ -159,5 +179,25 @@ void UkdCrushStateComponent::ResetPhysicsTo3D()
 	{
 		CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
 		CachedOwner->GetCharacterMovement()->SetPlaneConstraintEnabled(false);
+	}
+}
+
+void UkdCrushStateComponent::ApplyStaminaDelta(float Delta)
+{
+	if (!CachedOwner || !StaminaModEffectClass) return;
+
+	UAbilitySystemComponent* ASC = CachedOwner->GetAbilitySystemComponent();
+	if (!ASC) return;
+
+	FGameplayEffectContextHandle EffectContext = ASC->MakeEffectContext();
+	EffectContext.AddSourceObject(CachedOwner);
+
+	FGameplayEffectSpecHandle SpecHandle = ASC->MakeOutgoingSpec(StaminaModEffectClass, 1, EffectContext);
+	if (SpecHandle.IsValid())
+	{
+		// Use a SetByCaller tag"
+		static FGameplayTag StaminaDeltaTag = FGameplayTag::RequestGameplayTag(FName("Data.StaminaDelta"));
+		SpecHandle.Data->SetSetByCallerMagnitude(StaminaDeltaTag, Delta);
+		ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 	}
 }

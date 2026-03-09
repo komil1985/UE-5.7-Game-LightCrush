@@ -39,6 +39,9 @@ public:
 	//Interactions
 	FGameplayTag Interact_CrushOnly;
 
+	// Datas
+	FGameplayTag Data_StaminaDelta;
+
 private:
 	static FkdGameplayTags GameplayTags;
 };

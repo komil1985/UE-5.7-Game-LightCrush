@@ -19,6 +19,7 @@ class THEPERSPVIEW_API UkdCrushStateComponent : public UActorComponent
 public:	
 	UkdCrushStateComponent();
 
+	// Shadow tracking and movements settings /////////////////////////////////
 	UFUNCTION(BlueprintCallable, Category = "Crush | Physics")
 	void ToggleShadowTracking(bool bEnable);
 
@@ -44,6 +45,21 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
 	float ShadowTraceDistance = 5000.0f;
+	//////////////////////////////////////////////////////////////////////////
+
+	// Stamina handling drain / regen settings ///////////////////////////////
+	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
+	float StaminaDrainRate = 10.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
+	float StaminaRegenRate = 5.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
+	float RegenDelay = 2.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
+	TSubclassOf<UGameplayEffect> StaminaModEffectClass;
+	//////////////////////////////////////////////////////////////////////////
 
 protected:
 	virtual void BeginPlay() override;
@@ -52,17 +68,19 @@ protected:
 	void ResetPhysicsTo3D();
 
 private:
-	float TimeSinceLastShadowCheck = 0.0f;
-
 	UPROPERTY(EditDefaultsOnly, Category = "Crush | Lights")
 	TObjectPtr<ADirectionalLight> DirectionalLightActor;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Crush")
 	float CrushGravityScale = 0.25f;
 
-	FVector CachedLightDirection;
+	UFUNCTION()
+	void ApplyStaminaDelta(float Delta);	// Positive for regen, negative for drain
 
 	TObjectPtr<AkdMyPlayer> CachedOwner = nullptr;
-
+	float TimeSinceLastShadowCheck = 0.0f;
+	float TimeSinceLastMove = 0.0f;
+	FVector CachedLightDirection;
 	bool bIsInShadow = false;
+	
 };

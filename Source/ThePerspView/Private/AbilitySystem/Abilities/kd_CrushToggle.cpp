@@ -80,15 +80,15 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 
     bool bTargetCrushMode = !ASC->HasMatchingGameplayTag(Tags.State_CrushMode);
 
-    // --- Apply drain effect when entering crush mode ---
-    if (bTargetCrushMode && CrushDrainEffect)
-    {
-        FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(CrushDrainEffect, GetAbilityLevel());
-        if (SpecHandle.IsValid())
-        {
-            ShadowDrainEffectHandle = ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, SpecHandle);
-        }
-    }
+    //// --- Apply drain effect when entering crush mode ---
+    //if (bTargetCrushMode && CrushDrainEffect)
+    //{
+    //    FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(CrushDrainEffect, GetAbilityLevel());
+    //    if (SpecHandle.IsValid())
+    //    {
+    //        ShadowDrainEffectHandle = ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, SpecHandle);
+    //    }
+    //}
 
     ASC->AddLooseGameplayTag(Tags.State_Transitioning);
 
@@ -117,14 +117,14 @@ void Ukd_CrushToggle::EndAbility(const FGameplayAbilitySpecHandle Handle, const 
     }
 
     // Optionally remove drain effect if still active
-    if (ShadowDrainEffectHandle.IsValid())
-    {
-        if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
-        {
-            ASC->RemoveActiveGameplayEffect(ShadowDrainEffectHandle);
-        }
-        ShadowDrainEffectHandle.Invalidate();
-    }
+    //if (ShadowDrainEffectHandle.IsValid())
+    //{
+    //    if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+    //    {
+    //        ASC->RemoveActiveGameplayEffect(ShadowDrainEffectHandle);
+    //    }
+    //    ShadowDrainEffectHandle.Invalidate();
+    //}
 
     Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
@@ -146,11 +146,11 @@ void Ukd_CrushToggle::OnTransitionFinished(bool bNewCrushMode)
         {
             ASC->RemoveLooseGameplayTag(StateTags.State_CrushMode);
             // Remove all drain effects when exiting crush mode
-            if (ShadowDrainEffectHandle.IsValid())
-            {
-                ASC->RemoveActiveGameplayEffect(ShadowDrainEffectHandle);
-                ShadowDrainEffectHandle.Invalidate();
-            }
+            //if (ShadowDrainEffectHandle.IsValid())
+            //{
+            //    ASC->RemoveActiveGameplayEffect(ShadowDrainEffectHandle);
+            //    ShadowDrainEffectHandle.Invalidate();
+            //}
         }
         
 		// Update shadow tracking in player
