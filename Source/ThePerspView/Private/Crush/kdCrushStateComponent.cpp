@@ -52,12 +52,18 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	// Adaptive interval based on movement speed (stamina handling)
 	const float MovementSpeed = CachedOwner->GetVelocity().Size();
 	const bool bIsMoving = MovementSpeed > 1.0f;
-	float StaminaDelta = 0.0f;
 
+	// DEBUG
+	UE_LOG(LogTemp, Verbose, TEXT("Tick: Moving=%d, Speed=%f, TimeSinceLastMove=%f"),
+		bIsMoving, MovementSpeed, TimeSinceLastMove);
+
+
+	float StaminaDelta = 0.0f;
 	if (bIsMoving)
 	{
 		TimeSinceLastMove = 0.0f;
 		StaminaDelta = -StaminaDrainRate * DeltaTime;
+		UE_LOG(LogTemp, Verbose, TEXT("  -> Draining: %f"), StaminaDelta);
 	}
 	else
 	{
@@ -65,11 +71,13 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		if (TimeSinceLastMove >= RegenDelay)
 		{
 			StaminaDelta = StaminaRegenRate * DeltaTime;
+			UE_LOG(LogTemp, Verbose, TEXT("  -> Regenerating: %f"), StaminaDelta);
 		}
 	}
 
 	if (!FMath::IsNearlyZero(StaminaDelta))
 	{
+		UE_LOG(LogTemp, Verbose, TEXT("  -> Applying delta: %f"), StaminaDelta);
 		ApplyStaminaDelta(StaminaDelta);
 	}
 	// --- End stamina handling ---

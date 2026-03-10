@@ -14,12 +14,6 @@ Ukd_CrushToggle::Ukd_CrushToggle()
     InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
     // Add the ability tag so it can be found by tag activation
-    //FGameplayTag AbilityTag = FkdGameplayTags::Get().Ability_LightCrush;
-    //if (AbilityTag.IsValid())
-    //{
-    //    AbilityTags.AddTag(AbilityTag);
-    //}
-
 	const FkdGameplayTags& Tags = FkdGameplayTags::Get();
     if (Tags.Ability_LightCrush.IsValid())
     {

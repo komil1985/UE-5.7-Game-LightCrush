@@ -184,24 +184,24 @@ void AkdMyPlayer::InitializeAbilitySystem()
 		AttributeSet->SetShadowStamina(100.0f);
 	}
 
-	if (AbilitySystemComponent)
-	{
-		// load or reference your regen effect
-		if (RegenEffectClass)
-		{
-			FGameplayEffectContextHandle EffectContext = AbilitySystemComponent->MakeEffectContext();
-			EffectContext.AddSourceObject(this);
-			FGameplayEffectSpecHandle SpecHandle = AbilitySystemComponent->MakeOutgoingSpec(RegenEffectClass, 1, EffectContext);
-			if (SpecHandle.IsValid())
-			{
-				AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
-			}
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Failed to find GE_ShadowStaminaRegen class!"));
-		}
-	}
+	//if (AbilitySystemComponent)
+	//{
+	//	// load or reference your regen effect
+	//	if (RegenEffectClass)
+	//	{
+	//		FGameplayEffectContextHandle EffectContext = AbilitySystemComponent->MakeEffectContext();
+	//		EffectContext.AddSourceObject(this);
+	//		FGameplayEffectSpecHandle SpecHandle = AbilitySystemComponent->MakeOutgoingSpec(RegenEffectClass, 1, EffectContext);
+	//		if (SpecHandle.IsValid())
+	//		{
+	//			AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+	//		}
+	//	}
+	//	else
+	//	{
+	//		UE_LOG(LogTemp, Warning, TEXT("Failed to find GE_ShadowStaminaRegen class!"));
+	//	}
+	//}
 }
 
 void AkdMyPlayer::RequestVerticalMove()
