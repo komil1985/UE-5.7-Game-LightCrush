@@ -10,6 +10,7 @@
 #include "Engine/World.h"
 #include "AbilitySystem/kdAbilitySystemComponent.h"
 #include "GameplayTags/kdGameplayTags.h"
+#include "AbilitySystem/kdAttributeSet.h"
 
 UkdCrushStateComponent::UkdCrushStateComponent()
 {
@@ -39,41 +40,43 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
 	const bool bInCrushMode = ASC->HasMatchingGameplayTag(StateTags.State_CrushMode);
 
-	if (!bInCrushMode)
-	{
-		// Ensure normal gravity and exit early
-		if (CachedOwner->GetCharacterMovement()->GravityScale != 1.0f)
-			CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
-		if (ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
-			ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
-		return;
-	}
+	// Adaptive interval based on movement speed (stamina handling -- always run)
+	const float MovementSpeed = CachedOwner->GetVelocity().Size2D();
+	const bool bIsMoving = MovementSpeed > 10.0f;
 
-	// Adaptive interval based on movement speed (stamina handling)
-	const float MovementSpeed = CachedOwner->GetVelocity().Size();
-	const bool bIsMoving = MovementSpeed > 1.0f;
-
-	// DEBUG
-	UE_LOG(LogTemp, Verbose, TEXT("Tick: Moving=%d, Speed=%f, TimeSinceLastMove=%f"),
-		bIsMoving, MovementSpeed, TimeSinceLastMove);
-
-
-	float StaminaDelta = 0.0f;
 	if (bIsMoving)
 	{
 		TimeSinceLastMove = 0.0f;
-		StaminaDelta = -StaminaDrainRate * DeltaTime;
-		UE_LOG(LogTemp, Verbose, TEXT("  -> Draining: %f"), StaminaDelta);
 	}
 	else
 	{
 		TimeSinceLastMove += DeltaTime;
-		if (TimeSinceLastMove >= RegenDelay)
+	}
+
+	float StaminaDelta = 0.0f;
+
+	// Drain stamina only when in crush mode and moving
+	if (bInCrushMode && bIsMoving)
+	{
+		StaminaDelta = -StaminaDrainRate * DeltaTime;
+		UE_LOG(LogTemp, Verbose, TEXT("  -> Draining: %f"), StaminaDelta);
+	}
+	else if (!bIsMoving && TimeSinceLastMove >= RegenDelay)
+	{
+		// Get current stamina values
+		float CurrentStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
+		float MaxStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
+		// Only regen if below max
+		if (CurrentStamina < MaxStamina)
 		{
-			StaminaDelta = StaminaRegenRate * DeltaTime;
+			float DesiredDelta = StaminaRegenRate * DeltaTime;
+			StaminaDelta = FMath::Min(DesiredDelta, MaxStamina - CurrentStamina);
 			UE_LOG(LogTemp, Verbose, TEXT("  -> Regenerating: %f"), StaminaDelta);
 		}
 	}
+
+	// DEBUG
+	UE_LOG(LogTemp, Verbose, TEXT("Tick: Moving=%d, Speed: %f, TimeSinceLastMove: %f, bInCrushMode: %d"), bIsMoving, MovementSpeed, TimeSinceLastMove, bInCrushMode);
 
 	if (!FMath::IsNearlyZero(StaminaDelta))
 	{
@@ -81,6 +84,17 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		ApplyStaminaDelta(StaminaDelta);
 	}
 	// --- End stamina handling ---
+
+	//Shadow and gravity logic(only in crush mode)
+	if (!bInCrushMode)
+	{
+		// Ensure normal gravity and exit early and reset tag
+		if (CachedOwner->GetCharacterMovement()->GravityScale != 1.0f)
+			CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
+		if (ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
+			ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
+		return;
+	}
 
 	// Adaptive interval based on movement speed
 	const float DesiredInterval = bIsMoving ? ShadowCheckFrequencyMoving : ShadowCheckFrequency;
@@ -108,7 +122,7 @@ void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 {
 	if (!CachedOwner) return;
 	
-	SetComponentTickEnabled(bEnable);
+	//SetComponentTickEnabled(bEnable);
 	if (!bEnable) ResetPhysicsTo3D();
 	
 }
@@ -193,6 +207,12 @@ void UkdCrushStateComponent::ResetPhysicsTo3D()
 void UkdCrushStateComponent::ApplyStaminaDelta(float Delta)
 {
 	if (!CachedOwner || !StaminaModEffectClass) return;
+
+	if (!StaminaModEffectClass)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ApplyStaminaDelta: StaminaModEffectClass is not set!"));
+		return;
+	}
 
 	UAbilitySystemComponent* ASC = CachedOwner->GetAbilitySystemComponent();
 	if (!ASC) return;

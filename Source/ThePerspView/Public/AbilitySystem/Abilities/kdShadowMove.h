@@ -33,8 +33,8 @@ public:
         const FGameplayAbilityActivationInfo ActivationInfo,
         bool bReplicateEndAbility, bool bWasCancelled) override;
 
-    UPROPERTY(EditDefaultsOnly, Category = "Costs")
-    TSubclassOf<UGameplayEffect> CostEffectClass;
+    //UPROPERTY(EditDefaultsOnly, Category = "Costs")
+    //TSubclassOf<UGameplayEffect> CostEffectClass;
 
 protected:
     UPROPERTY(EditDefaultsOnly, Category = "ShadowMove")
