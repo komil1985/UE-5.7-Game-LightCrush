@@ -7,7 +7,6 @@
 #include "AbilitySystemInterface.h"
 #include "InputActionValue.h"
 #include "AbilitySystemComponent.h"
-//#include "GameplayEffectTypes.h"
 #include "kdMyPlayer.generated.h"
 
 
@@ -18,6 +17,8 @@ class UkdCrushTransitionComponent;
 class UkdAbilitySystemComponent;
 class UkdAttributeSet;
 class UGameplayAbility;
+class UUserWidget;
+class UWidgetComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
@@ -26,7 +27,7 @@ class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInt
 public:
 	AkdMyPlayer();
 
-	// -- IAbilitySystemInterface --
+	// -- IAbilitySystemInterface -- //
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
@@ -41,11 +42,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UkdCrushTransitionComponent> CrushTransitionComponent;
 
-	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crush | State")
-	//bool bIsCrushMode;		// Crush mode state flag
-
-	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Crush | State")
-	//bool bIsTransitioning;		// Prevents spamming the toggle button
+	// -- User Interface -- //
 
 	UFUNCTION()
 	void RequestVerticalMove();
@@ -95,4 +92,5 @@ private:
 
 	// Weighted blendable to control intensity
 	FWeightedBlendable CrushBlendable;
+
 };

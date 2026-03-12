@@ -14,6 +14,10 @@
 #include "GameplayTags/kdGameplayTags.h"
 #include "AbilitySystem/Abilities/kd_CrushToggle.h"
 #include "AbilitySystem/Abilities/kdShadowMove.h"
+#include "Components/WidgetComponent.h"
+#include "TimerManager.h"
+
+
 
 AkdMyPlayer::AkdMyPlayer()
 {
@@ -46,9 +50,6 @@ AkdMyPlayer::AkdMyPlayer()
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
-
-	//bIsCrushMode = false;
-	//bIsTransitioning = false;
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 	/* -- GAS Setup -- */	
@@ -57,6 +58,9 @@ AkdMyPlayer::AkdMyPlayer()
 	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
 
 	AttributeSet = CreateDefaultSubobject<UkdAttributeSet>(TEXT("AttributeSet"));
+	/*-----------------------------------------------------------------------------------------------------------*/
+
+	/* -- Widget Components -- */
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 }
@@ -73,7 +77,7 @@ void AkdMyPlayer::BeginPlay()
 	// Binding Transition Finished Event
 	if (CrushTransitionComponent)	CrushTransitionComponent->OnTransitionComplete.AddDynamic(this, &AkdMyPlayer::OnTransitionFinished);
 	
-	// Initialize GAS
+	// Initialize AbilitySystem
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
@@ -84,6 +88,7 @@ void AkdMyPlayer::BeginPlay()
 			FkdGameplayTags::Get().State_CrushMode,
 			EGameplayTagEventType::NewOrRemoved
 		).AddUObject(this, &AkdMyPlayer::OnCrushModeTagChanged);
+
 	}
 
 }
@@ -183,34 +188,10 @@ void AkdMyPlayer::InitializeAbilitySystem()
 		AttributeSet->SetMaxShadowStamina(100.0f);
 		AttributeSet->SetShadowStamina(100.0f);
 	}
-
-	//if (AbilitySystemComponent)
-	//{
-	//	// load or reference your regen effect
-	//	if (RegenEffectClass)
-	//	{
-	//		FGameplayEffectContextHandle EffectContext = AbilitySystemComponent->MakeEffectContext();
-	//		EffectContext.AddSourceObject(this);
-	//		FGameplayEffectSpecHandle SpecHandle = AbilitySystemComponent->MakeOutgoingSpec(RegenEffectClass, 1, EffectContext);
-	//		if (SpecHandle.IsValid())
-	//		{
-	//			AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
-	//		}
-	//	}
-	//	else
-	//	{
-	//		UE_LOG(LogTemp, Warning, TEXT("Failed to find GE_ShadowStaminaRegen class!"));
-	//	}
-	//}
 }
 
 void AkdMyPlayer::RequestVerticalMove()
 {
-	//if (AbilitySystemComponent)
-	//{
-	//	AbilitySystemComponent->TryActivateAbilityByClass(UkdShadowMove::StaticClass());
-	//}
-
 	if (!AbilitySystemComponent) return;
 
 	// Find the CrushToggle ability class in the DefaultAbilities array

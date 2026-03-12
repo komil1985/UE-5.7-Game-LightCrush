@@ -14,7 +14,7 @@ UkdShadowDrain::UkdShadowDrain()
     FGameplayModifierInfo Modifier;
     Modifier.Attribute = UkdAttributeSet::GetShadowStaminaAttribute();
     Modifier.ModifierOp = EGameplayModOp::Additive;
-    Modifier.ModifierMagnitude = FScalableFloat(-1.0f);
+    Modifier.ModifierMagnitude = FScalableFloat(-0.1f);
     Modifiers.Add(Modifier);
 
     const FkdGameplayTags& Tags = FkdGameplayTags::Get();
