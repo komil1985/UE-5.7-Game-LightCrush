@@ -38,11 +38,24 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	if (!ASC) return;
 
 	const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
+	if (ASC->HasMatchingGameplayTag(StateTags.State_Transitioning)) return;
 	const bool bInCrushMode = ASC->HasMatchingGameplayTag(StateTags.State_CrushMode);
 
 	// Adaptive interval based on movement speed (stamina handling -- always run)
 	const float MovementSpeed = CachedOwner->GetVelocity().Size2D();
-	const bool bIsMoving = MovementSpeed > 10.0f;
+	const float MovingThreshold = 10.0f;
+	static bool bWasMoving = false;
+
+	if (MovementSpeed > MovingThreshold)
+	{
+		bWasMoving = true;
+	}
+	else if (MovementSpeed < MovingThreshold * 0.5f)
+	{
+		bWasMoving = false;
+	}
+
+	const bool bIsMoving = bWasMoving;
 
 	if (bIsMoving)
 	{
@@ -224,7 +237,8 @@ void UkdCrushStateComponent::ApplyStaminaDelta(float Delta)
 	if (SpecHandle.IsValid())
 	{
 		// Use a SetByCaller tag"
-		static FGameplayTag StaminaDeltaTag = FGameplayTag::RequestGameplayTag(FName("Data.StaminaDelta"));
+		static FGameplayTag StaminaDeltaTag = FkdGameplayTags::Get().Data_StaminaDelta;														//FGameplayTag::RequestGameplayTag(FName("Data.StaminaDelta"));
+		SpecHandle.Data->SetSetByCallerMagnitude(StaminaDeltaTag, Delta);
 		SpecHandle.Data->SetSetByCallerMagnitude(StaminaDeltaTag, Delta);
 		ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 	}

@@ -14,9 +14,6 @@
 #include "GameplayTags/kdGameplayTags.h"
 #include "AbilitySystem/Abilities/kd_CrushToggle.h"
 #include "AbilitySystem/Abilities/kdShadowMove.h"
-#include "Components/WidgetComponent.h"
-#include "TimerManager.h"
-
 
 
 AkdMyPlayer::AkdMyPlayer()
@@ -142,6 +139,11 @@ void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 
 void AkdMyPlayer::OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
 {
+	if (AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_Transitioning))
+	{
+		return;
+	}
+
 	if (NewCount == 0)
 	{
 		// Crush mode was removed – revert to 3D
@@ -151,6 +153,7 @@ void AkdMyPlayer::OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 Ne
 		}
 		// Also ensure physics are reset (ToggleShadowTracking will be called when transition finishes)
 		// Optionally, you can force an immediate reset here if needed, but better to let the transition handle it.
+		
 	}
 }
 
