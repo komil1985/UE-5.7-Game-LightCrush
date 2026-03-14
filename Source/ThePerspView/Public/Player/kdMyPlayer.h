@@ -19,6 +19,7 @@ class UkdAttributeSet;
 class UGameplayAbility;
 class UUserWidget;
 class UWidgetComponent;
+class UkdStaminaWidget;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
@@ -43,6 +44,11 @@ public:
 	TObjectPtr<UkdCrushTransitionComponent> CrushTransitionComponent;
 
 	// -- User Interface -- //
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<UkdStaminaWidget> StaminaWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UkdStaminaWidget> StaminaWidget;
 
 	UFUNCTION()
 	void RequestVerticalMove();

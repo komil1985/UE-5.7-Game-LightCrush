@@ -14,6 +14,7 @@
 #include "GameplayTags/kdGameplayTags.h"
 #include "AbilitySystem/Abilities/kd_CrushToggle.h"
 #include "AbilitySystem/Abilities/kdShadowMove.h"
+#include "UI/Widget/kdStaminaWidget.h"
 
 
 AkdMyPlayer::AkdMyPlayer()
@@ -86,6 +87,17 @@ void AkdMyPlayer::BeginPlay()
 			EGameplayTagEventType::NewOrRemoved
 		).AddUObject(this, &AkdMyPlayer::OnCrushModeTagChanged);
 
+	}
+
+	if (StaminaWidgetClass)
+	{
+		StaminaWidget = CreateWidget<UkdStaminaWidget>(GetWorld(), StaminaWidgetClass);
+
+		if (StaminaWidget)
+		{
+			StaminaWidget->AddToViewport();
+			StaminaWidget->InitializeWithAbilitySystemComponent(AbilitySystemComponent);
+		}
 	}
 
 }
