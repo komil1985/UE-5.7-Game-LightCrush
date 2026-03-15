@@ -88,6 +88,14 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		}
 	}
 
+	// Determine if stamina is currently draining
+	bool bIsDraining = (StaminaDelta < 0.0f);
+	if (bIsDraining != bWasDraining)
+	{
+		bWasDraining = bIsDraining;
+		OnDrainStateChanged.Broadcast(bIsDraining);
+	}
+
 	// DEBUG
 	UE_LOG(LogTemp, Verbose, TEXT("Tick: Moving=%d, Speed: %f, TimeSinceLastMove: %f, bInCrushMode: %d"), bIsMoving, MovementSpeed, TimeSinceLastMove, bInCrushMode);
 

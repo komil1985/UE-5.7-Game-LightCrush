@@ -7,6 +7,8 @@
 #include "Engine/EngineTypes.h"
 #include "kdCrushStateComponent.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDrainStateChanged, bool, bIsDraining);
+
 class ADirectionalLight;
 class UCharacterMovementComponent;
 class AkdMyPlayer;
@@ -59,6 +61,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
 	TSubclassOf<UGameplayEffect> StaminaModEffectClass;
+
+	UPROPERTY(BlueprintAssignable, Category = "Stamina")
+	FOnDrainStateChanged OnDrainStateChanged;
 	//////////////////////////////////////////////////////////////////////////
 
 protected:
@@ -82,5 +87,6 @@ private:
 	float TimeSinceLastMove = 0.0f;
 	FVector CachedLightDirection;
 	bool bIsInShadow = false;
+	bool bWasDraining = false;
 	
 };

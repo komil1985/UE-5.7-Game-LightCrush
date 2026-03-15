@@ -17,9 +17,9 @@ class UkdCrushTransitionComponent;
 class UkdAbilitySystemComponent;
 class UkdAttributeSet;
 class UGameplayAbility;
-class UUserWidget;
 class UWidgetComponent;
 class UkdStaminaWidget;
+class UWidgetComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
@@ -42,13 +42,21 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UkdCrushTransitionComponent> CrushTransitionComponent;
+	/*--------------------------------------------------------------------------*/
 
 	// -- User Interface -- //
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly , Category = "UI")
 	TSubclassOf<UkdStaminaWidget> StaminaWidgetClass;
 
 	UPROPERTY()
 	TObjectPtr<UkdStaminaWidget> StaminaWidget;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
+	TObjectPtr<UWidgetComponent> StaminaWidgetComponent;
+
+	//UFUNCTION()
+	//void OnDrainStateChanged(bool bIsDraining);
+	/*--------------------------------------------------------------------------*/
 
 	UFUNCTION()
 	void RequestVerticalMove();
@@ -71,6 +79,7 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<UkdAttributeSet> AttributeSet;
+	/*--------------------------------------------------------------------------*/
 
 	/* -- Initial Setup -- */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Abilities")
@@ -78,9 +87,11 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Effects")
 	TSubclassOf<UGameplayEffect> RegenEffectClass;
+	/*--------------------------------------------------------------------------*/
 
 	/** Initialize GAS (Attributes, Tags) */
 	void InitializeAbilitySystem();
+	/*--------------------------------------------------------------------------*/
 
 private:
 	UPROPERTY(EditAnywhere, Category = "Crush | Movement")

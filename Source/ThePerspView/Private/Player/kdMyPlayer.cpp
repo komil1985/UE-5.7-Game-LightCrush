@@ -15,6 +15,7 @@
 #include "AbilitySystem/Abilities/kd_CrushToggle.h"
 #include "AbilitySystem/Abilities/kdShadowMove.h"
 #include "UI/Widget/kdStaminaWidget.h"
+#include "Components/WidgetComponent.h"
 
 
 AkdMyPlayer::AkdMyPlayer()
@@ -59,6 +60,10 @@ AkdMyPlayer::AkdMyPlayer()
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 	/* -- Widget Components -- */
+	StaminaWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("StaminaWidgetComponent"));
+	StaminaWidgetComponent->SetupAttachment(GetMesh());
+	StaminaWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 100.0f));
+	StaminaWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 }
@@ -73,7 +78,8 @@ void AkdMyPlayer::BeginPlay()
 	Super::BeginPlay();
 
 	// Binding Transition Finished Event
-	if (CrushTransitionComponent)	CrushTransitionComponent->OnTransitionComplete.AddDynamic(this, &AkdMyPlayer::OnTransitionFinished);
+	if (CrushTransitionComponent) CrushTransitionComponent->OnTransitionComplete.AddDynamic(this, &AkdMyPlayer::OnTransitionFinished);
+	//if (CrushStateComponent) CrushStateComponent->OnDrainStateChanged.AddDynamic(this, &AkdMyPlayer::OnDrainStateChanged);
 	
 	// Initialize AbilitySystem
 	if (AbilitySystemComponent)
@@ -89,17 +95,18 @@ void AkdMyPlayer::BeginPlay()
 
 	}
 
-	if (StaminaWidgetClass)
+	if (StaminaWidgetComponent && StaminaWidgetClass)
 	{
-		StaminaWidget = CreateWidget<UkdStaminaWidget>(GetWorld(), StaminaWidgetClass);
+		StaminaWidgetComponent->SetWidgetClass(StaminaWidgetClass);
+		// Optional: force widget creation if not already created
+		StaminaWidgetComponent->InitWidget();
 
-		if (StaminaWidget)
+		UUserWidget* Widget = StaminaWidgetComponent->GetUserWidgetObject();
+		if (StaminaWidget = Cast<UkdStaminaWidget>(Widget))
 		{
-			StaminaWidget->AddToViewport();
 			StaminaWidget->InitializeWithAbilitySystemComponent(AbilitySystemComponent);
 		}
 	}
-
 }
 
 void AkdMyPlayer::RequestCrushToggle()
@@ -204,6 +211,14 @@ void AkdMyPlayer::InitializeAbilitySystem()
 		AttributeSet->SetShadowStamina(100.0f);
 	}
 }
+
+//void AkdMyPlayer::OnDrainStateChanged(bool bIsDraining)
+//{
+//	if (StaminaWidget)
+//	{
+//		StaminaWidget->SetStaminaBarVisibility(bIsDraining);
+//	}
+//}
 
 void AkdMyPlayer::RequestVerticalMove()
 {

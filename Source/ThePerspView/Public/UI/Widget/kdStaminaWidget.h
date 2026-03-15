@@ -20,6 +20,9 @@ class THEPERSPVIEW_API UkdStaminaWidget : public UUserWidget
 public:
 	void InitializeWithAbilitySystemComponent(UAbilitySystemComponent* ASC);
 
+	UFUNCTION()
+	void SetStaminaBarVisibility(bool bIsVisible);
+
 protected:
 	 UPROPERTY(meta = (BindWidget))
 	 TObjectPtr<UProgressBar> StaminaBar;
@@ -28,6 +31,8 @@ protected:
 	 void OnMaxStaminaChanged(const FOnAttributeChangeData& Data);
 
 private:
+
+	void UpdateVisibility();
 
 	float CurrentStamina;
 	float MaxStamina;
