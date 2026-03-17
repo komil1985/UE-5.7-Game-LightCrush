@@ -20,10 +20,6 @@ UkdShadowMove::UkdShadowMove()
     ActivationRequiredTags.AddTag(StateTags.State_InShadow);
 
     ActivationBlockedTags.AddTag(StateTags.State_Exhausted);
-
-    // Set the cost effect
-    //static ConstructorHelpers::FObjectFinder<UClass> CostEffectClass(TEXT("/Game/ThePerspView/AbilitySystem/Effects/kdShadowDrain")); // adjust path
-    //if (CostEffectClass.Succeeded()) CostGameplayEffectClass = CostEffectClass.Object;
     
 }
 

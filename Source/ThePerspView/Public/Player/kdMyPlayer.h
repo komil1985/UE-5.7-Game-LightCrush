@@ -20,6 +20,7 @@ class UGameplayAbility;
 class UWidgetComponent;
 class UkdStaminaWidget;
 class UWidgetComponent;
+class UStaticMeshComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
@@ -30,7 +31,9 @@ public:
 
 	// -- IAbilitySystemInterface -- //
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+	/*--------------------------------------------------------------------------*/
 
+	// -- Components -- //
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UCameraComponent> Camera;
 
@@ -42,6 +45,12 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UkdCrushTransitionComponent> CrushTransitionComponent;
+
+	UPROPERTY(EditAnywhere, Category = "Components")
+	TObjectPtr<UStaticMeshComponent> EyeLeft;
+
+	UPROPERTY(EditAnywhere, Category = "Components")
+	TObjectPtr<UStaticMeshComponent> EyeRight;
 	/*--------------------------------------------------------------------------*/
 
 	// -- User Interface -- //

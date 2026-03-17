@@ -16,6 +16,7 @@
 #include "AbilitySystem/Abilities/kdShadowMove.h"
 #include "UI/Widget/kdStaminaWidget.h"
 #include "Components/WidgetComponent.h"
+#include "Components/StaticMeshComponent.h"
 
 
 AkdMyPlayer::AkdMyPlayer()
@@ -36,6 +37,14 @@ AkdMyPlayer::AkdMyPlayer()
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 	Camera->bUsePawnControlRotation = false;
+
+	EyeLeft = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("LeftEye"));
+	EyeLeft->SetupAttachment(GetMesh());
+	EyeLeft->SetRelativeLocation(FVector(150.0f, 50.0f, 50.0f));
+
+	EyeRight = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RightEye"));
+	EyeRight->SetupAttachment(GetMesh());
+	EyeRight->SetRelativeLocation(FVector(150.0f, -50.0f, 50.0f));	
 
 	CrushStateComponent = CreateDefaultSubobject<UkdCrushStateComponent>(TEXT("CrushState"));
 	CrushTransitionComponent = CreateDefaultSubobject<UkdCrushTransitionComponent>(TEXT("CrushTransition"));

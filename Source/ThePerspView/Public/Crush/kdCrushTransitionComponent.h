@@ -30,7 +30,7 @@ public:
 	float TransitionDuration = 0.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings | Transition")
-	FVector PlayerCrushScale = FVector(1.0f, 1.0f, 1.0f);
+	FVector PlayerCrushScale = FVector(0.2f, 0.2f, 0.2f);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings | Transition")
 	float OrthoWidth = 1000.0f;

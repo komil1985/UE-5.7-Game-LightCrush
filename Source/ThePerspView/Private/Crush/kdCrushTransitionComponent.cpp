@@ -45,7 +45,7 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 	bTargetCrushMode = bToCrushMode;
 
 	InitialScale = CachedOwner->GetMesh()->GetRelativeScale3D();							// Cache starting scale values
-	TargetScaleCache = bTargetCrushMode ? PlayerCrushScale : FVector(1.0f, 1.0f, 1.0f);		// Determine Target Scale
+	TargetScaleCache = bTargetCrushMode ? PlayerCrushScale : FVector(0.2f, 0.2f, 0.2f);		// Determine Target Scale
 
 	InitialOrthoWidth = CachedOwner->Camera->OrthoWidth;
 	TargetOrthoWidthCache = bTargetCrushMode ? OrthoWidth : InitialOrthoWidth;
