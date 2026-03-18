@@ -59,15 +59,18 @@ void UkdShadowMove::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
     {
         // Launch the player upwards.
         Player->LaunchCharacter(FVector(0.f, 0.f, LaunchZStrength), true, true);
+#if !UE_BUILD_SHIPPING
         GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green, TEXT("Jump in shadow!"));
 		UE_LOG(LogTemp, Log, TEXT("Player launched with strength: %f"), LaunchZStrength);
-
+#endif
         // optionally add a gameplay cue for visual feedback here
     }
     else
     {
+#if !UE_BUILD_SHIPPING
         GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("Can't jump in shadow!"));
 		UE_LOG(LogTemp, Warning, TEXT("Player does not have the Ability_ShadowJump tag, cannot perform shadow jump."));
+#endif
     }
 
     // end the ability immediately

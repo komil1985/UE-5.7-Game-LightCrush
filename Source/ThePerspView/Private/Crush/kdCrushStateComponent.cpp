@@ -247,7 +247,7 @@ void UkdCrushStateComponent::ApplyStaminaDelta(float Delta)
 		// Use a SetByCaller tag"
 		static FGameplayTag StaminaDeltaTag = FkdGameplayTags::Get().Data_StaminaDelta;														//FGameplayTag::RequestGameplayTag(FName("Data.StaminaDelta"));
 		SpecHandle.Data->SetSetByCallerMagnitude(StaminaDeltaTag, Delta);
-		SpecHandle.Data->SetSetByCallerMagnitude(StaminaDeltaTag, Delta);
+		//SpecHandle.Data->SetSetByCallerMagnitude(StaminaDeltaTag, Delta);
 		ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 	}
 }
