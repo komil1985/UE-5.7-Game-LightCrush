@@ -26,7 +26,7 @@ AkdMyPlayer::AkdMyPlayer()
 	/*	--	Components	--	*/
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
-	SpringArm->TargetArmLength = 500.0f;
+	SpringArm->TargetArmLength = 1000.0f;
 	SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0f, 0.0f));
 	SpringArm->bDoCollisionTest = false;
 	SpringArm->bUsePawnControlRotation = true;

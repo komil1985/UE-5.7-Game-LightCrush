@@ -33,7 +33,7 @@ public:
 	FVector PlayerCrushScale = FVector(0.2f, 0.2f, 0.2f);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings | Transition")
-	float OrthoWidth = 1000.0f;
+	float OrthoWidth = 1500.0f;
 
 protected:
 	virtual void BeginPlay() override;
