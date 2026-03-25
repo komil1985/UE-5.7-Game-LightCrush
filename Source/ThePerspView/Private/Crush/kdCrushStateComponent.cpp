@@ -96,7 +96,7 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		OnDrainStateChanged.Broadcast(bIsDraining);
 	}
 
-	// DEBUG
+	//DEBUG
 	UE_LOG(LogTemp, Verbose, TEXT("Tick: Moving=%d, Speed: %f, TimeSinceLastMove: %f, bInCrushMode: %d"), bIsMoving, MovementSpeed, TimeSinceLastMove, bInCrushMode);
 
 	if (!FMath::IsNearlyZero(StaminaDelta))
@@ -143,7 +143,6 @@ void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 {
 	if (!CachedOwner) return;
 	
-	//SetComponentTickEnabled(bEnable);
 	if (!bEnable) ResetPhysicsTo3D();
 	
 }
@@ -247,7 +246,6 @@ void UkdCrushStateComponent::ApplyStaminaDelta(float Delta)
 		// Use a SetByCaller tag"
 		static FGameplayTag StaminaDeltaTag = FkdGameplayTags::Get().Data_StaminaDelta;														//FGameplayTag::RequestGameplayTag(FName("Data.StaminaDelta"));
 		SpecHandle.Data->SetSetByCallerMagnitude(StaminaDeltaTag, Delta);
-		//SpecHandle.Data->SetSetByCallerMagnitude(StaminaDeltaTag, Delta);
 		ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 	}
 }

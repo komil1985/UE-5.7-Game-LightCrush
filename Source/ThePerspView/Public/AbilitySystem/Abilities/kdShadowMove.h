@@ -33,13 +33,10 @@ public:
         const FGameplayAbilityActivationInfo ActivationInfo,
         bool bReplicateEndAbility, bool bWasCancelled) override;
 
-    //UPROPERTY(EditDefaultsOnly, Category = "Costs")
-    //TSubclassOf<UGameplayEffect> CostEffectClass;
-
 protected:
     UPROPERTY(EditDefaultsOnly, Category = "ShadowMove")
     float MinStaminaToActivate = 1.0f;          //Stamina threshold to allow activation
 
     UPROPERTY(EditDefaultsOnly, Category = "ShadowMove")
-    float LaunchZStrength = 250.0f;
+    float LaunchZStrength = 300.0f;
 };

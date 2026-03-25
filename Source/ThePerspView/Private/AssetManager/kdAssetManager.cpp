@@ -11,6 +11,7 @@ UkdAssetManager& UkdAssetManager::Get()
 
 	UkdAssetManager* AssetManager = Cast<UkdAssetManager>(GEngine->AssetManager);
 	return *AssetManager;
+
 }
 
 void UkdAssetManager::StartInitialLoading()

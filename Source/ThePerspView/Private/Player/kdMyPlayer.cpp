@@ -17,6 +17,7 @@
 #include "UI/Widget/kdStaminaWidget.h"
 #include "Components/WidgetComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Crush/kdStaminaManagerComponent.h"
 
 
 AkdMyPlayer::AkdMyPlayer()
@@ -88,7 +89,6 @@ void AkdMyPlayer::BeginPlay()
 
 	// Binding Transition Finished Event
 	if (CrushTransitionComponent) CrushTransitionComponent->OnTransitionComplete.AddDynamic(this, &AkdMyPlayer::OnTransitionFinished);
-	//if (CrushStateComponent) CrushStateComponent->OnDrainStateChanged.AddDynamic(this, &AkdMyPlayer::OnDrainStateChanged);
 	
 	// Initialize AbilitySystem
 	if (AbilitySystemComponent)
@@ -101,7 +101,6 @@ void AkdMyPlayer::BeginPlay()
 			FkdGameplayTags::Get().State_CrushMode,
 			EGameplayTagEventType::NewOrRemoved
 		).AddUObject(this, &AkdMyPlayer::OnCrushModeTagChanged);
-
 	}
 
 	if (StaminaWidgetComponent && StaminaWidgetClass)
@@ -220,14 +219,6 @@ void AkdMyPlayer::InitializeAbilitySystem()
 		AttributeSet->SetShadowStamina(100.0f);
 	}
 }
-
-//void AkdMyPlayer::OnDrainStateChanged(bool bIsDraining)
-//{
-//	if (StaminaWidget)
-//	{
-//		StaminaWidget->SetStaminaBarVisibility(bIsDraining);
-//	}
-//}
 
 void AkdMyPlayer::RequestVerticalMove()
 {

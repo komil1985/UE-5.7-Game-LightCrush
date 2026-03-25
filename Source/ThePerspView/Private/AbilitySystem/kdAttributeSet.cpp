@@ -21,10 +21,12 @@ void UkdAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
 {
     if (Data.EvaluatedData.Attribute == GetShadowStaminaAttribute())
     {
-        float NewStamina = FMath::Clamp(ShadowStamina.GetCurrentValue(), 0.f, MaxShadowStamina.GetCurrentValue());
+        float NewStamina = FMath::Clamp(ShadowStamina.GetCurrentValue(), 0.0f, MaxShadowStamina.GetCurrentValue());
         ShadowStamina.SetCurrentValue(NewStamina);
 
+#if !UE_BUILD_SHIPPING
         UE_LOG(LogTemp, Log, TEXT("Stamina changed to: %f"), NewStamina);
+#endif
 
         UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent();
         if (!ASC) return;
@@ -32,7 +34,7 @@ void UkdAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
         const FkdGameplayTags& Tags = FkdGameplayTags::Get();
 
         if (NewStamina <= 0.f)
-        {
+        {     
             if (!ASC->HasMatchingGameplayTag(Tags.State_Exhausted))
             {
                 ASC->AddLooseGameplayTag(Tags.State_Exhausted);

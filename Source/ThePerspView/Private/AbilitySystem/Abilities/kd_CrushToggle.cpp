@@ -44,18 +44,6 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
         return;
     }
 
-    //if (ActorInfo->AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode) && CrushDrainEffect)
-    //{
-    //    FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(CrushDrainEffect, GetAbilityLevel());
-    //    if (SpecHandle.IsValid())
-    //    {
-    //        // Store the active effect handle so we can remove it later
-    //        FActiveGameplayEffectHandle DrainEffectHandle = ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, SpecHandle);
-    //        // Store this handle in a member variable or tag for later removal
-    //        // For simplicity, we can add a tag and later remove all effects with that tag.
-    //    }
-    //}
-
     UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
     if (!ASC) return;
 
@@ -124,9 +112,8 @@ void Ukd_CrushToggle::EndAbility(const FGameplayAbilitySpecHandle Handle, const 
 void Ukd_CrushToggle::OnTransitionFinished(bool bNewCrushMode)
 {
 	UAbilitySystemComponent* ASC = CurrentActorInfo ? CurrentActorInfo->AbilitySystemComponent.Get() : nullptr;
-
     if (!ASC) return;
-    
+
         const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
 
         // Set final crush mode tag
@@ -150,8 +137,8 @@ void Ukd_CrushToggle::OnTransitionFinished(bool bNewCrushMode)
                 ShadowDrainEffectHandle.Invalidate();
             }
         }
-        
-		// Update shadow tracking in player
+
+        // Update shadow tracking in player
         AkdMyPlayer* Player = Cast<AkdMyPlayer>(CurrentActorInfo->AvatarActor.Get());
         if (Player && Player->CrushStateComponent)
         {

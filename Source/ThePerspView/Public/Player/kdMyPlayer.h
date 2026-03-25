@@ -62,9 +62,6 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
 	TObjectPtr<UWidgetComponent> StaminaWidgetComponent;
-
-	//UFUNCTION()
-	//void OnDrainStateChanged(bool bIsDraining);
 	/*--------------------------------------------------------------------------*/
 
 	UFUNCTION()

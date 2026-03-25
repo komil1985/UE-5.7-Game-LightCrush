@@ -14,4 +14,5 @@ class THEPERSPVIEW_API UkdAbilitySystemComponent : public UAbilitySystemComponen
 {
 	GENERATED_BODY()
 	
+
 };

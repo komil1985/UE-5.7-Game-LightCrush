@@ -1,26 +1,23 @@
 // Copyright ASKD Games
 
 
-#include "AbilitySystem/Effects/kdShadowDrain.h"
+#include "AbilitySystem/Effects/kdShadowRegen.h"
 #include "GameplayTags/kdGameplayTags.h"
 #include "AbilitySystem/kdAttributeSet.h"
 
-UkdShadowDrain::UkdShadowDrain()
+UkdShadowRegen::UkdShadowRegen()
 {
-	DurationPolicy = EGameplayEffectDurationType::Infinite;
+    DurationPolicy = EGameplayEffectDurationType::Infinite;
 
-	Period = 0.2f;		// drain every 0.2 seconds
+    Period = 0.2f;		// drain every 0.2 seconds
 
     FGameplayModifierInfo Modifier;
     Modifier.Attribute = UkdAttributeSet::GetShadowStaminaAttribute();
     Modifier.ModifierOp = EGameplayModOp::Additive;
-    Modifier.ModifierMagnitude = FScalableFloat(-2.0f); // drain 2 per second (0.2s * 0.4 = 0.4 per tick, adjust)
+    Modifier.ModifierMagnitude = FScalableFloat(10.0f); // Regen 10 per second
     Modifiers.Add(Modifier);
 
     const FkdGameplayTags& Tags = FkdGameplayTags::Get();
     OngoingTagRequirements.RequireTags.AddTag(Tags.State_CrushMode);
     OngoingTagRequirements.RequireTags.AddTag(Tags.State_InShadow);
-    // The effect will only be active when both tags are present.
-    // We'll apply it once and let GAS manage it.
-
 }
