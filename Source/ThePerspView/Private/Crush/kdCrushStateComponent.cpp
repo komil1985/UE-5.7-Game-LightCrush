@@ -76,7 +76,7 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	}
 	else if (!bIsMoving && TimeSinceLastMove >= RegenDelay)
 	{
-		// Get current stamina values
+		// Get current and max stamina values
 		float CurrentStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
 		float MaxStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
 		// Only regen if below max
