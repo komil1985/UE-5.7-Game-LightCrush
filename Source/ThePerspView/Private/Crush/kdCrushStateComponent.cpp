@@ -44,8 +44,7 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	// Adaptive interval based on movement speed (stamina handling -- always run)
 	const float MovementSpeed = CachedOwner->GetVelocity().Size2D();
 	const float MovingThreshold = 10.0f;
-	static bool bWasMoving = false;
-
+	
 	if (MovementSpeed > MovingThreshold)
 	{
 		bWasMoving = true;
@@ -226,11 +225,11 @@ void UkdCrushStateComponent::ResetPhysicsTo3D()
 
 void UkdCrushStateComponent::ApplyStaminaDelta(float Delta)
 {
-	if (!CachedOwner || !StaminaModEffectClass) return;
-
-	if (!StaminaModEffectClass)
+	if (!CachedOwner || !StaminaModEffectClass)
 	{
+#if !UE_BUILD_SHIPPING
 		UE_LOG(LogTemp, Warning, TEXT("ApplyStaminaDelta: StaminaModEffectClass is not set!"));
+#endif
 		return;
 	}
 

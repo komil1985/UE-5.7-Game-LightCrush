@@ -9,7 +9,7 @@ UkdShadowRegen::UkdShadowRegen()
 {
     DurationPolicy = EGameplayEffectDurationType::Infinite;
 
-    Period = 0.2f;		// drain every 0.2 seconds
+    Period = 0.2f;		// regen every 0.2 seconds
 
     FGameplayModifierInfo Modifier;
     Modifier.Attribute = UkdAttributeSet::GetShadowStaminaAttribute();

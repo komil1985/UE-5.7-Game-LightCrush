@@ -160,7 +160,7 @@ void AkdPlayerController::PrintTags()
 	
 }
 
-TObjectPtr<AkdMyPlayer> AkdPlayerController::GetMyPlayer() const
-{
-	return Cast<AkdMyPlayer>(GetPawn());
-}
+//TObjectPtr<AkdMyPlayer> AkdPlayerController::GetMyPlayer() const
+//{
+//	return Cast<AkdMyPlayer>(GetPawn());
+//}

@@ -20,6 +20,7 @@ void UkdCrushTransitionComponent::BeginPlay()
 	Super::BeginPlay();
 
 	CachedOwner = CastChecked<AkdMyPlayer>(GetOwner());
+	PlayerOriginalScale = FVector(0.2f, 0.2f, 0.2f);
 
 	if (TransitionCurve)
 	{
@@ -36,8 +37,9 @@ void UkdCrushTransitionComponent::BeginPlay()
 
 void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 {
+#if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("StartTransition called with bToCrushMode=%d"), bToCrushMode);
-	//if (!CachedOwner || !TransitionCurve) return;
+#endif
 
 	if (!CachedOwner) return;
 	if (!TransitionCurve) return;
@@ -45,7 +47,7 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 	bTargetCrushMode = bToCrushMode;
 
 	InitialScale = CachedOwner->GetMesh()->GetRelativeScale3D();							// Cache starting scale values
-	TargetScaleCache = bTargetCrushMode ? PlayerCrushScale : FVector(0.2f, 0.2f, 0.2f);		// Determine Target Scale
+	TargetScaleCache = bTargetCrushMode ? PlayerCrushScale : PlayerOriginalScale;			// Determine Target Scale
 
 	InitialOrthoWidth = CachedOwner->Camera->OrthoWidth;
 	TargetOrthoWidthCache = bTargetCrushMode ? OrthoWidth : InitialOrthoWidth;

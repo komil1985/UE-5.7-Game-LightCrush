@@ -49,8 +49,13 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 
 	AActor* AvatarActor = ActorInfo->AvatarActor.Get();
     AkdMyPlayer* Player = Cast <AkdMyPlayer>(AvatarActor);
-	CachedTransitionComp = Player->CrushTransitionComponent;
-    if (!Player || !CachedTransitionComp)
+    if (!Player)
+    {
+        EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+        return;
+    }
+    CachedTransitionComp = Player->CrushTransitionComponent;
+    if (!CachedTransitionComp)
     {
         EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
         return;

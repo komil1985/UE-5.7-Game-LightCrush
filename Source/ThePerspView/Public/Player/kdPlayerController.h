@@ -58,7 +58,7 @@ private:
 	void HandleShadowMovement();
 	void PrintTags();
 	
-	TObjectPtr<AkdMyPlayer> GetMyPlayer() const;
+	//TObjectPtr<AkdMyPlayer> GetMyPlayer() const;
 	TObjectPtr<AkdMyPlayer> MyPlayerCache;
 	TObjectPtr<UAbilitySystemComponent> MyASC;
 

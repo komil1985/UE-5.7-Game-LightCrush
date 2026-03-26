@@ -88,5 +88,5 @@ private:
 	FVector CachedLightDirection;
 	bool bIsInShadow = false;
 	bool bWasDraining = false;
-	
+	bool bWasMoving = false;
 };
