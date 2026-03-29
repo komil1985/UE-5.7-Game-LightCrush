@@ -7,6 +7,7 @@
 #include "Player/kdMyPlayer.h"
 #include "AbilitySystem/kdAttributeSet.h"
 #include "Crush/kdCrushStateComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 UkdShadowMove::UkdShadowMove()
 {

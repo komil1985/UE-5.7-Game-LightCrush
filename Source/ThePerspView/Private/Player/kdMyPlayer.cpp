@@ -17,7 +17,6 @@
 #include "UI/Widget/kdStaminaWidget.h"
 #include "Components/WidgetComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "Crush/kdStaminaManagerComponent.h"
 
 
 AkdMyPlayer::AkdMyPlayer()

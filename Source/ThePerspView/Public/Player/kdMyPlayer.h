@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "AbilitySystemInterface.h"
-#include "InputActionValue.h"
 #include "AbilitySystemComponent.h"
 #include "kdMyPlayer.generated.h"
 
@@ -21,6 +20,7 @@ class UWidgetComponent;
 class UkdStaminaWidget;
 class UWidgetComponent;
 class UStaticMeshComponent;
+class UMaterialInstanceDynamic;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
@@ -64,6 +64,7 @@ public:
 	TObjectPtr<UWidgetComponent> StaminaWidgetComponent;
 	/*--------------------------------------------------------------------------*/
 
+
 	UFUNCTION()
 	void RequestVerticalMove();
 
@@ -78,6 +79,7 @@ protected:
 
 	UFUNCTION()
 	void OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
+
 
 	/* -- GAS Components -- */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities", meta = (AllowPrivateAccess = true))
@@ -107,7 +109,7 @@ private:
 	float PlaneConstraintXValue = 0.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Crush | Visuals")
-	UMaterialInterface* CrushPostProcessMaterial; // Assign M_CrushOutline here in Blueprint
+	UMaterialInterface* CrushPostProcessMaterial; 
 
 	// Dynamic instance so we can fade it in/out
 	UPROPERTY(EditDefaultsOnly)

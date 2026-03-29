@@ -129,11 +129,13 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	if (bIsInShadow)
 	{
 		CachedOwner->GetCharacterMovement()->GravityScale = CrushGravityScale;
+		CachedOwner->GetCharacterMovement()->MaxWalkSpeed = 200.0f;
 		if (!ASC->HasMatchingGameplayTag(StateTags.State_InShadow)) ASC->AddLooseGameplayTag(StateTags.State_InShadow);
 	}
 	else
 	{
 		CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
+		CachedOwner->GetCharacterMovement()->MaxWalkSpeed = 600.0f;
 		if (ASC->HasMatchingGameplayTag(StateTags.State_InShadow)) ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
 	}
 }
@@ -153,7 +155,7 @@ void UkdCrushStateComponent::HandleVerticalInput(float Value)
 	// Allow upward movement only if in a shadow
 	if (CachedOwner && CachedOwner->GetAbilitySystemComponent()->HasMatchingGameplayTag(FkdGameplayTags::Get().State_InShadow))
 	{		
-		CachedOwner->LaunchCharacter(FVector(0, 0, Value * ShadowMoveSpeed), true, true);
+		CachedOwner->LaunchCharacter(FVector(0, 0, Value * ShadowJumpPower), false, true);
 	}
 }
 

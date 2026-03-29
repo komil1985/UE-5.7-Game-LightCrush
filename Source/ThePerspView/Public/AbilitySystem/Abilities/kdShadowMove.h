@@ -38,5 +38,5 @@ protected:
     float MinStaminaToActivate = 1.0f;          //Stamina threshold to allow activation
 
     UPROPERTY(EditDefaultsOnly, Category = "ShadowMove")
-    float LaunchZStrength = 300.0f;
+    float LaunchZStrength = 200.0f;
 };
