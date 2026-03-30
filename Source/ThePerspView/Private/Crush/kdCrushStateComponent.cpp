@@ -111,6 +111,7 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		// Ensure normal gravity and exit early and reset tag
 		if (CachedOwner->GetCharacterMovement()->GravityScale != 1.0f)
 			CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
+			CachedOwner->GetCharacterMovement()->MaxWalkSpeed = 600.0f;
 		if (ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 			ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
 		return;

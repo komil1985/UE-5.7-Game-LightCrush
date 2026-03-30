@@ -28,11 +28,15 @@ AkdMyPlayer::AkdMyPlayer()
 	SpringArm->SetupAttachment(RootComponent);
 	SpringArm->TargetArmLength = 1000.0f;
 	SpringArm->SetRelativeRotation(FRotator(-30.0f, 0.0f, 0.0f));
-	SpringArm->bDoCollisionTest = false;
+	SpringArm->bDoCollisionTest = true;
+	SpringArm->ProbeSize = 12.0f;
+	SpringArm->ProbeChannel = ECC_Camera;
 	SpringArm->bUsePawnControlRotation = true;
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritRoll = false;
 	SpringArm->bInheritYaw = true;
+	SpringArm->bEnableCameraLag = true;
+	SpringArm->CameraLagSpeed = 10.0f;
 	
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
