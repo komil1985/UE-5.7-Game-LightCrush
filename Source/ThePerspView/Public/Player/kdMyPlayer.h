@@ -8,6 +8,13 @@
 #include "AbilitySystemComponent.h"
 #include "kdMyPlayer.generated.h"
 
+UENUM(BlueprintType)
+enum class ECustomMovementMode : uint8
+{
+	CMOVE_None UMETA(DisplayName = "None"),
+	CMOVE_Shadow2D UMETA(DisplayName = "Shadow 2D"),
+};
+
 
 class UCameraComponent;
 class USpringArmComponent;

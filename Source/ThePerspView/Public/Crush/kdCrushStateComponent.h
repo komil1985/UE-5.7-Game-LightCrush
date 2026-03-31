@@ -47,6 +47,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
 	float ShadowTraceDistance = 5000.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
+	float ShadowMoveSpeed = 300.0f;
 	//////////////////////////////////////////////////////////////////////////
 
 	// Stamina handling drain / regen settings ///////////////////////////////

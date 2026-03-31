@@ -55,7 +55,7 @@ private:
 
 	void EnhancedSubSystem();
 	void CrushToggleRequest();
-	void HandleShadowMovement();
+	void HandleShadowMovement(const FInputActionValue& Value);
 	void PrintTags();
 	
 	//TObjectPtr<AkdMyPlayer> GetMyPlayer() const;
