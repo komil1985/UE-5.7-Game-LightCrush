@@ -17,9 +17,12 @@
 #include "UI/Widget/kdStaminaWidget.h"
 #include "Components/WidgetComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/kdCharacterMovementComponent.h"
 
 
-AkdMyPlayer::AkdMyPlayer()
+AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<UkdCharacterMovementComponent>(
+		ACharacter::CharacterMovementComponentName))
 {
 	PrimaryActorTick.bCanEverTick = false;
 

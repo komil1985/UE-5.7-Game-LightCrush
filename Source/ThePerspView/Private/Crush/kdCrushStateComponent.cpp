@@ -109,9 +109,12 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	if (!bInCrushMode)
 	{
 		// Ensure normal gravity and exit early and reset tag
-		if (CachedOwner->GetCharacterMovement()->GravityScale != 1.0f)
-			CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
-			CachedOwner->GetCharacterMovement()->MaxWalkSpeed = 600.0f;
+		auto* MoveComp = CachedOwner->GetCharacterMovement();
+		if (MoveComp->GravityScale != 1.0f)
+		{
+			MoveComp->GravityScale = 1.0f;
+			MoveComp->MaxWalkSpeed = 600.0f;
+		}
 		if (ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 			ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
 		return;
@@ -166,8 +169,6 @@ void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 	if (!CachedOwner) return;
 	
 	//if (!bEnable) ResetPhysicsTo3D();
-
-	if (!CachedOwner) return;
 
 	UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
 	if (!MoveComp) return;

@@ -44,6 +44,10 @@ void UkdAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
             if (ASC->HasMatchingGameplayTag(Tags.State_CrushMode))
             {
                 ASC->RemoveLooseGameplayTag(Tags.State_CrushMode);
+                if (ASC->HasMatchingGameplayTag(Tags.State_InShadow))
+                {
+                    ASC->RemoveLooseGameplayTag(Tags.State_InShadow);
+                }
                 // Cancel abilities with the crush tag
                 FGameplayTagContainer CrushAbilityTag;
                 CrushAbilityTag.AddTag(Tags.Ability_LightCrush); // assuming this tag is on the crush ability

@@ -55,6 +55,11 @@ void UkdCharacterMovementComponent::PhysShadow2D(float DeltaTime, int32 Iteratio
     // Handle collisions
     if (Hit.IsValidBlockingHit())
     {
+        //SlideAlongSurface(Delta, 1.f - Hit.Time, Hit.Normal, Hit, true);
+        HandleImpact(Hit, DeltaTime, Delta);
         SlideAlongSurface(Delta, 1.f - Hit.Time, Hit.Normal, Hit, true);
+        // Kill velocity component pressing into the surface to avoid sticking
+        Velocity = FVector::VectorPlaneProject(Velocity, Hit.Normal);
+        Velocity = Velocity.GetClampedToMaxSize(MaxFlySpeed);
     }
 }

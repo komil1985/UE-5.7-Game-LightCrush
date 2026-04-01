@@ -34,7 +34,7 @@ class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInt
 	GENERATED_BODY()
 
 public:
-	AkdMyPlayer();
+	AkdMyPlayer(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	// -- IAbilitySystemInterface -- //
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
