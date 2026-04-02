@@ -59,7 +59,8 @@ void UkdShadowMove::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
     if (Player)
     {
         // Launch the player upwards.
-        Player->LaunchCharacter(FVector(0.f, 0.f, LaunchZStrength), false, true);
+        //Player->LaunchCharacter(FVector(0.f, 0.f, LaunchZStrength), false, true);
+        Player->AddMovementInput(FVector(0.f, 0.f, LaunchZStrength), 1.0f, true);
 #if !UE_BUILD_SHIPPING
         GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green, TEXT("Jump in shadow!"));
 		UE_LOG(LogTemp, Log, TEXT("Player launched with strength: %f"), LaunchZStrength);

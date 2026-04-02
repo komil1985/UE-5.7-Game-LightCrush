@@ -141,11 +141,12 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 			// ENTER Shadow 2D movement
 			auto* MoveComp = CachedOwner->GetCharacterMovement();
-			MoveComp->SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_Shadow2D);
+			//MoveComp->SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_Shadow2D);
+			MoveComp->SetMovementMode(MOVE_Flying);
 			MoveComp->Velocity = FVector::ZeroVector;
 			MoveComp->MaxFlySpeed = ShadowMoveSpeed;
 			MoveComp->BrakingDecelerationFlying = ShadowBrakingDeceleration;
-			MoveComp->GravityScale = 0.0f;
+			MoveComp->GravityScale = 0.25f;
 		}
 	}
 	else
@@ -158,7 +159,7 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 			// EXIT Shadow 2D movement (but still in crush mode)
 			auto* MoveComp = CachedOwner->GetCharacterMovement();
-			MoveComp->SetMovementMode(MOVE_Flying); // or WALKING depending on your design
+			MoveComp->SetMovementMode(MOVE_Walking); // or WALKING depending on your design
 			MoveComp->GravityScale = CrushGravityScale;
 		}
 	}

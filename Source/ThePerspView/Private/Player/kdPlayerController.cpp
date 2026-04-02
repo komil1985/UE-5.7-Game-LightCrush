@@ -146,12 +146,11 @@ void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
 	if (MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode) && MyASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 	{
 
- 		//MyPlayerCache->RequestVerticalMove();
-
-		float InputValue = Value.Get<float>();
+ 		MyPlayerCache->RequestVerticalMove();
 
 		// Direct movement input (Z axis)
-		MyPlayerCache->AddMovementInput(FVector::UpVector, InputValue);
+		//float InputValue = Value.Get<float>();
+		//MyPlayerCache->AddMovementInput(FVector::UpVector, InputValue);
 	}
 }
 
