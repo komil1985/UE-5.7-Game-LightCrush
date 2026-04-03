@@ -131,22 +131,25 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 	
 	// Apply physics changes based on shadow state
+	auto* MoveComp = CachedOwner->GetCharacterMovement();
 	if (bIsInShadow)
 	{
 		//CachedOwner->GetCharacterMovement()->GravityScale = CrushGravityScale;
 		//CachedOwner->GetCharacterMovement()->MaxWalkSpeed = 200.0f;
+		
 		if (!ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 		{
 			ASC->AddLooseGameplayTag(StateTags.State_InShadow);
 
 			// ENTER Shadow 2D movement
-			auto* MoveComp = CachedOwner->GetCharacterMovement();
+			//auto* MoveComp = CachedOwner->GetCharacterMovement();
 			//MoveComp->SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_Shadow2D);
-			MoveComp->SetMovementMode(MOVE_Flying);
-			MoveComp->Velocity = FVector::ZeroVector;
-			MoveComp->MaxFlySpeed = ShadowMoveSpeed;
-			MoveComp->BrakingDecelerationFlying = ShadowBrakingDeceleration;
-			MoveComp->GravityScale = 0.25f;
+			//MoveComp->SetMovementMode(MOVE_Flying);
+			//MoveComp->Velocity = FVector::ZeroVector;
+			//MoveComp->MaxFlySpeed = ShadowMoveSpeed;
+			//MoveComp->BrakingDecelerationFlying = ShadowBrakingDeceleration;
+			MoveComp->MaxWalkSpeed = 300.0f;
+			MoveComp->GravityScale = CrushGravityScale;
 		}
 	}
 	else
@@ -158,9 +161,10 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 			ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
 
 			// EXIT Shadow 2D movement (but still in crush mode)
-			auto* MoveComp = CachedOwner->GetCharacterMovement();
-			MoveComp->SetMovementMode(MOVE_Walking); // or WALKING depending on your design
-			MoveComp->GravityScale = CrushGravityScale;
+			//auto* MoveComp = CachedOwner->GetCharacterMovement();
+			//MoveComp->SetMovementMode(MOVE_Walking); // or WALKING depending on your design
+			MoveComp->MaxWalkSpeed = 600.0f;
+			MoveComp->GravityScale = 1.0f;
 		}
 	}
 }
@@ -169,9 +173,9 @@ void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 {
 	if (!CachedOwner) return;
 	
-	//if (!bEnable) ResetPhysicsTo3D();
+	if (!bEnable) ResetPhysicsTo3D();
 
-	UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
+/*	UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
 	if (!MoveComp) return;
 
 	if (bEnable)
@@ -185,7 +189,7 @@ void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 		MoveComp->GravityScale = 1.0f;
 
 		ResetPhysicsTo3D();
-	}
+	}*/
 }
 
 void UkdCrushStateComponent::HandleVerticalInput(float Value)
@@ -261,6 +265,7 @@ void UkdCrushStateComponent::ResetPhysicsTo3D()
 	if (CachedOwner)
 	{
 		CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
+		CachedOwner->GetCharacterMovement()->MaxWalkSpeed = 600.0f;
 		CachedOwner->GetCharacterMovement()->SetPlaneConstraintEnabled(false);
 	}
 }
