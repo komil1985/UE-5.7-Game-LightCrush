@@ -145,12 +145,7 @@ void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
 	// Only activate if in crush mode AND in shadow (the ability will also check)
 	if (MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode) && MyASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 	{
-
  		MyPlayerCache->RequestVerticalMove();
-
-		// Direct movement input (Z axis)
-		//float InputValue = Value.Get<float>();
-		//MyPlayerCache->AddMovementInput(FVector::UpVector, InputValue);
 	}
 }
 
@@ -165,7 +160,3 @@ void AkdPlayerController::PrintTags()
 	
 }
 
-//TObjectPtr<AkdMyPlayer> AkdPlayerController::GetMyPlayer() const
-//{
-//	return Cast<AkdMyPlayer>(GetPawn());
-//}

@@ -71,7 +71,9 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	if (bInCrushMode && bIsMoving)
 	{
 		StaminaDelta = -StaminaDrainRate * DeltaTime;
+#if !UE_BUILD_SHIPPING
 		UE_LOG(LogTemp, Verbose, TEXT("  -> Draining: %f"), StaminaDelta);
+#endif
 	}
 	else if (!bIsMoving && TimeSinceLastMove >= RegenDelay)
 	{
@@ -83,7 +85,9 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		{
 			float DesiredDelta = StaminaRegenRate * DeltaTime;
 			StaminaDelta = FMath::Min(DesiredDelta, MaxStamina - CurrentStamina);
+#if !UE_BUILD_SHIPPING
 			UE_LOG(LogTemp, Verbose, TEXT("  -> Regenerating: %f"), StaminaDelta);
+#endif
 		}
 	}
 
@@ -96,11 +100,14 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	}
 
 	//DEBUG
+#if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Verbose, TEXT("Tick: Moving=%d, Speed: %f, TimeSinceLastMove: %f, bInCrushMode: %d"), bIsMoving, MovementSpeed, TimeSinceLastMove, bInCrushMode);
-
+#endif
 	if (!FMath::IsNearlyZero(StaminaDelta))
 	{
+#if !UE_BUILD_SHIPPING
 		UE_LOG(LogTemp, Verbose, TEXT("  -> Applying delta: %f"), StaminaDelta);
+#endif
 		ApplyStaminaDelta(StaminaDelta);
 	}
 	// --- End stamina handling ---
@@ -117,6 +124,7 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		}
 		if (ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 			ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
+		SetComponentTickEnabled(false);
 		return;
 	}
 
@@ -133,35 +141,23 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	// Apply physics changes based on shadow state
 	auto* MoveComp = CachedOwner->GetCharacterMovement();
 	if (bIsInShadow)
-	{
-		//CachedOwner->GetCharacterMovement()->GravityScale = CrushGravityScale;
-		//CachedOwner->GetCharacterMovement()->MaxWalkSpeed = 200.0f;
-		
+	{		
 		if (!ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 		{
 			ASC->AddLooseGameplayTag(StateTags.State_InShadow);
 
 			// ENTER Shadow 2D movement
-			//auto* MoveComp = CachedOwner->GetCharacterMovement();
-			//MoveComp->SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_Shadow2D);
-			//MoveComp->SetMovementMode(MOVE_Flying);
-			//MoveComp->Velocity = FVector::ZeroVector;
-			//MoveComp->MaxFlySpeed = ShadowMoveSpeed;
-			//MoveComp->BrakingDecelerationFlying = ShadowBrakingDeceleration;
 			MoveComp->MaxWalkSpeed = 300.0f;
 			MoveComp->GravityScale = CrushGravityScale;
 		}
 	}
 	else
 	{
-		//CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
-		//CachedOwner->GetCharacterMovement()->MaxWalkSpeed = 600.0f;
 		if (ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 		{
 			ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
 
 			// EXIT Shadow 2D movement (but still in crush mode)
-			//auto* MoveComp = CachedOwner->GetCharacterMovement();
 			//MoveComp->SetMovementMode(MOVE_Walking); // or WALKING depending on your design
 			MoveComp->MaxWalkSpeed = 600.0f;
 			MoveComp->GravityScale = 1.0f;
@@ -175,21 +171,6 @@ void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 	
 	if (!bEnable) ResetPhysicsTo3D();
 
-/*	UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
-	if (!MoveComp) return;
-
-	if (bEnable)
-	{
-		// Enter shadow tracking system (2D mode logic will decide when to switch)
-	}
-	else
-	{
-		// EXIT shadow system → ALWAYS reset movement mode
-		MoveComp->SetMovementMode(MOVE_Walking);
-		MoveComp->GravityScale = 1.0f;
-
-		ResetPhysicsTo3D();
-	}*/
 }
 
 void UkdCrushStateComponent::HandleVerticalInput(float Value)
@@ -197,10 +178,10 @@ void UkdCrushStateComponent::HandleVerticalInput(float Value)
 	if (FMath::IsNearlyZero(Value)) return;
 
 	// Allow upward movement only if in a shadow
-	if (CachedOwner && CachedOwner->GetAbilitySystemComponent()->HasMatchingGameplayTag(FkdGameplayTags::Get().State_InShadow))
-	{		
-		CachedOwner->LaunchCharacter(FVector(0, 0, Value * ShadowJumpPower), false, true);
-	}
+	//if (CachedOwner && CachedOwner->GetAbilitySystemComponent()->HasMatchingGameplayTag(FkdGameplayTags::Get().State_InShadow))
+	//{		
+	//	CachedOwner->LaunchCharacter(FVector(0, 0, Value * ShadowJumpPower), false, true);
+	//}
 }
 
 bool UkdCrushStateComponent::IsStandingInShadow() const
