@@ -37,5 +37,6 @@ private:
 	float CurrentStamina;
 	float MaxStamina;
 
+	UPROPERTY()
 	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
 };

@@ -124,7 +124,7 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		}
 		if (ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 			ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
-		SetComponentTickEnabled(false);
+		//SetComponentTickEnabled(false);
 		return;
 	}
 
@@ -170,6 +170,22 @@ void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 	if (!CachedOwner) return;
 	
 	if (!bEnable) ResetPhysicsTo3D();
+
+	//if (bEnable)
+	//{
+	//	// Enable tick and reset shadow check timer
+	//	SetComponentTickEnabled(true);
+	//	TimeSinceLastShadowCheck = 0.0f;
+	//	// Re-find directional light (in case it changed or wasn't found before)
+	//	FindDirectionalLight();
+	//	UE_LOG(LogTemp, Log, TEXT("CrushStateComponent: Shadow tracking ENABLED"));
+	//}
+	//else
+	//{
+	//	ResetPhysicsTo3D();
+	//	SetComponentTickEnabled(false);
+	//	UE_LOG(LogTemp, Log, TEXT("CrushStateComponent: Shadow tracking DISABLED"));
+	//}
 
 }
 

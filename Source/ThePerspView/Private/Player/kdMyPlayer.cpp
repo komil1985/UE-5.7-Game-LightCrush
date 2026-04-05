@@ -136,11 +136,15 @@ void AkdMyPlayer::RequestCrushToggle()
 			if (Spec)
 			{
 				bool bActivated = AbilitySystemComponent->TryActivateAbility(Spec->Handle);
+#if !UE_BUILD_SHIPPING
 				UE_LOG(LogTemp, Log, TEXT("RequestCrushToggle: TryActivateAbility returned %d"), bActivated);
+#endif
 			}
 			else
 			{
+#if !UE_BUILD_SHIPPING
 				UE_LOG(LogTemp, Warning, TEXT("RequestCrushToggle: Could not find ability spec for class %s"), *AbilityClass->GetName());
+#endif
 			}
 			return;
 		}

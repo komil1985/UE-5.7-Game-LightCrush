@@ -85,7 +85,9 @@ private:
 	UFUNCTION()
 	void ApplyStaminaDelta(float Delta);	// Positive for regen, negative for drain
 
+	UPROPERTY()
 	TObjectPtr<AkdMyPlayer> CachedOwner = nullptr;
+
 	float TimeSinceLastShadowCheck = 0.0f;
 	float TimeSinceLastMove = 0.0f;
 	FVector CachedLightDirection;
