@@ -139,16 +139,18 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 	
 	// Apply physics changes based on shadow state
-	auto* MoveComp = CachedOwner->GetCharacterMovement();
+	UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
 	if (bIsInShadow)
 	{		
 		if (!ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 		{
 			ASC->AddLooseGameplayTag(StateTags.State_InShadow);
 
-			// ENTER Shadow 2D movement
-			MoveComp->MaxWalkSpeed = 300.0f;
-			MoveComp->GravityScale = CrushGravityScale;
+			// ENTER Shadow 2D movement, Switch to custom 2D shadow physics — gravity OFF, free vertical movement
+			MoveComp->SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_Shadow2D);
+			MoveComp->GravityScale = 0.0f;
+			MoveComp->MaxFlySpeed = ShadowMoveSpeed;
+			MoveComp->MaxWalkSpeed = ShadowMoveSpeed;
 		}
 	}
 	else
@@ -158,7 +160,7 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 			ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
 
 			// EXIT Shadow 2D movement (but still in crush mode)
-			//MoveComp->SetMovementMode(MOVE_Walking); // or WALKING depending on your design
+			MoveComp->SetMovementMode(MOVE_Walking);
 			MoveComp->MaxWalkSpeed = 600.0f;
 			MoveComp->GravityScale = 1.0f;
 		}
@@ -170,23 +172,6 @@ void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 	if (!CachedOwner) return;
 	
 	if (!bEnable) ResetPhysicsTo3D();
-
-	//if (bEnable)
-	//{
-	//	// Enable tick and reset shadow check timer
-	//	SetComponentTickEnabled(true);
-	//	TimeSinceLastShadowCheck = 0.0f;
-	//	// Re-find directional light (in case it changed or wasn't found before)
-	//	FindDirectionalLight();
-	//	UE_LOG(LogTemp, Log, TEXT("CrushStateComponent: Shadow tracking ENABLED"));
-	//}
-	//else
-	//{
-	//	ResetPhysicsTo3D();
-	//	SetComponentTickEnabled(false);
-	//	UE_LOG(LogTemp, Log, TEXT("CrushStateComponent: Shadow tracking DISABLED"));
-	//}
-
 }
 
 void UkdCrushStateComponent::HandleVerticalInput(float Value)
@@ -259,12 +244,14 @@ void UkdCrushStateComponent::FindDirectionalLight()
 
 void UkdCrushStateComponent::ResetPhysicsTo3D()
 {
-	if (CachedOwner)
-	{
-		CachedOwner->GetCharacterMovement()->GravityScale = 1.0f;
-		CachedOwner->GetCharacterMovement()->MaxWalkSpeed = 600.0f;
-		CachedOwner->GetCharacterMovement()->SetPlaneConstraintEnabled(false);
-	}
+	if (!CachedOwner) return;
+	
+	UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
+	
+	MoveComp->SetMovementMode(MOVE_Walking);
+	MoveComp->GravityScale = 1.0f;
+	MoveComp->MaxWalkSpeed = 600.0f;
+	MoveComp->SetPlaneConstraintEnabled(false);
 }
 
 void UkdCrushStateComponent::ApplyStaminaDelta(float Delta)

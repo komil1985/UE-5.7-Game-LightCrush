@@ -72,8 +72,8 @@ public:
 	/*--------------------------------------------------------------------------*/
 
 
-	UFUNCTION()
-	void RequestVerticalMove();
+	//UFUNCTION()
+	//void RequestVerticalMove();
 
 	UFUNCTION()
 	void RequestCrushToggle();

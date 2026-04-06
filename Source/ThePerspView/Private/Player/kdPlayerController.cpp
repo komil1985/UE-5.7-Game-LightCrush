@@ -39,10 +39,10 @@ void AkdPlayerController::SetupInputComponent()
 		{
 			EnhancedInputComponent->BindAction(CrushAction, ETriggerEvent::Started, this, &AkdPlayerController::CrushToggleRequest);
 		}
-		if (MoveInShadowAction)
-		{
-			EnhancedInputComponent->BindAction(MoveInShadowAction, ETriggerEvent::Triggered, this, &AkdPlayerController::HandleShadowMovement);
-		}
+		//if (MoveInShadowAction)
+		//{
+		//	EnhancedInputComponent->BindAction(MoveInShadowAction, ETriggerEvent::Triggered, this, &AkdPlayerController::HandleShadowMovement);
+		//}
 		if (DebugPrintTagsAction)
 		{
 			EnhancedInputComponent->BindAction(DebugPrintTagsAction, ETriggerEvent::Started, this, &AkdPlayerController::PrintTags);
@@ -82,7 +82,8 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 	}
 	else
 	{
-		MyPlayerCache->AddMovementInput(FVector(0.f, 1.f, 0.f), InputAxisVector.X);
+		MyPlayerCache->AddMovementInput(FVector(0.0f, 1.0f, 0.0f), InputAxisVector.X);
+		MyPlayerCache->AddMovementInput(FVector(0.0f, 0.0f, 1.0f), InputAxisVector.Y);
 	}
 	
 }
@@ -99,12 +100,14 @@ void AkdPlayerController::Look(const FInputActionValue& Value)
 
 void AkdPlayerController::StartJump()
 {
-	if (MyPlayerCache)
+	if (!MyPlayerCache) return;
+
+	// Block jump entirely in Crush Mode (covers both crush-wandering and in-shadow states)
+    // State_InShadow is always a sub-state of State_CrushMode, so one check is sufficient
+	const bool bJumpBlocked = MyASC && MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode);
+	if (!bJumpBlocked)
 	{
-		if (!MyASC || !MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode))
-		{
-			MyPlayerCache->Jump();
-		}
+		MyPlayerCache->Jump();
 	}
 }
 
@@ -138,16 +141,16 @@ void AkdPlayerController::CrushToggleRequest()
 	}
 }
 
-void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
-{
-	if (!MyPlayerCache || !MyASC) return;
-	
-	// Only activate if in crush mode AND in shadow (the ability will also check)
-	if (MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode) && MyASC->HasMatchingGameplayTag(StateTags.State_InShadow))
-	{
- 		MyPlayerCache->RequestVerticalMove();
-	}
-}
+//void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
+//{
+//	if (!MyPlayerCache || !MyASC) return;
+//	
+//	// Only activate if in crush mode AND in shadow (the ability will also check)
+//	if (MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode) && MyASC->HasMatchingGameplayTag(StateTags.State_InShadow))
+//	{
+// 		MyPlayerCache->RequestVerticalMove();
+//	}
+//}
 
 void AkdPlayerController::PrintTags()
 {
