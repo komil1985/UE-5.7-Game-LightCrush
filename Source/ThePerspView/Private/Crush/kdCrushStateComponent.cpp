@@ -42,7 +42,7 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	const bool bInCrushMode = ASC->HasMatchingGameplayTag(StateTags.State_CrushMode);
 
 	// Adaptive interval based on movement speed (stamina handling -- always run)
-	const float MovementSpeed = CachedOwner->GetVelocity().Size2D();
+	const float MovementSpeed = CachedOwner->GetVelocity().Size();
 	const float MovingThreshold = 10.0f;
 	
 	if (MovementSpeed > MovingThreshold)
