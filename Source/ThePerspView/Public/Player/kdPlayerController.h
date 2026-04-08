@@ -42,6 +42,12 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> CrushAction;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputAction> DashAction;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputAction> InteractAction;
 	/*-----------------------------------------------------------------*/
 
 protected:
@@ -52,6 +58,8 @@ private:
 	void Look(const FInputActionValue& Value);
 	void StartJump();
 	void StopJump();
+	void Interact();
+	void ShadowDash();
 
 	void EnhancedSubSystem();
 	void CrushToggleRequest();

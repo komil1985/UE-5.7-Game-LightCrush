@@ -71,12 +71,17 @@ public:
 	TObjectPtr<UWidgetComponent> StaminaWidgetComponent;
 	/*--------------------------------------------------------------------------*/
 
-
-	//UFUNCTION()
-	//void RequestVerticalMove();
-
+	/** Called by the controller on Dash input. Finds and activates UkdCrushToggle. */
 	UFUNCTION()
 	void RequestCrushToggle();
+
+	/** Called by the controller on Interact input. Sphere-overlaps for IkdInteractable actors. */
+	UFUNCTION()
+	void RequestInteract();
+
+	/** Called by the controller on Dash input. Finds and activates UkdShadowDash. */
+	UFUNCTION()
+	void RequestShadowDash();
 
 protected:
 	virtual void BeginPlay() override;

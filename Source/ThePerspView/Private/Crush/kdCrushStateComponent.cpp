@@ -128,6 +128,9 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		return;
 	}
 
+	// Refresh cached light direction every tick so rotating lights move shadows in real time
+	if (DirectionalLightActor) CachedLightDirection = -DirectionalLightActor->GetActorForwardVector();
+
 	// Adaptive interval based on movement speed
 	const float DesiredInterval = bIsMoving ? ShadowCheckFrequencyMoving : ShadowCheckFrequency;
 	TimeSinceLastShadowCheck += DeltaTime;

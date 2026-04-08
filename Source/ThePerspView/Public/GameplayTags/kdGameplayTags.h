@@ -22,6 +22,7 @@ public:
 	FGameplayTag Ability_LightCrush;
 	FGameplayTag Ability_ShadowJump;
 	FGameplayTag Ability_Block_Crush;
+	FGameplayTag Ability_ShadowDash;
 
 	//Attributes
 	FGameplayTag Attribute_ShadowStamina;
@@ -32,6 +33,8 @@ public:
 	FGameplayTag State_Transitioning;
 	FGameplayTag State_InShadow;
 	FGameplayTag State_Exhausted;
+	FGameplayTag State_Dashing;
+	FGameplayTag State_EnemyContact;
 
 	//Effects
 	FGameplayTag Effect_ShadowDrain;
@@ -41,6 +44,7 @@ public:
 
 	// Datas
 	FGameplayTag Data_StaminaDelta;
+
 
 private:
 	static FkdGameplayTags GameplayTags;

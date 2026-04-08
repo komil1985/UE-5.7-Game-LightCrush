@@ -8,10 +8,12 @@ FkdGameplayTags FkdGameplayTags::GameplayTags;
 
 void FkdGameplayTags::InitializeNativeGameplayTags()
 {
+	// Tags Manager
 	UGameplayTagsManager& TagManager = UGameplayTagsManager::Get();
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("Initializing native gameplay tags..."));
 #endif
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Attributes Tags
 	GameplayTags.Attribute_ShadowStamina = UGameplayTagsManager::Get().AddNativeGameplayTag(
@@ -29,7 +31,7 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Attribute_MaxShadowStamina.ToString());
 #endif
-
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Abilities Tags
 	GameplayTags.Ability_LightCrush = UGameplayTagsManager::Get().AddNativeGameplayTag(
@@ -52,9 +54,16 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 		FName("Ability.Block.Crush"),
 		FString("Ability to block crush mode")
 	);
+
+	GameplayTags.Ability_ShadowDash = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Ability.ShadowDash"),
+		FString("Ability to dash while in shadow")
+	);
+
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Ability_Block_Crush.ToString());
 #endif
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// States Tags
 	GameplayTags.State_CrushMode = UGameplayTagsManager::Get().AddNativeGameplayTag(
@@ -85,9 +94,21 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 		FName("State.Exhausted"),
 		FString("Player stamina depleted")
 	);
+
+	GameplayTags.State_Dashing = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("State.Dashing"),
+		FString("Player is in dash cooldown / blocks / re-activation")
+	);
+
+	GameplayTags.State_EnemyContact = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("State.EnemyContact"),
+		FString("Player is in contact with an enemy")
+	);
+
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.State_Exhausted.ToString());
 #endif
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Effect Tags
 	GameplayTags.Effect_ShadowDrain = UGameplayTagsManager::Get().AddNativeGameplayTag(
@@ -97,6 +118,7 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Effect_ShadowDrain.ToString());
 #endif
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Interaction Tags
 	GameplayTags.Interact_CrushOnly = UGameplayTagsManager::Get().AddNativeGameplayTag(
@@ -106,12 +128,15 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Interact_CrushOnly.ToString());
 #endif
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Data Tags
 	GameplayTags.Data_StaminaDelta = UGameplayTagsManager::Get().AddNativeGameplayTag(
 		FName("Data.StaminaDelta"),
 		FString("Stamina Delta Data Tag")
 	);
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Data_StaminaDelta.ToString());
 #endif

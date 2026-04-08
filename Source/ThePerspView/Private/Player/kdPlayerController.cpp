@@ -39,10 +39,16 @@ void AkdPlayerController::SetupInputComponent()
 		{
 			EnhancedInputComponent->BindAction(CrushAction, ETriggerEvent::Started, this, &AkdPlayerController::CrushToggleRequest);
 		}
-		//if (MoveInShadowAction)
-		//{
-		//	EnhancedInputComponent->BindAction(MoveInShadowAction, ETriggerEvent::Triggered, this, &AkdPlayerController::HandleShadowMovement);
-		//}
+		if (InteractAction)
+		{
+			EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started,
+				this, &AkdPlayerController::Interact);
+		}
+		if (DashAction)
+		{
+			EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Started,
+				this, &AkdPlayerController::ShadowDash);
+		}
 		if (DebugPrintTagsAction)
 		{
 			EnhancedInputComponent->BindAction(DebugPrintTagsAction, ETriggerEvent::Started, this, &AkdPlayerController::PrintTags);
@@ -120,6 +126,16 @@ void AkdPlayerController::StopJump()
 			MyPlayerCache->StopJumping();
 		}
 	}
+}
+
+void AkdPlayerController::Interact()
+{
+	if (MyPlayerCache) MyPlayerCache->RequestInteract();
+}
+
+void AkdPlayerController::ShadowDash()
+{
+	if (MyPlayerCache) MyPlayerCache->RequestShadowDash();
 }
 
 void AkdPlayerController::EnhancedSubSystem()
