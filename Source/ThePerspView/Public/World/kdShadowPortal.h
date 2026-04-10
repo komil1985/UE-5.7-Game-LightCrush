@@ -37,7 +37,7 @@ public:
 	 * spawn inside the destination trigger sphere. Default pushes forward (+Y).
 	 */
 	UPROPERTY(EditDefaultsOnly, Category = "Portal")
-	FVector ExitOffset = FVector(0.f, 150.f, 0.f);
+	FVector ExitOffset = FVector(0.f, 0.f, 150.f);
 
 	/** Seconds both portals are disabled after a teleport. */
 	UPROPERTY(EditDefaultsOnly, Category = "Portal", meta = (ClampMin = "0.1"))
@@ -51,6 +51,20 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+	// ── Crush Mode Visibility ─────────────────────────────────────────────────
+
+	/**
+	 * Registered on the player's ASC in BeginPlay.
+	 * Shows/hides the portal whenever State.CrushMode is added or removed.
+	 */
+	UFUNCTION()
+	void OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
+
+	/** Shows mesh + enables trigger. Called when CrushMode is active. */
+	void SetPortalActive(bool bActive);
+
+	// ── Teleport ──────────────────────────────────────────────────────────────
+
 	UFUNCTION()
 	void OnTriggerBeginOverlap (UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 

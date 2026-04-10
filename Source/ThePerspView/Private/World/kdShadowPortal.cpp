@@ -8,6 +8,7 @@
 #include "AbilitySystemComponent.h"
 #include "GameplayTags/kdGameplayTags.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 AkdShadowPortal::AkdShadowPortal()
 {
@@ -22,6 +23,11 @@ AkdShadowPortal::AkdShadowPortal()
 	TriggerSphere->SetSphereRadius(80.f);
 	TriggerSphere->SetCollisionProfileName(TEXT("OverlapAll"));
 	TriggerSphere->SetGenerateOverlapEvents(true);
+
+	// Portal starts completely hidden and inactive.
+	// SetPortalActive(true) is called when the player enters CrushMode.
+	SetActorHiddenInGame(true);
+	SetActorEnableCollision(false);
 }
 
 void AkdShadowPortal::BeginPlay()
@@ -29,6 +35,49 @@ void AkdShadowPortal::BeginPlay()
 	Super::BeginPlay();
 	
 	TriggerSphere->OnComponentBeginOverlap.AddDynamic(this, &AkdShadowPortal::OnTriggerBeginOverlap);
+
+	// Find the local player and register a tag-change callback so the portal
+	// appears and disappears in sync with CrushMode — no polling needed.
+	AkdMyPlayer* Player = Cast<AkdMyPlayer>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
+
+	if (Player)
+	{
+		UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent();
+		if (ASC)
+		{
+			ASC->RegisterGameplayTagEvent(FkdGameplayTags::Get().State_CrushMode,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AkdShadowPortal::OnCrushModeTagChanged);
+
+			// Sync immediately in case the player is already in CrushMode
+			// (e.g. portal placed in a level that starts in 2D).
+			const bool bAlreadyCrushing = ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode);
+			SetPortalActive(bAlreadyCrushing);
+		}
+	}
+}
+
+void AkdShadowPortal::OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+{
+	// ── Crush Mode Visibility ─────────────────────────────────────────────────────
+	// NewCount > 0  → CrushMode just became active   → show portal
+	// NewCount == 0 → CrushMode was just removed      → hide portal
+	SetPortalActive(NewCount > 0);
+}
+
+void AkdShadowPortal::SetPortalActive(bool bActive)
+{
+	SetActorHiddenInGame(!bActive);
+	SetActorEnableCollision(bActive);
+
+	// Also reset teleport state when hiding so stale cooldowns don't persist
+	if (!bActive)
+	{
+		bCanTeleport = true;
+		GetWorldTimerManager().ClearTimer(CooldownTimerHandle);
+	}
+
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("ShadowPortal [%s]: SetPortalActive=%d"),*GetName(), bActive);
+#endif
 }
 
 void AkdShadowPortal::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -43,8 +92,7 @@ void AkdShadowPortal::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedComp,
 
 	// Portals are shadow-plane only
 	const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
-	if (!ASC->HasMatchingGameplayTag(StateTags.State_CrushMode) ||
-		!ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
+	if (!ASC->HasMatchingGameplayTag(StateTags.State_CrushMode) || !ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 	{
 		return;
 	}
@@ -53,8 +101,7 @@ void AkdShadowPortal::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedComp,
 	// Place the player at the linked portal's location offset by ExitOffset
 	// (in the linked portal's local space, so the exit direction is always correct).
 	const FVector ExitWorldLocation =
-		LinkedPortal->GetActorLocation() +
-		LinkedPortal->GetActorRotation().RotateVector(LinkedPortal->ExitOffset);
+		LinkedPortal->GetActorLocation() + LinkedPortal->GetActorRotation().RotateVector(LinkedPortal->ExitOffset);
 
 	// ETeleportType::TeleportPhysics: moves actor without triggering sweep collisions,
 	// which prevents the player from getting stuck in a wall mid-teleport.
