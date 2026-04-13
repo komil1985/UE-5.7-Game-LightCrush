@@ -35,12 +35,19 @@ void UkdCharacterMovementComponent::ApplyShadowDashImpulse(float Strength)
 
 	if (DashDir.IsNearlyZero())
 	{
-		DashDir = Velocity;
+		DashDir = FVector(0.f, Acceleration.Y, Acceleration.Z);
 		DashDir.X = 0.f;
 		DashDir = DashDir.GetSafeNormal();
 	}
 
 	// Still no direction — player is completely stationary with no prior input
+	if (DashDir.IsNearlyZero())
+	{
+		DashDir = FVector(0.f, Velocity.Y, Velocity.Z);
+		DashDir.X = 0.f;
+		DashDir = DashDir.GetSafeNormal();
+	}
+
 	if (DashDir.IsNearlyZero()) return;
 
 	// Override (don't add to) velocity so the burst is always a predictable speed
@@ -65,12 +72,12 @@ void UkdCharacterMovementComponent::PhysShadow2D(float DeltaTime, int32 Iteratio
 	if (bHasInput)
 	{
 		// Cache direction for dash fallback — persists after input stops
-		LastShadowInputDirection = (ShadowAccel / AccelSize); // already X=0
+		LastShadowInputDirection = ShadowAccel.GetSafeNormal();
+		LastShadowInputDirection.X = 0.0f;
 
 		// Normalise then re-scale by our own acceleration value so diagonal
 		// movement never exceeds the same speed as cardinal movement
 		ShadowAccel = LastShadowInputDirection * ShadowAcceleration;
-
 		Velocity += ShadowAccel * DeltaTime;
 		Velocity = Velocity.GetClampedToMaxSize(ShadowMaxSpeed);
 	}

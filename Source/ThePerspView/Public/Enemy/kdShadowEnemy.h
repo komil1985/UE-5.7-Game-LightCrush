@@ -7,6 +7,8 @@
 #include "kdShadowEnemy.generated.h"
 
 class UGameplayEffect;
+class USphereComponent;
+class AkdMyPlayer;
 UCLASS()
 class THEPERSPVIEW_API AkdShadowEnemy : public ACharacter
 {
@@ -39,50 +41,65 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat")
 	TSubclassOf<UGameplayEffect> ContactEffectClass;
 
-	/** Cooldown between successive hits so one overlap doesn't drain instantly. */
 	UPROPERTY(EditDefaultsOnly, Category = "Combat", meta = (ClampMin = "0.1"))
-	float ContactCooldown = 1.f;
+	float DamageTickRate = 1.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Combat")
+	TObjectPtr<USphereComponent> DamageSphere;
 
 private:
+	TWeakObjectPtr<AkdMyPlayer> OverlappingPlayer;
+
 	// Patrol state
 	FVector PatrolPointA;
 	FVector PatrolPointB;
-	bool    bMovingToB = true;
-
-	// Contact cooldown
-	bool          bCanDamage = true;
-	FTimerHandle  DamageCooldownHandle;
+	bool bMovingToB = true;
 
 	UFUNCTION()
-	void OnCapsuleBeginOverlap(
+	void TryApplyContactDamage();
+
+	FTimerHandle DamageTickHandle;
+
+	UFUNCTION()
+	void OnDamageSphereBeginOverlap(
 		UPrimitiveComponent* OverlappedComp,
 		AActor* OtherActor,
 		UPrimitiveComponent* OtherComp,
-		int32                OtherBodyIndex,
-		bool                 bFromSweep,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
 		const FHitResult& SweepResult);
 
 	UFUNCTION()
-	void ResetDamageCooldown();
+	void OnDamageSphereEndOverlap(
+		UPrimitiveComponent* OverlappedComp, 
+		AActor* OtherActor,	
+		UPrimitiveComponent* OtherComp, 
+		int32 OtherBodyIndex);
 };
 
 
-// AkdShadowEnemy — a simple patrol character that lives on the shadow plane.
+// AkdShadowEnemy — patrols the shadow plane (Y axis) and damages the player on contact.
 //
-// BEHAVIOUR:
-//   • Patrols left/right along the Y axis between ±PatrolHalfDistance from
-//     its spawn location. No AI controller needed.
-//   • Only deals damage when the player overlaps AND the player has both
-//     State.CrushMode and State.InShadow — harmless in 3D mode.
-//   • On contact: applies ContactEffectClass to the player's ASC (set this to
-//     an Instant GameplayEffect that subtracts stamina, e.g. -50).
+// KEY DESIGN DECISIONS vs the old version:
 //
-// SETUP (editor):
-//   1. Create a Blueprint subclass of AkdShadowEnemy.
-//   2. Assign a skeletal/static mesh.
-//   3. Set ContactEffectClass to your chosen instant stamina-drain effect.
-//   4. Tune PatrolHalfDistance and PatrolSpeed per level need.
+// 1. PATROL via SetActorLocation (not AddMovementInput)
+//    AddMovementInput + Walking mode requires a nav mesh and a walkable floor
+//    directly under the capsule. Shadow plane enemies are placed on walls or
+//    mid-air surfaces where there is no such floor. Direct position update is
+//    more predictable and has zero dependencies on nav mesh or AI controllers.
 //
-// VISIBILITY:
-//   The enemy is always rendered. For early prototype this is intentional —
-//   add opacity material logic in the Blueprint subclass when needed.
+// 2. GravityScale = 0, MovementMode = MOVE_Flying
+//    Prevents the enemy from falling off the shadow surface it is placed on.
+//
+// 3. SEPARATE DamageSphere for overlap detection (not the capsule)
+//    ACharacter's capsule uses the "Pawn" collision profile which sets ECC_Pawn
+//    to BLOCK. OnComponentBeginOverlap only fires for OVERLAP responses, never
+//    for BLOCK. The capsule keeps blocking (so the enemy is a solid obstacle),
+//    and the slightly larger DamageSphere is set to OverlapAllDynamic so the
+//    contact callback fires correctly.
+//
+// SETUP:
+//   1. Create a Blueprint subclass. Assign a mesh.
+//   2. Set ContactEffectClass to an Instant GE that subtracts ShadowStamina.
+//   3. Place on the shadow surface (e.g. a wall the player patrols along).
+//   4. Tune PatrolHalfDistance and PatrolSpeed.

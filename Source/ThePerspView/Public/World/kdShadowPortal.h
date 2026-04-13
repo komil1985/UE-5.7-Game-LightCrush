@@ -37,7 +37,7 @@ public:
 	 * spawn inside the destination trigger sphere. Default pushes forward (+Y).
 	 */
 	UPROPERTY(EditDefaultsOnly, Category = "Portal")
-	FVector ExitOffset = FVector(0.f, 0.f, 150.f);
+	FVector ExitOffset = FVector(0.f, 0.f, 175.f);
 
 	/** Seconds both portals are disabled after a teleport. */
 	UPROPERTY(EditDefaultsOnly, Category = "Portal", meta = (ClampMin = "0.1"))
