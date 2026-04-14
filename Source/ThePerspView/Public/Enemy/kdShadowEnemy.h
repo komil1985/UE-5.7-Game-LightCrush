@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "ActiveGameplayEffectHandle.h"
 #include "kdShadowEnemy.generated.h"
 
 class UGameplayEffect;
@@ -59,6 +60,8 @@ private:
 	void TryApplyContactDamage();
 
 	FTimerHandle DamageTickHandle;
+
+	FActiveGameplayEffectHandle ContactEffectHandle;
 
 	UFUNCTION()
 	void OnDamageSphereBeginOverlap(

@@ -9,6 +9,7 @@
 #include "GameplayTags/kdGameplayTags.h"
 #include "Components/SphereComponent.h"
 
+
 // Sets default values
 AkdShadowEnemy::AkdShadowEnemy()
 {
@@ -60,8 +61,6 @@ void AkdShadowEnemy::TryApplyContactDamage()
 	}
 
 	// Tag gate — damage only applies while the player is on the shadow plane.
-	// This check runs every tick so if the player exits CrushMode mid-overlap
-	// (e.g. stamina exhausted), damage stops immediately on the next tick.
 	const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
 	if (!ASC->HasMatchingGameplayTag(StateTags.State_CrushMode) ||
 		!ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
@@ -71,14 +70,20 @@ void AkdShadowEnemy::TryApplyContactDamage()
 		return;
 	}
 
-	// Apply the contact effect
+	if (ContactEffectHandle.IsValid())
+	{
+		ASC->RemoveActiveGameplayEffect(ContactEffectHandle);
+		ContactEffectHandle.Invalidate();
+	}
+
+	// Apply the contact effect and store the handle
 	FGameplayEffectContextHandle Context = ASC->MakeEffectContext();
 	Context.AddSourceObject(this);
 
 	FGameplayEffectSpecHandle Spec = ASC->MakeOutgoingSpec(ContactEffectClass, 1, Context);
 	if (Spec.IsValid())
 	{
-		ASC->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+		ContactEffectHandle = ASC->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
 
 #if !UE_BUILD_SHIPPING
 		UE_LOG(LogTemp, Log, TEXT("ShadowEnemy [%s]: Damage tick applied to player"), *GetName());
@@ -116,9 +121,21 @@ void AkdShadowEnemy::OnDamageSphereEndOverlap(UPrimitiveComponent* OverlappedCom
 	// Only react to the tracked player leaving — ignore other actors
 	if (OtherActor != OverlappingPlayer.Get()) return;
 
-	// Player has left the sphere — stop the damage timer and clear the reference.
-	// No more damage until they re-enter and trigger BeginOverlap again.
+	// Stop the damage timer — no new applications after this point
 	GetWorldTimerManager().ClearTimer(DamageTickHandle);
+
+	if (ContactEffectHandle.IsValid())
+	{
+		if (AkdMyPlayer* Player = OverlappingPlayer.Get())
+		{
+			if (UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent())
+			{
+				ASC->RemoveActiveGameplayEffect(ContactEffectHandle);
+			}
+		}
+		ContactEffectHandle.Invalidate();
+	}
+
 	OverlappingPlayer = nullptr;
 
 #if !UE_BUILD_SHIPPING

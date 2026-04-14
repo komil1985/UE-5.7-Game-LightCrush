@@ -51,4 +51,6 @@ private:
 	 * Persists when braking so the dash always fires in the last intended direction.
 	 */
 	FVector LastShadowInputDirection = FVector::ZeroVector;
+
+	bool bIsDashing = false;
 };

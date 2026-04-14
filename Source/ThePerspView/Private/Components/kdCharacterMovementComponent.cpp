@@ -50,6 +50,8 @@ void UkdCharacterMovementComponent::ApplyShadowDashImpulse(float Strength)
 
 	if (DashDir.IsNearlyZero()) return;
 
+	bIsDashing = true;
+
 	// Override (don't add to) velocity so the burst is always a predictable speed
 	Velocity = DashDir * Strength;
 	Velocity.X = 0.f;
@@ -79,7 +81,16 @@ void UkdCharacterMovementComponent::PhysShadow2D(float DeltaTime, int32 Iteratio
 		// movement never exceeds the same speed as cardinal movement
 		ShadowAccel = LastShadowInputDirection * ShadowAcceleration;
 		Velocity += ShadowAccel * DeltaTime;
-		Velocity = Velocity.GetClampedToMaxSize(ShadowMaxSpeed);
+		//Velocity = Velocity.GetClampedToMaxSize(ShadowMaxSpeed);
+		if (!bIsDashing)
+		{
+			Velocity = Velocity.GetClampedToMaxSize(ShadowMaxSpeed);
+		}
+		else if (Velocity.Size() <= ShadowMaxSpeed)
+		{
+			// Dash has naturally decelerated to normal movement speed
+			bIsDashing = false;
+		}
 	}
 	else
 	{
@@ -91,10 +102,17 @@ void UkdCharacterMovementComponent::PhysShadow2D(float DeltaTime, int32 Iteratio
 		{
 			const float BrakedSpeed = FMath::Max(0.f, CurrentSpeed - ShadowBrakingDeceleration * DeltaTime);
 			Velocity = Velocity.GetSafeNormal() * BrakedSpeed;
+
+			// Clear dash flag once the burst has decelerated to normal range
+			if (BrakedSpeed <= ShadowMaxSpeed)
+			{
+				bIsDashing = false;
+			}
 		}
 		else
 		{
 			Velocity = FVector::ZeroVector;
+			bIsDashing = false;
 		}
 	}
 
@@ -113,5 +131,7 @@ void UkdCharacterMovementComponent::PhysShadow2D(float DeltaTime, int32 Iteratio
 		Velocity = FVector::VectorPlaneProject(Velocity, Hit.Normal);
 		Velocity = Velocity.GetClampedToMaxSize(ShadowMaxSpeed);
 		Velocity.X = 0.f;
+
+		bIsDashing = false;
 	}
 }
