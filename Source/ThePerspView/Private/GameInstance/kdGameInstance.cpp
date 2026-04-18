@@ -163,8 +163,7 @@ void UkdGameInstance::SaveProgress()
 {
     if (!SaveGameObject)
     {
-        SaveGameObject = Cast<UkdSaveGame>(
-            UGameplayStatics::CreateSaveGameObject(UkdSaveGame::StaticClass()));
+        SaveGameObject = Cast<UkdSaveGame>(UGameplayStatics::CreateSaveGameObject(UkdSaveGame::StaticClass()));
     }
     if (!SaveGameObject) return;
 
@@ -195,7 +194,7 @@ bool UkdGameInstance::TryLoadProgress()
     GameSettings = SaveGameObject->Settings;
 
 #if !UE_BUILD_SHIPPING
-    UE_LOG(LogTemp, Log, TEXT("UkdGameInstance: Save loaded (v%d)."), SaveGameObject->SaveVersion);
+    //UE_LOG(LogTemp, Log, TEXT("UkdGameInstance: Save loaded (v%d)."), SaveGameObject->SaveVersion);
 #endif
 
     return true;

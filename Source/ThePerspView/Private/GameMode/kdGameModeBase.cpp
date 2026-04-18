@@ -202,10 +202,10 @@ void AkdGameModeBase::PerformRespawn()
     if (UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent())
     {
         // Remove any exhausted/crush-mode tags left over from death
-        const FkdGameplayTags& Tags = FkdGameplayTags::Get();
-        ASC->RemoveLooseGameplayTag(Tags.State_Exhausted);
-        ASC->RemoveLooseGameplayTag(Tags.State_CrushMode);
-        ASC->RemoveLooseGameplayTag(Tags.State_InShadow);
+        const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
+        ASC->RemoveLooseGameplayTag(StateTags.State_Exhausted);
+        ASC->RemoveLooseGameplayTag(StateTags.State_CrushMode);
+        ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
     }
 
     OnPlayerRespawned.Broadcast(RemainingLives);

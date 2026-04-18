@@ -36,10 +36,6 @@ void AkdLevelGoal::BeginPlay()
     TriggerSphere->OnComponentBeginOverlap.AddDynamic(this, &AkdLevelGoal::OnTriggerBeginOverlap);
 }
 
-void AkdLevelGoal::BP_OnGoalReached()
-{
-}
-
 void AkdLevelGoal::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
     if (bTriggered) return;
@@ -53,10 +49,10 @@ void AkdLevelGoal::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedComp, AA
         UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent();
         if (!ASC) return;
 
-        const FkdGameplayTags& Tags = FkdGameplayTags::Get();
+        const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
 
-        if (bRequireCrushMode && !ASC->HasMatchingGameplayTag(Tags.State_CrushMode)) return;
-        if (bRequireInShadow && !ASC->HasMatchingGameplayTag(Tags.State_InShadow))  return;
+        if (bRequireCrushMode && !ASC->HasMatchingGameplayTag(StateTags.State_CrushMode)) return;
+        if (bRequireInShadow && !ASC->HasMatchingGameplayTag(StateTags.State_InShadow))  return;
     }
 
     bTriggered = true;

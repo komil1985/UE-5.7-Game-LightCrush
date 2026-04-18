@@ -4,9 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include "SaveGame/kdSaveGame.h"
 #include "kdGameInstance.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnSettingsApplied);
+//DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnSettingsApplied);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnSettingApplied);
 
 class USoundMix;
 class USoundClass;
@@ -63,7 +65,7 @@ public:
     void ApplySettings();
 
     UPROPERTY(BlueprintAssignable, Category = "Settings")
-    FOnSettingsApplied OnSettingsApplied;
+    FOnSettingApplied OnSettingsApplied;
 
     // ── Sound Assets (assign in BP subclass or Details panel) ─────────────────
     UPROPERTY(EditDefaultsOnly, Category = "Audio")
@@ -125,7 +127,7 @@ private:
 
     int32 CurrentLevelIndex = 0;
 
-    static const FString SaveSlotName;
+    const FString SaveSlotName = TEXT("PlayerSaveSlot");
     static constexpr int32 SaveUserIndex = 0;
 
     void ApplyAudioSettings();

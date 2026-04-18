@@ -85,10 +85,6 @@ void UkdLevelCompleteWidget::PlayAppearAnimation()
     // node tied to BP_OnAppear — keeping C++ decoupled from animation names.
 }
 
-void UkdLevelCompleteWidget::BP_OnAppear()
-{
-}
-
 void UkdLevelCompleteWidget::OnNextLevelClicked()
 {
     if (UkdGameInstance* GI = UkdGameInstance::Get(GetWorld()))

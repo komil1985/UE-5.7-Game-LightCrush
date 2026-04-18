@@ -38,10 +38,6 @@ void AkdScorePickup::BeginPlay()
     PickupSphere->OnComponentBeginOverlap.AddDynamic(this, &AkdScorePickup::OnPickupSphereOverlap);
 }
 
-void AkdScorePickup::BP_OnCollected()
-{
-}
-
 void AkdScorePickup::OnPickupSphereOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
     if (bCollected) return;

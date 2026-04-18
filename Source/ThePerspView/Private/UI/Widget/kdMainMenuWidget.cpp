@@ -10,6 +10,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "GameFramework/PlayerController.h"
 
+
 void UkdMainMenuWidget::NativeOnInitialized()
 {
     Super::NativeOnInitialized();
@@ -24,10 +25,11 @@ void UkdMainMenuWidget::NativeConstruct()
     Super::NativeConstruct();
 
     // Populate version label from project version string in DefaultGame.ini
-    if (Txt_Version)
-    {
-        const FString VersionStr = FString::Printf(TEXT("v%s"), *FApp::GetProjectVersion());Txt_Version->SetText(FText::FromString(VersionStr));
-    }
+    //if (Txt_Version)
+    //{
+    //    const FString VersionStr = FString::Printf(TEXT("v%s"), *FApp::GetBuildVersion());
+    //    Txt_Version->SetText(FText::FromString(VersionStr));
+    //}
 }
 
 void UkdMainMenuWidget::OnPlayClicked()
