@@ -9,6 +9,8 @@
 #include "UI/Widget/kdPauseMenuWidget.h"
 #include "UI/Widget/kdLevelCompleteWidget.h"
 #include "UI/Widget/kdLoadingScreenWidget.h"
+#include "UI/Widget/kdDeathWidget.h"
+#include "UI/Widget/kdGameOverWidget.h"
 
 
 void AkdHUD::BeginPlay()
@@ -145,6 +147,43 @@ void AkdHUD::HideLoadingScreen()
     {
         LoadingScreenWidget->SetVisibility(ESlateVisibility::Collapsed);
     }
+}
+
+void AkdHUD::ShowDeathOverlay(int32 RemainingLives)
+{
+    if (UkdDeathWidget* W = GetOrCreate(DeathWidget, DeathWidgetClass, 35))
+    {
+        W->SetupDeath(RemainingLives);
+        W->SetVisibility(ESlateVisibility::Visible);
+    }
+    // Do NOT change input mode here — the player is already dead and
+    // input was disabled by DeathComponent.  We don't want UI clicks
+    // to accidentally fire during the death window.
+}
+
+void AkdHUD::HideDeathOverlay()
+{
+    if (DeathWidget)
+    {
+        // Trigger fade-out animation in Blueprint, then collapse
+        DeathWidget->BeginHide();
+        DeathWidget->SetVisibility(ESlateVisibility::Collapsed);
+    }
+}
+
+void AkdHUD::ShowGameOver(int32 FinalScore)
+{
+    // Dismiss any leftover widgets before showing game over
+    if (DeathWidget)     DeathWidget->SetVisibility(ESlateVisibility::Collapsed);
+    if (PauseMenuWidget) PauseMenuWidget->SetVisibility(ESlateVisibility::Collapsed);
+
+    if (UkdGameOverWidget* W = GetOrCreate(GameOverWidget, GameOverWidgetClass, 45))
+    {
+        W->SetupGameOver(FinalScore);
+        W->SetVisibility(ESlateVisibility::Visible);
+        W->PlayAppearAnimation();
+    }
+    SetUIInputMode();
 }
 
 APlayerController* AkdHUD::GetOwnerPC() const

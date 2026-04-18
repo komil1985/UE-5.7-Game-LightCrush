@@ -11,6 +11,8 @@ class UkdSettingsWidget;
 class UkdPauseMenuWidget;
 class UkdLevelCompleteWidget;
 class UkdLoadingScreenWidget;
+class UkdDeathWidget;
+class UkdGameOverWidget;
 class UkdStaminaWidget;
 class UUserWidget;
 /**
@@ -37,6 +39,12 @@ public:
 
     UPROPERTY(EditDefaultsOnly, Category = "UI | Classes")
     TSubclassOf<UkdLoadingScreenWidget> LoadingScreenWidgetClass;
+
+    UPROPERTY(EditDefaultsOnly, Category = "UI | Classes")
+    TSubclassOf<UkdDeathWidget> DeathWidgetClass;
+
+    UPROPERTY(EditDefaultsOnly, Category = "UI | Classes")
+    TSubclassOf<UkdGameOverWidget> GameOverWidgetClass;
 
     // ── Show / Hide API ───────────────────────────────────────────────────────
 
@@ -67,6 +75,27 @@ public:
     UFUNCTION(BlueprintCallable, Category = "UI")
     void HideLoadingScreen();
 
+    /**
+     * Show the "YOU DIED" overlay while the screen is black.
+     * Called by GameMode after the DeathComponent's fade completes.
+     */
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void ShowDeathOverlay(int32 RemainingLives);
+
+    /**
+     * Hide the death overlay before the respawn fade-in starts.
+     * Called by GameMode just before PerformRespawn().
+     */
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void HideDeathOverlay();
+
+    /**
+     * Show the full-screen Game Over screen.
+     * Called by GameMode when RemainingLives == 0.
+     */
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void ShowGameOver(int32 FinalScore);
+
     // ── Widget Accessors ──────────────────────────────────────────────────────
 
     UFUNCTION(BlueprintPure, Category = "UI")
@@ -74,6 +103,9 @@ public:
 
     UFUNCTION(BlueprintPure, Category = "UI")
     UkdSettingsWidget* GetSettingsWidget() const { return SettingsWidget; }
+
+    UFUNCTION(BlueprintPure, Category = "UI")
+    UkdGameOverWidget* GetGameOverWidget()  const { return GameOverWidget; }
 
     // ── Input Mode Helpers ────────────────────────────────────────────────────
 
@@ -102,6 +134,12 @@ private:
 
     UPROPERTY()
     TObjectPtr<UkdLoadingScreenWidget> LoadingScreenWidget;
+
+    UPROPERTY() 
+    TObjectPtr<UkdDeathWidget> DeathWidget;
+
+    UPROPERTY()
+    TObjectPtr<UkdGameOverWidget> GameOverWidget;
 
     // Whether settings were opened from the pause menu (affects "back" behaviour)
     bool bSettingsFromPause = false;
@@ -137,5 +175,10 @@ inline TWidget* AkdHUD::GetOrCreate(TObjectPtr<TWidget>& CachedPtr, TSubclassOf<
     if (!PC) return nullptr;
 
     CachedPtr = CreateWidget<TWidget>(PC, WidgetClass);
+    if (CachedPtr)
+    {
+        CachedPtr->AddToViewport(ZOrder);
+        CachedPtr->SetVisibility(ESlateVisibility::Collapsed);   // hidden by default
+    }
     return CachedPtr;
 }

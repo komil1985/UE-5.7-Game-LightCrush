@@ -9,6 +9,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerStart.h"
 #include "GameplayTags/kdGameplayTags.h"
+#include "Components/kdDeathComponent.h"
 
 AkdGameModeBase::AkdGameModeBase()
 {
@@ -25,6 +26,7 @@ void AkdGameModeBase::BeginPlay()
     ElapsedTime = 0.f;
     bLevelComplete = false;
     bGamePaused = false;
+    bGameOver = false;
 
     // Stamp session start so the GameInstance knows when we started
     if (UkdGameInstance* GI = UkdGameInstance::Get(this))
@@ -32,6 +34,28 @@ void AkdGameModeBase::BeginPlay()
         GI->LevelStartTime = GetWorld()->GetTimeSeconds();
         GI->SessionScore = 0;
     }
+
+    // ── Bind to DeathComponent delegate ───────────────────────────────────────
+    // We poll for the player here because on dedicated servers the pawn may not
+    // yet be possessed at BeginPlay.  A short delay covers that edge case.
+    FTimerHandle BindHandle;
+    GetWorldTimerManager().SetTimer(BindHandle, [this]()
+        {
+            if (UkdDeathComponent* DC = FindDeathComponent())
+            {
+                DC->OnDeathSequenceComplete.AddDynamic(
+                    this, &AkdGameModeBase::OnDeathSequenceFinished);
+
+#if !UE_BUILD_SHIPPING
+                UE_LOG(LogTemp, Log, TEXT("GameMode: Bound to DeathComponent.OnDeathSequenceComplete"));
+#endif
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning,
+                    TEXT("GameMode: Could not find UkdDeathComponent on player."));
+            }
+        }, 0.1f, false);
 
 #if !UE_BUILD_SHIPPING
     UE_LOG(LogTemp, Log, TEXT("AkdGameModeBase: BeginPlay — Lives=%d"), RemainingLives);
@@ -104,9 +128,28 @@ void AkdGameModeBase::RegisterCheckpoint(AkdCheckpoint* NewCheckpoint)
 
 void AkdGameModeBase::HandlePlayerDeath()
 {
-    if (bLevelComplete) return;
+    if (bLevelComplete || bGameOver) return;
+
+    UkdDeathComponent* DC = FindDeathComponent();
+    if (!DC)
+    {
+        UE_LOG(LogTemp, Warning,
+            TEXT("HandlePlayerDeath: No DeathComponent found — forcing respawn."));
+        PerformRespawn();
+        return;
+    }
+
+    // DeathComponent guards against double-triggering internally
+    if (!DC->IsAlive()) return;
 
     RemainingLives = FMath::Max(0, RemainingLives - 1);
+
+    OnPlayerDied.Broadcast(RemainingLives);
+
+    // ── Start the death visual sequence ───────────────────────────────────────
+    // TriggerDeath() disables input, fades camera, slows time, hides mesh,
+    // then fires OnDeathSequenceComplete when it's done.
+    DC->TriggerDeath();
 
 #if !UE_BUILD_SHIPPING
     UE_LOG(LogTemp, Log, TEXT("PlayerDeath — Lives remaining: %d"), RemainingLives);
@@ -176,7 +219,7 @@ void AkdGameModeBase::PerformRespawn()
     AkdMyPlayer* Player = GetCachedPlayer();
     if (!Player) return;
 
-    FVector RespawnLocation;
+    FVector RespawnLocation = FVector::ZeroVector;
     FRotator RespawnRotation = FRotator::ZeroRotator;
 
     if (ActiveCheckpoint)
@@ -208,6 +251,21 @@ void AkdGameModeBase::PerformRespawn()
         ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
     }
 
+    // ── Hide the death overlay before the fade-in reveals the world ───────────
+    if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+    {
+        if (AkdHUD* HUD = Cast<AkdHUD>(PC->GetHUD()))
+        {
+            HUD->HideDeathOverlay();
+        }
+    }
+
+    // ── Hand off to DeathComponent — it owns the teleport + fade-in ───────────
+    if (UkdDeathComponent* DC = FindDeathComponent())
+    {
+        DC->TriggerRespawn(RespawnLocation, RespawnRotation);
+    }
+
     OnPlayerRespawned.Broadcast(RemainingLives);
 
 #if !UE_BUILD_SHIPPING
@@ -218,4 +276,63 @@ void AkdGameModeBase::PerformRespawn()
 AkdMyPlayer* AkdGameModeBase::GetCachedPlayer() const
 {
     return Cast<AkdMyPlayer>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
+}
+
+void AkdGameModeBase::OnDeathSequenceFinished()
+{
+    // The camera is now fully black and the mesh is hidden.
+    // Now branch: game over vs. respawn.
+
+    if (RemainingLives <= 0)
+    {
+        TriggerGameOver();
+    }
+    else
+    {
+        // Show the death overlay (YOU DIED + lives count) while the screen is black
+        if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+        {
+            if (AkdHUD* HUD = Cast<AkdHUD>(PC->GetHUD()))
+            {
+                HUD->ShowDeathOverlay(RemainingLives);
+            }
+        }
+
+        // Hold for RespawnHoldDuration so the player can read the overlay,
+        // then teleport and fade back in.
+        GetWorldTimerManager().SetTimer(
+            RespawnTimerHandle,
+            this,
+            &AkdGameModeBase::PerformRespawn,
+            RespawnDelay,
+            false);
+    }
+}
+
+void AkdGameModeBase::TriggerGameOver()
+{
+    if (bGameOver) return;
+    bGameOver = true;
+
+    OnGameOver.Broadcast(CurrentScore);
+
+    if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+    {
+        if (AkdHUD* HUD = Cast<AkdHUD>(PC->GetHUD()))
+        {
+            HUD->ShowGameOver(CurrentScore);
+        }
+    }
+
+#if !UE_BUILD_SHIPPING
+    UE_LOG(LogTemp, Log, TEXT("TriggerGameOver: Final score = %d"), CurrentScore);
+#endif
+}
+
+UkdDeathComponent* AkdGameModeBase::FindDeathComponent() const
+{
+    AkdMyPlayer* Player = GetCachedPlayer();
+    return Player
+        ? Player->FindComponentByClass<UkdDeathComponent>()
+        : nullptr;
 }
