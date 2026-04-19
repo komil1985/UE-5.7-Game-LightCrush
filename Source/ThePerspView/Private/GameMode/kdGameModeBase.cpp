@@ -332,7 +332,5 @@ void AkdGameModeBase::TriggerGameOver()
 UkdDeathComponent* AkdGameModeBase::FindDeathComponent() const
 {
     AkdMyPlayer* Player = GetCachedPlayer();
-    return Player
-        ? Player->FindComponentByClass<UkdDeathComponent>()
-        : nullptr;
+    return Player ? Player->FindComponentByClass<UkdDeathComponent>() : nullptr;
 }

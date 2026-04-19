@@ -189,17 +189,6 @@ void AkdPlayerController::CrushToggleRequest()
 	}
 }
 
-//void AkdPlayerController::HandleShadowMovement(const FInputActionValue& Value)
-//{
-//	if (!MyPlayerCache || !MyASC) return;
-//	
-//	// Only activate if in crush mode AND in shadow (the ability will also check)
-//	if (MyASC->HasMatchingGameplayTag(StateTags.State_CrushMode) && MyASC->HasMatchingGameplayTag(StateTags.State_InShadow))
-//	{
-// 		MyPlayerCache->RequestVerticalMove();
-//	}
-//}
-
 void AkdPlayerController::PrintTags()
 {
 	if (MyPlayerCache && MyPlayerCache->GetAbilitySystemComponent())
