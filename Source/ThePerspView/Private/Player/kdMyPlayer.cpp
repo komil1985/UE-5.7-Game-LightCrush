@@ -21,6 +21,7 @@
 #include "AbilitySystem/Abilities/kdShadowDash.h"
 #include "Interfaces/kdInteractable.h"
 #include "Engine/OverlapResult.h"
+#include "Components/kdDeathComponent.h"
 
 
 AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
@@ -58,6 +59,7 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 
 	CrushStateComponent = CreateDefaultSubobject<UkdCrushStateComponent>(TEXT("CrushState"));
 	CrushTransitionComponent = CreateDefaultSubobject<UkdCrushTransitionComponent>(TEXT("CrushTransition"));
+	DeathComponent = CreateDefaultSubobject<UkdDeathComponent>(TEXT("DeathComponent"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 	/*	--	Default Values	--	*/
@@ -302,18 +304,3 @@ void AkdMyPlayer::InitializeAbilitySystem()
 		AttributeSet->SetShadowStamina(100.0f);
 	}
 }
-
-//void AkdMyPlayer::RequestVerticalMove()
-//{
-//	if (!AbilitySystemComponent) return;
-//
-//	// Find the CrushToggle ability class in the DefaultAbilities array
-//	for (TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
-//	{
-//		if (AbilityClass && AbilityClass->IsChildOf(UkdShadowMove::StaticClass()))
-//		{
-//			AbilitySystemComponent->TryActivateAbilityByClass(AbilityClass);
-//			return;
-//		}
-//	}
-//}

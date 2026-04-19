@@ -21,6 +21,7 @@ class USpringArmComponent;
 class UkdCrushStateComponent;
 class UkdCrushTransitionComponent;
 class UkdAbilitySystemComponent;
+class UkdDeathComponent;
 class UkdAttributeSet;
 class UGameplayAbility;
 class UWidgetComponent;
@@ -52,6 +53,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UkdCrushTransitionComponent> CrushTransitionComponent;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Components")
+	TObjectPtr<UkdDeathComponent> DeathComponent;
 
 	UPROPERTY(EditAnywhere, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> EyeLeft;
