@@ -8,6 +8,9 @@
 #include "Player/kdMyPlayer.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/Abilities/kdShadowMove.h"
+#include "UI/HUD/kdHUD.h"
+#include "GameMode/kdGameModeBase.h"
+#include "UI/Widget/kdPauseMenuWidget.h"
 
 
 void AkdPlayerController::BeginPlay()
@@ -52,6 +55,10 @@ void AkdPlayerController::SetupInputComponent()
 		if (DebugPrintTagsAction)
 		{
 			EnhancedInputComponent->BindAction(DebugPrintTagsAction, ETriggerEvent::Started, this, &AkdPlayerController::PrintTags);
+		}
+		if (PauseAction)
+		{
+			EnhancedInputComponent->BindAction(PauseAction, ETriggerEvent::Started, this, &AkdPlayerController::TogglePause);
 		}
 	}
 }
@@ -136,6 +143,31 @@ void AkdPlayerController::Interact()
 void AkdPlayerController::ShadowDash()
 {
 	if (MyPlayerCache) MyPlayerCache->RequestShadowDash();
+}
+
+void AkdPlayerController::TogglePause()
+{
+	AkdHUD* HUD = Cast<AkdHUD>(GetHUD());
+	if (!HUD) return;
+
+	if (IsPaused())
+	{
+		HUD->HidePauseMenu();
+	}
+	else
+	{
+		if (AkdGameModeBase* GM = Cast<AkdGameModeBase>(GetWorld()->GetAuthGameMode()))
+		{
+			if (!GM->IsGamePaused())
+			{
+				if (UkdPauseMenuWidget* W = HUD->GetPauseMenu())
+				{
+					W->RefreshLivesDisplay(GM->GetRemainingLives());
+					HUD->ShowPauseMenu();
+				}
+			}
+		}
+	}
 }
 
 void AkdPlayerController::EnhancedSubSystem()

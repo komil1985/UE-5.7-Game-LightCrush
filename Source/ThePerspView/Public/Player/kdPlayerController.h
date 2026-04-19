@@ -48,6 +48,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> InteractAction;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputAction> PauseAction;
 	/*-----------------------------------------------------------------*/
 
 protected:
@@ -60,6 +63,7 @@ private:
 	void StopJump();
 	void Interact();
 	void ShadowDash();
+	void TogglePause();
 
 	void EnhancedSubSystem();
 	void CrushToggleRequest();

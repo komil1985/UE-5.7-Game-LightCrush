@@ -252,7 +252,8 @@ void UkdDeathComponent::ClearAllGASDeathState()
     ASC->CancelAllAbilities();
 
     // Remove all active gameplay effects so drain/regen don't persist
-    //ASC->RemoveActiveEffectsWithNoStackCountChange();
+    FGameplayEffectQuery Query;
+    ASC->RemoveActiveEffects(Query);
     
 
 #if !UE_BUILD_SHIPPING

@@ -61,7 +61,8 @@ void UkdAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
                 ASC->RemoveActiveEffectsWithGrantedTags(DrainTag);
             }
 
-            if (AkdGameModeBase* GM = Cast<AkdGameModeBase>(GetOwningActor()->GetWorld()->GetAuthGameMode()))
+            if (AkdGameModeBase* GM = Cast<AkdGameModeBase>(
+                GetOwningActor()->GetWorld()->GetAuthGameMode()))
             {
                 GM->HandlePlayerDeath();
             }
