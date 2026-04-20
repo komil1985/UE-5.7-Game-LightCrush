@@ -73,6 +73,13 @@ void AkdPlayerController::OnPossess(APawn* InPawn)
 	{
 		MyASC = MyPlayerCache->GetAbilitySystemComponent();
 	}
+
+	// FInputModeGameOnly routes all mouse movement directly to the game.
+	// Camera rotates freely with no click required — matching original behaviour.
+	// UI widgets (stamina bar, HUD overlays) remain visible; they just don't
+	// consume mouse input during gameplay, which is correct.
+	SetInputMode(FInputModeGameOnly());
+	SetShowMouseCursor(false);
 }
 
 void AkdPlayerController::Move(const FInputActionValue& InputActionValue)

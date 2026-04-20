@@ -22,9 +22,9 @@ void AkdHUD::SetGameInputMode()
 {
     if (APlayerController* PC = GetOwnerPC())
     {
-        FInputModeGameAndUI Mode;
-        Mode.SetHideCursorDuringCapture(true);
-        PC->SetInputMode(Mode);
+        // GameOnly = free camera rotation, no cursor, no click-to-capture.
+        // Called when dismissing the pause menu or settings to return to gameplay.
+        PC->SetInputMode(FInputModeGameOnly());
         PC->SetShowMouseCursor(false);
     }
 }
