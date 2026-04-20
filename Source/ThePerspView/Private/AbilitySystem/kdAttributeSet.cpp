@@ -4,8 +4,6 @@
 #include "AbilitySystem/kdAttributeSet.h"
 #include "GameplayTags/kdGameplayTags.h"
 #include "GameplayEffectExtension.h"
-#include "GameMode/kdGameModeBase.h"
-
 
 
 UkdAttributeSet::UkdAttributeSet(){}
@@ -56,18 +54,14 @@ void UkdAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
                 ASC->CancelAbilities(&CrushAbilityTag);
 
                 // Remove the drain effect by its granted tag
-                FGameplayTagContainer DrainTag;
-                DrainTag.AddTag(Tags.Effect_ShadowDrain);
-                ASC->RemoveActiveEffectsWithGrantedTags(DrainTag);
-            }
-
-            if (AkdGameModeBase* GM = Cast<AkdGameModeBase>(GetOwningActor()->GetWorld()->GetAuthGameMode()))
-            {
-                GM->HandlePlayerDeath();
+                FGameplayTagContainer EffectTag;
+                EffectTag.AddTag(Tags.Effect_ShadowDrain);
+                ASC->RemoveActiveEffectsWithGrantedTags(EffectTag);
             }
         }
         else
         {
+            // Stamina recovered — clear exhausted so abilities re-enable
             if (ASC->HasMatchingGameplayTag(Tags.State_Exhausted))
             {
                 ASC->RemoveLooseGameplayTag(Tags.State_Exhausted);

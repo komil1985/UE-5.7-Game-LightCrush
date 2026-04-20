@@ -22,6 +22,8 @@
 #include "Interfaces/kdInteractable.h"
 #include "Engine/OverlapResult.h"
 #include "Components/kdDeathComponent.h"
+#include "Components/kdFallDamageComponent.h"
+
 
 
 AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
@@ -60,6 +62,7 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	CrushStateComponent = CreateDefaultSubobject<UkdCrushStateComponent>(TEXT("CrushState"));
 	CrushTransitionComponent = CreateDefaultSubobject<UkdCrushTransitionComponent>(TEXT("CrushTransition"));
 	DeathComponent = CreateDefaultSubobject<UkdDeathComponent>(TEXT("DeathComponent"));
+	FallDamageComponent = CreateDefaultSubobject<UkdFallDamageComponent>(TEXT("FallDamageComponent"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 	/*	--	Default Values	--	*/
