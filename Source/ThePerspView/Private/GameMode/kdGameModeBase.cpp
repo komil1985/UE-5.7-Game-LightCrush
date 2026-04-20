@@ -210,8 +210,20 @@ void AkdGameModeBase::UnpauseGame()
 
 void AkdGameModeBase::RestartPlayer(AController* NewPlayer)
 {
-    // Override to prevent default UE restart which respawns at a PlayerStart
-    // ignoring our checkpoint system. We handle respawn entirely above.
+    if (!NewPlayer) return;
+
+    // If the controller already has a pawn, this is a mid-game respawn call.
+    // Our DeathComponent + PerformRespawn() owns that path entirely — suppress
+    // UE's default behaviour which would ignore checkpoints.
+    if (NewPlayer->GetPawn() != nullptr)
+    {
+        return;
+    }
+
+    // Controller has no pawn yet — this is the INITIAL spawn on level start.
+    // Call Super so UE's spawn chain runs: SpawnDefaultPawnFor() creates
+    // AkdMyPlayer at the PlayerStart, then OnPossess fires normally.
+    Super::RestartPlayer(NewPlayer);
 }
 
 void AkdGameModeBase::PerformRespawn()

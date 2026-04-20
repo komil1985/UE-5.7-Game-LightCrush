@@ -44,8 +44,9 @@ void UkdPauseMenuWidget::OnSettingsClicked()
     {
         if (AkdHUD* HUD = Cast<AkdHUD>(PC->GetHUD()))
         {
-            SetVisibility(ESlateVisibility::Collapsed);
-            HUD->ShowSettings(true);    // bFromPause = true → Back returns here
+            // SetVisibility(Collapsed) here is now redundant — HUD::ShowSettings
+            // handles hiding the caller. Safe to remove this line.
+            HUD->ShowSettings(true);
         }
     }
 }

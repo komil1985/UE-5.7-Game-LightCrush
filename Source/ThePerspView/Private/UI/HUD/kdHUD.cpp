@@ -40,9 +40,13 @@ void AkdHUD::SetUIInputMode()
 
 void AkdHUD::ShowMainMenu()
 {
-    if (UkdMainMenuWidget* W = GetOrCreate(MainMenuWidget, MainMenuWidgetClass, 20))
+    if(UkdMainMenuWidget * W = GetOrCreate(MainMenuWidget, MainMenuWidgetClass, 20))
     {
-        W->AddToViewport(20);
+        // Guard AddToViewport — only call it once on first creation
+        if (!W->IsInViewport())
+        {
+            W->AddToViewport(20);
+        }
         W->SetVisibility(ESlateVisibility::Visible);
     }
     SetUIInputMode();
@@ -52,9 +56,30 @@ void AkdHUD::ShowSettings(bool bFromPause)
 {
     bSettingsFromPause = bFromPause;
 
+    // ── Hide whichever menu opened settings ───────────────────────────────────
+    // This is what was missing — without this the caller stays visible
+    // and the settings widget renders on top of it.
+    if (bFromPause)
+    {
+        if (PauseMenuWidget)
+        {
+            PauseMenuWidget->SetVisibility(ESlateVisibility::Collapsed);
+        }
+    }
+    else
+    {
+        if (MainMenuWidget)
+        {
+            MainMenuWidget->SetVisibility(ESlateVisibility::Collapsed);
+        }
+    }
+
     if (UkdSettingsWidget* W = GetOrCreate(SettingsWidget, SettingsWidgetClass, 30))
     {
-        W->AddToViewport(30);
+        if (!W->IsInViewport())
+        {
+            W->AddToViewport(30);
+        }
         W->SetVisibility(ESlateVisibility::Visible);
     }
     SetUIInputMode();
@@ -67,11 +92,25 @@ void AkdHUD::HideSettings()
         SettingsWidget->SetVisibility(ESlateVisibility::Collapsed);
     }
 
-    // Return to whichever context opened settings
-    if (bSettingsFromPause && PauseMenuWidget)
+    // ── Restore whichever menu opened settings ────────────────────────────────
+    if (bSettingsFromPause)
     {
-        PauseMenuWidget->SetVisibility(ESlateVisibility::Visible);
+        // Opened from pause menu — restore it
+        if (PauseMenuWidget)
+        {
+            PauseMenuWidget->SetVisibility(ESlateVisibility::Visible);
+        }
     }
+    else
+    {
+        // Opened from main menu — restore it
+        // This case was missing entirely, which is why Back did nothing
+        if (MainMenuWidget)
+        {
+            MainMenuWidget->SetVisibility(ESlateVisibility::Visible);
+        }
+    }
+
     bSettingsFromPause = false;
 }
 
@@ -79,16 +118,11 @@ void AkdHUD::ShowPauseMenu()
 {
     if (UkdPauseMenuWidget* W = GetOrCreate(PauseMenuWidget, PauseMenuWidgetClass, 25))
     {
-        W->AddToViewport(25);
+        if (!W->IsInViewport()) W->AddToViewport(25);
         W->SetVisibility(ESlateVisibility::Visible);
     }
     SetUIInputMode();
-
-    // Pause game time
-    if (APlayerController* PC = GetOwnerPC())
-    {
-        PC->SetPause(true);
-    }
+    if (APlayerController* PC = GetOwnerPC()) PC->SetPause(true);
 }
 
 void AkdHUD::HidePauseMenu()
@@ -107,9 +141,12 @@ void AkdHUD::HidePauseMenu()
 
 void AkdHUD::ShowLevelCompleteScreen(float CompletionTime, int32 Score)
 {
+    if (DeathWidget)     DeathWidget->SetVisibility(ESlateVisibility::Collapsed);
+    if (PauseMenuWidget) PauseMenuWidget->SetVisibility(ESlateVisibility::Collapsed);
+
     if (UkdLevelCompleteWidget* W = GetOrCreate(LevelCompleteWidget, LevelCompleteWidgetClass, 40))
     {
-        W->AddToViewport(40);
+        if (!W->IsInViewport()) W->AddToViewport(40);
         W->SetupResults(CompletionTime, Score);
         W->SetVisibility(ESlateVisibility::Visible);
         W->PlayAppearAnimation();
@@ -134,9 +171,9 @@ void AkdHUD::ShowLoadingScreen()
 {
     if (UkdLoadingScreenWidget* W = GetOrCreate(LoadingScreenWidget, LoadingScreenWidgetClass, 50))
     {
-        W->AddToViewport(50);
-        W->SetVisibility(ESlateVisibility::Visible);
+        if (!W->IsInViewport()) W->AddToViewport(50);
         W->StartAnimation();
+        W->SetVisibility(ESlateVisibility::Visible);
     }
     SetUIInputMode();
 }
