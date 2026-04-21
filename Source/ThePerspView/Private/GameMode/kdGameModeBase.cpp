@@ -10,6 +10,7 @@
 #include "GameFramework/PlayerStart.h"
 #include "GameplayTags/kdGameplayTags.h"
 #include "Components/kdDeathComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 AkdGameModeBase::AkdGameModeBase()
 {
@@ -77,6 +78,27 @@ void AkdGameModeBase::TriggerLevelComplete()
     if (bLevelComplete) return;  // guard against double-fire
     bLevelComplete = true;
 
+    APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+    AkdMyPlayer* Player = GetCachedPlayer();
+
+    if (Player)
+    {
+        // Zero velocity so the character doesn't slide off into the void
+        if (UCharacterMovementComponent* MoveComp = Player->GetCharacterMovement())
+        {
+            MoveComp->StopMovementImmediately();
+            MoveComp->Velocity = FVector::ZeroVector;
+			MoveComp->SetMovementMode(EMovementMode::MOVE_None);
+        }
+    }
+
+    // ── Disable all player input ──────────────────────────────────────────────
+    // DisableInput blocks movement/action bindings while keeping UI clickable
+    if (PC && Player)
+    {
+        Player->DisableInput(PC);
+    }
+
     // Freeze the game timer but keep rendering
     UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 0.0f);
     // Re-enable input briefly so the UI is interactive
@@ -102,7 +124,7 @@ void AkdGameModeBase::TriggerLevelComplete()
     }
 
     // Tell the HUD to show the Level Complete screen
-    if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+    if (PC)
     {
         if (AkdHUD* HUD = Cast<AkdHUD>(PC->GetHUD()))
         {
@@ -155,33 +177,32 @@ void AkdGameModeBase::HandlePlayerDeath()
     UE_LOG(LogTemp, Log, TEXT("PlayerDeath — Lives remaining: %d"), RemainingLives);
 #endif
 
-    if (RemainingLives <= 0)
-    {
-        // Game Over — reload level or go back to main menu
-        // Small delay so death feedback is visible
-        FTimerHandle GameOverHandle;
-        GetWorldTimerManager().SetTimer(GameOverHandle, [this]()
-            {
-                if (UkdGameInstance* GI = UkdGameInstance::Get(this))
-                {
-                    GI->ReloadCurrentLevel();
-                }
-            }, 2.0f, false);
-        return;
-    }
+    //if (RemainingLives <= 0)
+    //{
+    //    // Game Over — reload level or go back to main menu
+    //    // Small delay so death feedback is visible
+    //    FTimerHandle GameOverHandle;
+    //    GetWorldTimerManager().SetTimer(GameOverHandle, [this]()
+    //        {
+    //            if (UkdGameInstance* GI = UkdGameInstance::Get(this))
+    //            {
+    //                GI->ReloadCurrentLevel();
+    //            }
+    //        }, 2.0f, false);
+    //    return;
+    //}
 
     // Tell HUD to show death feedback
-    if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
-    {
-        if (AkdHUD* HUD = Cast<AkdHUD>(PC->GetHUD()))
-        {
-            HUD->ShowDeathFeedback(RemainingLives);
-        }
-    }
+    //if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+    //{
+    //    if (AkdHUD* HUD = Cast<AkdHUD>(PC->GetHUD()))
+    //    {
+    //        HUD->ShowDeathFeedback(RemainingLives);
+    //    }
+    //}
 
     // Delayed respawn
-    GetWorldTimerManager().SetTimer(
-        RespawnTimerHandle, this, &AkdGameModeBase::PerformRespawn, RespawnDelay, false);
+    //GetWorldTimerManager().SetTimer(RespawnTimerHandle, this, &AkdGameModeBase::PerformRespawn, RespawnDelay, false);
 }
 
 void AkdGameModeBase::AddScore(int32 Points)
