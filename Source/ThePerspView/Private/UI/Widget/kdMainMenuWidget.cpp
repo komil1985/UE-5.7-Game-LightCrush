@@ -52,7 +52,6 @@ void UkdMainMenuWidget::OnPlayClicked()
     GI->SetCurrentLevelIndex(1);
 
     FTimerHandle LoadHandle;
-    constexpr float LoadingScreenDisplayTime = 5.0f;
     GetWorld()->GetTimerManager().SetTimer(LoadHandle, [GI](){GI->LoadNextLevel();}, LoadingScreenDisplayTime, false);
 }
 

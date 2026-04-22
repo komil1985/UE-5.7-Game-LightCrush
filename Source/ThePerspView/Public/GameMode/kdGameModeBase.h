@@ -36,6 +36,12 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "Level")
     FOnLevelComplete OnLevelComplete;
 
+    UFUNCTION(BlueprintPure, Category = "State")
+    bool IsLevelComplete() const { return bLevelComplete; }
+
+    UFUNCTION(BlueprintPure, Category = "State")
+    bool IsGameOver() const { return bGameOver; }
+
     // ── Respawn ───────────────────────────────────────────────────────────────
 
     /** AkdCheckpoint calls this when the player touches it. */

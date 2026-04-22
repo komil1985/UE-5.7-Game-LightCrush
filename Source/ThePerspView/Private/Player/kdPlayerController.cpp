@@ -154,6 +154,12 @@ void AkdPlayerController::ShadowDash()
 
 void AkdPlayerController::TogglePause()
 {
+	// Don't allow pausing if the level is over
+	if (AkdGameModeBase* GM = Cast<AkdGameModeBase>(GetWorld()->GetAuthGameMode()))
+	{
+		if (GM->IsLevelComplete() || GM->IsGameOver()) return;
+	}
+
 	AkdHUD* HUD = Cast<AkdHUD>(GetHUD());
 	if (!HUD) return;
 
@@ -170,10 +176,10 @@ void AkdPlayerController::TogglePause()
 				if (UkdPauseMenuWidget* W = HUD->GetPauseMenu())
 				{
 					W->RefreshLivesDisplay(GM->GetRemainingLives());
-					HUD->ShowPauseMenu();
 				}
 			}
 		}
+		HUD->ShowPauseMenu();
 	}
 }
 

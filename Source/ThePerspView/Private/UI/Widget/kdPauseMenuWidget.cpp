@@ -22,8 +22,7 @@ void UkdPauseMenuWidget::RefreshLivesDisplay(int32 RemainingLives)
 {
     if (Txt_LivesLeft)
     {
-        Txt_LivesLeft->SetText(
-            FText::FromString(FString::Printf(TEXT("Lives: %d"), RemainingLives)));
+       return Txt_LivesLeft->SetText(FText::FromString(FString::Printf(TEXT("Lives: %d"), RemainingLives)));
     }
 }
 
