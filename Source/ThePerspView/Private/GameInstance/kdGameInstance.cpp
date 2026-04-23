@@ -9,6 +9,9 @@
 #include "Sound/SoundClass.h"
 
 
+const FString UkdGameInstance::SaveSlotName = TEXT("KD_Save_00");
+
+
 UkdGameInstance::UkdGameInstance()
 {
     // Default level order — override in your Blueprint subclass.
@@ -87,25 +90,15 @@ void UkdGameInstance::LoadMainMenu()
     CurrentLevelIndex = 0;
     LevelStartTime = 0.f;
     SessionScore = 0;
-    //InternalLoadLevel(MainMenuLevelName);
-    
-    // Always use LevelOrder[0] — it is the authoritative main menu entry
-    // and is what you configure in BP_GameInstance. MainMenuLevelName is a
-    // separate property that can silently mismatch, causing this exact bug.
-    if (LevelOrder.IsValidIndex(0))
-    {
-        UGameplayStatics::OpenLevel(GetWorld(), LevelOrder[0]);
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("LoadMainMenu: LevelOrder is empty! Set it in BP_GameInstance."));
-    }
+    InternalLoadLevel(MainMenuLevelName);
 }
 
 bool UkdGameInstance::HasNextLevel() const
 {
     return LevelOrder.IsValidIndex(CurrentLevelIndex + 1);
 }
+
+// ─── Internal load ────────────────────────────────────────────────────────────
 
 void UkdGameInstance::InternalLoadLevel(FName LevelName)
 {

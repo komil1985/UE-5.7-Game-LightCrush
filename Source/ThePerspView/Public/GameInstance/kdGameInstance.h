@@ -7,22 +7,24 @@
 #include "SaveGame/kdSaveGame.h"
 #include "kdGameInstance.generated.h"
 
+
 //DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnSettingsApplied);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnSettingApplied);
+
 
 class USoundMix;
 class USoundClass;
 struct FkdGameSettings;
-UCLASS()
+UCLASS(BlueprintType, Blueprintable)
 class THEPERSPVIEW_API UkdGameInstance : public UGameInstance
 {
 	GENERATED_BODY()
 
 public:
-	UkdGameInstance();
+    UkdGameInstance();
 
-	virtual void Init() override;
-	virtual void Shutdown() override;
+    virtual void Init() override;
+    virtual void Shutdown() override;
 
     // ── Level Navigation ─────────────────────────────────────────────────────
 
@@ -127,7 +129,7 @@ private:
 
     int32 CurrentLevelIndex = 0;
 
-    const FString SaveSlotName = TEXT("PlayerSaveSlot");
+    static const FString SaveSlotName;
     static constexpr int32 SaveUserIndex = 0;
 
     void ApplyAudioSettings();
