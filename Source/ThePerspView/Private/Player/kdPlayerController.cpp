@@ -44,13 +44,11 @@ void AkdPlayerController::SetupInputComponent()
 		}
 		if (InteractAction)
 		{
-			EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started,
-				this, &AkdPlayerController::Interact);
+			EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started,this, &AkdPlayerController::Interact);
 		}
 		if (DashAction)
 		{
-			EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Started,
-				this, &AkdPlayerController::ShadowDash);
+			EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Started,this, &AkdPlayerController::ShadowDash);
 		}
 		if (DebugPrintTagsAction)
 		{

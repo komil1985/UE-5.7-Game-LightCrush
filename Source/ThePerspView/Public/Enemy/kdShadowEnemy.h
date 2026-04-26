@@ -59,6 +59,11 @@ private:
 	UFUNCTION()
 	void TryApplyContactDamage();
 
+	UFUNCTION()
+	void OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
+
+	void SetEnemyActive(bool bActive);
+
 	FTimerHandle DamageTickHandle;
 
 	FActiveGameplayEffectHandle ContactEffectHandle;

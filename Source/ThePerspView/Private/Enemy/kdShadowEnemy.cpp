@@ -8,6 +8,7 @@
 #include "AbilitySystemComponent.h"
 #include "GameplayTags/kdGameplayTags.h"
 #include "Components/SphereComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 
 // Sets default values
@@ -28,6 +29,9 @@ AkdShadowEnemy::AkdShadowEnemy()
 	DamageSphere->SetSphereRadius(GetCapsuleComponent()->GetScaledCapsuleRadius() + 5.0f);
 	DamageSphere->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 	DamageSphere->SetGenerateOverlapEvents(true);
+
+	SetActorHiddenInGame(true);
+	SetActorEnableCollision(false);
 }
 
 void AkdShadowEnemy::BeginPlay()
@@ -41,6 +45,19 @@ void AkdShadowEnemy::BeginPlay()
 
 	DamageSphere->OnComponentBeginOverlap.AddDynamic(this, &AkdShadowEnemy::OnDamageSphereBeginOverlap);
 	DamageSphere->OnComponentEndOverlap.AddDynamic(this, &AkdShadowEnemy::OnDamageSphereEndOverlap);
+
+	// Subscribe to player's Crush Mode tag — show/hide enemy based on it
+    AkdMyPlayer* Player = Cast<AkdMyPlayer>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
+    if (Player)
+    {
+        if (UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent())
+        {
+            ASC->RegisterGameplayTagEvent(FkdGameplayTags::Get().State_CrushMode,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AkdShadowEnemy::OnCrushModeTagChanged);
+            // Sync immediately in case the level starts already in Crush Mode
+            const bool bAlready = ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode);
+			SetEnemyActive(bAlready);
+        }
+    }
 }
 
 void AkdShadowEnemy::TryApplyContactDamage()
@@ -88,6 +105,33 @@ void AkdShadowEnemy::TryApplyContactDamage()
 #if !UE_BUILD_SHIPPING
 		UE_LOG(LogTemp, Log, TEXT("ShadowEnemy [%s]: Damage tick applied to player"), *GetName());
 #endif
+	}
+}
+
+void AkdShadowEnemy::OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+{
+	SetEnemyActive(NewCount > 0);
+}
+
+void AkdShadowEnemy::SetEnemyActive(bool bActive)
+{
+	SetActorHiddenInGame(!bActive);
+	SetActorEnableCollision(bActive);
+	
+	// When deactivating, also clear any in-progress damage tick to
+	// prevent the timer firing after the enemy is "gone"
+	if (!bActive)
+	{
+	    GetWorldTimerManager().ClearTimer(DamageTickHandle);
+	    if (ContactEffectHandle.IsValid() && OverlappingPlayer.IsValid())
+	    {
+	        if (UAbilitySystemComponent* ASC = OverlappingPlayer->GetAbilitySystemComponent())
+	        {
+	            ASC->RemoveActiveGameplayEffect(ContactEffectHandle);
+	        }
+	        ContactEffectHandle.Invalidate();
+	    }
+	    OverlappingPlayer = nullptr;
 	}
 }
 
