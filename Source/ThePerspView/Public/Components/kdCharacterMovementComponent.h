@@ -41,6 +41,9 @@ public:
 	 */
 	void ApplyShadowDashImpulse(float Strength);
 
+	/** Cleans up dash state when leaving Shadow2D mode. */
+    virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
+
 protected:
 	void PhysShadow2D(float DeltaTime, int32 Iterations);
 

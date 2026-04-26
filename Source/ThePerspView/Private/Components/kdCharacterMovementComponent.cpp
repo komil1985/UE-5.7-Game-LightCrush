@@ -57,6 +57,35 @@ void UkdCharacterMovementComponent::ApplyShadowDashImpulse(float Strength)
 	Velocity.X = 0.f;
 }
 
+void UkdCharacterMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
+{
+	Super::OnMovementModeChanged(PreviousMovementMode, PreviousCustomMode);
+
+	const bool bWasShadow =
+		(PreviousMovementMode == MOVE_Custom) &&
+		(PreviousCustomMode == (uint8)ECustomMovementMode::CMOVE_Shadow2D);
+
+	const bool bIsShadowNow =
+		(MovementMode == MOVE_Custom) &&
+		(CustomMovementMode == (uint8)ECustomMovementMode::CMOVE_Shadow2D);
+
+	if (bWasShadow && !bIsShadowNow)
+	{
+		// Exited the shadow plane — clear dash state and clamp residual velocity
+		// to walking speed so we don't sprint at 1400 cm/s into the floor.
+		bIsDashing = false;
+		Velocity = Velocity.GetClampedToMaxSize(MaxWalkSpeed);
+	}
+
+	if (bIsShadowNow && !bWasShadow)
+	{
+		// Entered shadow plane fresh — guarantee no leftover dash state and
+		// clear any input direction cache so first frame doesn't double-up.
+		bIsDashing = false;
+		LastShadowInputDirection = FVector::ZeroVector;
+	}
+}
+
 void UkdCharacterMovementComponent::PhysShadow2D(float DeltaTime, int32 Iterations)
 {
 	if (DeltaTime < MIN_TICK_TIME) return;
@@ -82,14 +111,39 @@ void UkdCharacterMovementComponent::PhysShadow2D(float DeltaTime, int32 Iteratio
 		ShadowAccel = LastShadowInputDirection * ShadowAcceleration;
 		Velocity += ShadowAccel * DeltaTime;
 		//Velocity = Velocity.GetClampedToMaxSize(ShadowMaxSpeed);
-		if (!bIsDashing)
+		// /////////////////////////////////////////////////////////////////
+		//if (!bIsDashing)
+		//{
+		//	Velocity = Velocity.GetClampedToMaxSize(ShadowMaxSpeed);
+		//}
+		//else if (Velocity.Size() <= ShadowMaxSpeed)
+		//{
+		//	// Dash has naturally decelerated to normal movement speed
+		//	bIsDashing = false;
+		//}
+		//////////////////////////////////////////////////////////////////////
+		if (bIsDashing)
+		{
+			// Decay current speed toward ShadowMaxSpeed at a rate proportional
+			// to ShadowBrakingDeceleration. This makes the dash burst feel
+			// like a momentum boost rather than a teleport.
+			const float CurrentSpeed = Velocity.Size();
+			if (CurrentSpeed > ShadowMaxSpeed)
+			{
+				const float DecayedSpeed = FMath::Max(
+					ShadowMaxSpeed,
+					CurrentSpeed - ShadowBrakingDeceleration * DeltaTime * 0.5f);
+				Velocity = Velocity.GetSafeNormal() * DecayedSpeed;
+			}
+			else
+			{
+				bIsDashing = false;
+				Velocity = Velocity.GetClampedToMaxSize(ShadowMaxSpeed);
+			}
+		}
+		else
 		{
 			Velocity = Velocity.GetClampedToMaxSize(ShadowMaxSpeed);
-		}
-		else if (Velocity.Size() <= ShadowMaxSpeed)
-		{
-			// Dash has naturally decelerated to normal movement speed
-			bIsDashing = false;
 		}
 	}
 	else
