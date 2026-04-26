@@ -89,8 +89,22 @@ void UkdLevelCompleteWidget::OnNextLevelClicked()
 {
     if (UkdGameInstance* GI = UkdGameInstance::Get(GetWorld()))
     {
-        GI->LoadNextLevel();
-    }
+        //GI->LoadNextLevel();
+    
+        // Show loading screen FIRST, then delay the actual level open.
+         if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+         {
+            if (AkdHUD* HUD = Cast<AkdHUD>(PC->GetHUD()))
+            {
+                HUD->ShowLoadingScreen();
+            }
+         }
+         //UkdGameInstance* GI = Cast<UkdGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
+         if (!GI) return;
+         constexpr float LoadDelay = 2.0f;   // shorter than menu — player knows what's coming
+         FTimerHandle LoadHandle;
+         GetWorld()->GetTimerManager().SetTimer(LoadHandle, [GI](){GI->LoadNextLevel();}, LoadDelay, false);
+     }
 }
 
 void UkdLevelCompleteWidget::OnRetryClicked()

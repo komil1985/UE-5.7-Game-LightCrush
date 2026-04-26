@@ -98,6 +98,33 @@ bool UkdGameInstance::HasNextLevel() const
     return LevelOrder.IsValidIndex(CurrentLevelIndex + 1);
 }
 
+void UkdGameInstance::LoadCurrentLevel()
+{
+    if (!LevelOrder.IsValidIndex(CurrentLevelIndex))
+    {
+        UE_LOG(LogTemp, Warning,
+            TEXT("LoadCurrentLevel: index %d out of range (%d levels)."),
+            CurrentLevelIndex, LevelOrder.Num());
+        return;
+    }
+
+    UGameplayStatics::OpenLevel(this, LevelOrder[CurrentLevelIndex]);
+}
+
+int32 UkdGameInstance::GetTotalLevelCount() const
+{
+    return LevelOrder.Num();
+}
+
+void UkdGameInstance::SetLastPlayedLevelIndex(int32 Index)
+{
+    LastPlayedLevelIndex = Index;
+
+    // Persist immediately so a crash mid-level still remembers where the
+    // player was.
+    SaveProgress();
+}
+
 // ─── Internal load ────────────────────────────────────────────────────────────
 
 void UkdGameInstance::InternalLoadLevel(FName LevelName)
@@ -173,6 +200,7 @@ void UkdGameInstance::SaveProgress()
     if (!SaveGameObject) return;
 
     SaveGameObject->Settings = GameSettings;
+    SaveGameObject->LastPlayedLevelIndex = LastPlayedLevelIndex;
     UGameplayStatics::SaveGameToSlot(SaveGameObject, SaveSlotName, SaveUserIndex);
 }
 
@@ -197,9 +225,11 @@ bool UkdGameInstance::TryLoadProgress()
     }
 
     GameSettings = SaveGameObject->Settings;
+    LastPlayedLevelIndex = SaveGameObject->LastPlayedLevelIndex;
 
 #if !UE_BUILD_SHIPPING
-    //UE_LOG(LogTemp, Log, TEXT("UkdGameInstance: Save loaded (v%d)."), SaveGameObject->SaveVersion);
+    UE_LOG(LogTemp, Log, TEXT("UkdGameInstance: Save loaded. Version (v%d)."), SaveGameObject->SaveVersion);
+    UE_LOG(LogTemp, Log, TEXT("UkdGameInstance: Save loaded. LastPlayedLevel=%d"),LastPlayedLevelIndex);
 #endif
 
     return true;
@@ -229,6 +259,14 @@ void UkdGameInstance::RecordLevelComplete(int32 LevelIndex, float CompletionTime
 
     // Unlock the next level automatically
     SaveGameObject->UnlockLevel(LevelIndex + 1);
+
+    // Track where the player is so Continue always resumes correctly.
+    // We store the NEXT level index — that's where they should continue from.
+    const int32 NextIndex = LevelIndex + 1;
+    if (LevelOrder.IsValidIndex(NextIndex))
+    {
+        LastPlayedLevelIndex = NextIndex;
+    }
 
     SaveProgress();
 

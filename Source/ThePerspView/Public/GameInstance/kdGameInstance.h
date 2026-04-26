@@ -53,6 +53,20 @@ public:
     UFUNCTION(BlueprintPure, Category = "Level")
     bool HasNextLevel() const;
 
+    /** Opens Levels[CurrentLevelIndex] directly — no increment. */
+    UFUNCTION(BlueprintCallable, Category = "Level")
+    void LoadCurrentLevel();
+
+    /** Returns the total number of entries in the Levels array. */
+    UFUNCTION(BlueprintPure, Category = "Level")
+    int32 GetTotalLevelCount() const;
+
+    UFUNCTION(BlueprintPure, Category = "Level")
+    int32 GetLastPlayedLevelIndex() const { return LastPlayedLevelIndex; }
+
+    /** Called whenever the player enters a playable level. */
+    void SetLastPlayedLevelIndex(int32 Index);
+
     // ── Settings ─────────────────────────────────────────────────────────────
 
     UFUNCTION(BlueprintPure, Category = "Settings")
@@ -128,6 +142,7 @@ private:
     TObjectPtr<UkdSaveGame> SaveGameObject;
 
     int32 CurrentLevelIndex = 0;
+    int32 LastPlayedLevelIndex = 1;
 
     static const FString SaveSlotName;
     static constexpr int32 SaveUserIndex = 0;

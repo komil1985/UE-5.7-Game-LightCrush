@@ -73,6 +73,9 @@ public:
     UPROPERTY(SaveGame, BlueprintReadWrite)
     TArray<int32> UnlockedLevels;
 
+	UPROPERTY(SaveGame, BlueprintReadWrite)
+    int32 LastPlayedLevelIndex = 1;
+
     // ── Helpers ──────────────────────────────────────────────────────────────
     int32  GetHighScore(int32 LevelIdx) const;
     bool   TrySetHighScore(int32 LevelIdx, int32 Score);        // true if new best

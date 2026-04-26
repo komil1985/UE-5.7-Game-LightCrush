@@ -19,28 +19,38 @@ public:
     virtual void NativeConstruct() override;
 
 protected:
-    UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_Play;
+    UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_NewGame;
+    UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_Continue;
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_Settings;
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_Quit;
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> Txt_Version;
 
     // Button click handlers
-    UFUNCTION() void OnPlayClicked();
+    UFUNCTION() void OnNewGameClicked();
+    UFUNCTION() void OnContinueClicked();
     UFUNCTION() void OnSettingsClicked();
     UFUNCTION() void OnQuitClicked();
+    UFUNCTION() void RefreshContinueButton();
 
 private:
+    /** Helper: determines the highest level the player has unlocked. */
+    int32 GetHighestUnlockedLevelIndex() const;
+
+    /** Helper: triggers the loading-screen-then-load sequence. */
+    void TransitionToLevel(int32 LevelIndexBeforeLoadNext);
+
     UPROPERTY(EditDefaultsOnly, Category = "Time")
     float LoadingScreenDisplayTime = 5.0f;
 
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Blueprint UMG Setup:
-//   Create a WBP_MainMenu widget. Add these named bindings:
-//   • Btn_Play        (UButton)   – starts the first/next unlocked level
-//   • Btn_Settings    (UButton)   – opens settings overlay
-//   • Btn_Quit        (UButton)   – quits the application
-//   • Txt_GameTitle   (UTextBlock)– game title
-//   • Txt_Version     (UTextBlock)– auto-populated with build version
+// UkdMainMenuWidget
+//
+// BLUEPRINT BINDINGS (rename Btn_Play to Btn_NewGame, add Btn_Continue):
+//   Btn_NewGame   – starts fresh (resets save's CurrentLevelIndex to 0)
+//   Btn_Continue  – resumes from highest unlocked level (disabled if no save)
+//   Btn_Settings  – opens settings
+//   Btn_Quit      – quits the application
+//   Txt_Version   – auto-filled with project version
 // ─────────────────────────────────────────────────────────────────────────────
