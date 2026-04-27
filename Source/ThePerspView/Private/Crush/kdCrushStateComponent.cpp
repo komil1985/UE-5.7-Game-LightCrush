@@ -67,32 +67,62 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 	float StaminaDelta = 0.0f;
 
-	// Drain stamina only when in crush mode and moving
-	if (bInCrushMode && bIsMoving)
+//	// Drain stamina only when in crush mode and moving
+//	if (bInCrushMode && bIsMoving)
+//	{
+//		StaminaDelta = -BaseStaminaDrainRate * DeltaTime;
+//#if !UE_BUILD_SHIPPING
+//		UE_LOG(LogTemp, Verbose, TEXT("  -> Draining: %f"), StaminaDelta);
+//#endif
+//	}
+//	else if (!bIsMoving && TimeSinceLastMove >= RegenDelay)
+//	{
+//		// Get current and max stamina values
+//		float CurrentStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
+//		float MaxStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
+//		// Only regen if below max
+//		if (CurrentStamina < MaxStamina)
+//		{
+//			float DesiredDelta = StaminaRegenRate * DeltaTime;
+//			StaminaDelta = FMath::Min(DesiredDelta, MaxStamina - CurrentStamina);
+//#if !UE_BUILD_SHIPPING
+//			UE_LOG(LogTemp, Verbose, TEXT("  -> Regenerating: %f"), StaminaDelta);
+//#endif
+//		}
+//	}
+
+	/*-------- Stamina Drain Logic ------------------------------------------------------*/
+	if (bInCrushMode)
 	{
-		StaminaDelta = -StaminaDrainRate * DeltaTime;
-#if !UE_BUILD_SHIPPING
-		UE_LOG(LogTemp, Verbose, TEXT("  -> Draining: %f"), StaminaDelta);
-#endif
+		// ── 2D (Crush) mode ─────────────────────────────────────────
+		// Drain only when the player is moving.
+		if (bIsMoving)
+		{
+			const bool bInShadow = ASC->HasMatchingGameplayTag(StateTags.State_InShadow);
+
+			// Use the appropriate drain rate: higher in shadow, lower outside.
+			const float ActiveDrainRate = bInShadow ? ShadowStaminaDrainRate : BaseStaminaDrainRate;
+			StaminaDelta = -ActiveDrainRate * DeltaTime;
+		}
+		// No regen while Crush Mode is active (even when idle).
 	}
-	else if (!bIsMoving && TimeSinceLastMove >= RegenDelay)
+	else
 	{
-		// Get current and max stamina values
-		float CurrentStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
-		float MaxStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
-		// Only regen if below max
+		// ── 3D mode ──────────────────────────────────────────────────
+		// Always regenerate (moving or idle), as long as stamina isn’t already full.
+		const float CurrentStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
+		const float MaxStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
+
 		if (CurrentStamina < MaxStamina)
 		{
-			float DesiredDelta = StaminaRegenRate * DeltaTime;
+			const float DesiredDelta = StaminaRegenRate * DeltaTime;
 			StaminaDelta = FMath::Min(DesiredDelta, MaxStamina - CurrentStamina);
-#if !UE_BUILD_SHIPPING
-			UE_LOG(LogTemp, Verbose, TEXT("  -> Regenerating: %f"), StaminaDelta);
-#endif
 		}
 	}
+	/*-----------------------------------------------------------------------------*/
 
 	// Determine if stamina is currently draining
-	bool bIsDraining = (StaminaDelta < 0.0f);
+	const bool bIsDraining = (StaminaDelta < 0.0f);
 	if (bIsDraining != bWasDraining)
 	{
 		bWasDraining = bIsDraining;
@@ -123,8 +153,9 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 			MoveComp->MaxWalkSpeed = 600.0f;
 		}
 		if (ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
+		{
 			ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
-		//SetComponentTickEnabled(false);
+		}
 		return;
 	}
 
@@ -173,8 +204,17 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 {
 	if (!CachedOwner) return;
-	
-	if (!bEnable) ResetPhysicsTo3D();
+	//if (!bEnable) ResetPhysicsTo3D();
+
+	if (!bEnable)
+	{
+		ResetPhysicsTo3D();
+		// Immediately remove the InShadow tag so the tick never sees it stale.
+		if (UAbilitySystemComponent* ASC = CachedOwner->GetAbilitySystemComponent())
+		{
+			ASC->RemoveLooseGameplayTag(FkdGameplayTags::Get().State_InShadow);
+		}
+	}
 }
 
 void UkdCrushStateComponent::HandleVerticalInput(float Value)

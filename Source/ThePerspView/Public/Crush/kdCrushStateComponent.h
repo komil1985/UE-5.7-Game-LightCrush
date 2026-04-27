@@ -54,7 +54,10 @@ public:
 
 	// Stamina handling drain / regen settings ///////////////////////////////
 	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
-	float StaminaDrainRate = 10.0f;
+	float BaseStaminaDrainRate = 5.0f;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
+	float ShadowStaminaDrainRate = 20.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
 	float StaminaRegenRate = 5.0f;
