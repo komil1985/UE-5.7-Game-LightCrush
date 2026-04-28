@@ -30,6 +30,7 @@ class UkdStaminaWidget;
 class UWidgetComponent;
 class UStaticMeshComponent;
 class UMaterialInstanceDynamic;
+class UkdGameFeedbackComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
@@ -66,6 +67,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UkdFallDamageComponent> FallDamageComponent;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Components")
+	TObjectPtr<UkdGameFeedbackComponent> GameFeedbackComponent;
 	/*--------------------------------------------------------------------------*/
 
 	// -- User Interface -- //
@@ -90,6 +94,8 @@ public:
 	/** Called by the controller on Dash input. Finds and activates UkdShadowDash. */
 	UFUNCTION()
 	void RequestShadowDash();
+
+	FORCEINLINE UMaterialInstanceDynamic* GetCrushPPInstance() const { return CrushPPInstance; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -129,7 +135,7 @@ private:
 	float PlaneConstraintXValue = 0.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Crush | Visuals")
-	UMaterialInterface* CrushPostProcessMaterial; 
+	TObjectPtr<UMaterialInterface> CrushPostProcessMaterial;
 
 	// Dynamic instance so we can fade it in/out
 	UPROPERTY(EditDefaultsOnly)

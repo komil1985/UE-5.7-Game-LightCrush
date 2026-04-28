@@ -23,6 +23,7 @@
 #include "Engine/OverlapResult.h"
 #include "Components/kdDeathComponent.h"
 #include "Components/kdFallDamageComponent.h"
+#include "Components/kdGameFeedbackComponent.h"
 
 
 
@@ -63,6 +64,7 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	CrushTransitionComponent = CreateDefaultSubobject<UkdCrushTransitionComponent>(TEXT("CrushTransition"));
 	DeathComponent = CreateDefaultSubobject<UkdDeathComponent>(TEXT("DeathComponent"));
 	FallDamageComponent = CreateDefaultSubobject<UkdFallDamageComponent>(TEXT("FallDamageComponent"));
+	GameFeedbackComponent = CreateDefaultSubobject<UkdGameFeedbackComponent>(TEXT("GameFeedbackComponent"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 	/*	--	Default Values	--	*/
@@ -128,6 +130,14 @@ void AkdMyPlayer::BeginPlay()
 		{
 			StaminaWidget->InitializeWithAbilitySystemComponent(AbilitySystemComponent);
 		}
+	}
+
+	if (CrushPostProcessMaterial)
+	{
+		CrushPPInstance = UMaterialInstanceDynamic::Create(CrushPostProcessMaterial, this);
+
+		// Add to camera's post-process chain
+		Camera->PostProcessSettings.WeightedBlendables.Array.Add(FWeightedBlendable(1.0f, CrushPPInstance));
 	}
 }
 

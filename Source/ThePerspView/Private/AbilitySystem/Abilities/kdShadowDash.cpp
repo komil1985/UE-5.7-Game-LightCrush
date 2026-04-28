@@ -8,6 +8,7 @@
 #include "Components/kdCharacterMovementComponent.h"
 #include "AbilitySystem/Effects/kdShadowDashCooldown.h"
 #include "AbilitySystem/Effects/kdShadowDashCost.h"
+#include "Components/kdGameFeedbackComponent.h"
 
 UkdShadowDash::UkdShadowDash()
 {
@@ -48,8 +49,7 @@ void UkdShadowDash::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
 		return;
 	}
 
-	UkdCharacterMovementComponent* MoveComp =
-		Cast<UkdCharacterMovementComponent>(Player->GetCharacterMovement());
+	UkdCharacterMovementComponent* MoveComp = Cast<UkdCharacterMovementComponent>(Player->GetCharacterMovement());
 	if (!MoveComp)
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
@@ -63,6 +63,12 @@ void UkdShadowDash::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("ShadowDash: impulse applied, strength=%.0f"), DashStrength);
 #endif
+
+	   // Notify game feel component — triggers shake + aberration spike
+   if (UkdGameFeedbackComponent* GF = Player->FindComponentByClass<UkdGameFeedbackComponent>())
+   {
+       GF->OnDashPerformed();
+   }
 
 	// Dash is fire-and-forget — end immediately so the ability slot is free
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
