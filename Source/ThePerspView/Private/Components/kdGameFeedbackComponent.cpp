@@ -11,187 +11,320 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "GameFramework/Character.h"
 
+
+// ── Parameter names must match your material exactly ─────────────────────────
+static const FName PP_Chroma = TEXT("ChromaticAberration");
+static const FName PP_Vignette = TEXT("VignetteIntensity");
+
+
 UkdGameFeedbackComponent::UkdGameFeedbackComponent()
 {
-	// Tick starts DISABLED — we re-enable it only when post-process
-	// values need to change, then disable again when they settle.
+	// Tick disabled at rest — only enabled when post-process values are animating.
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
 
 }
 
+// =============================================================================
+// BeginPlay — wires everything up
+// =============================================================================
 void UkdGameFeedbackComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
 	AkdMyPlayer* Player = Cast<AkdMyPlayer>(GetOwner());
-	if (!Player) return;
+	if (!Player)
+	{
+		UE_LOG(LogTemp, Error, TEXT("GameFeelComponent: Owner is not AkdMyPlayer! Component disabled."));
+		return;
+	}
 
+	// Cache camera
+	CachedCamera = Player->Camera;
+
+	// Cache ASC
 	CachedASC = Cast<UkdAbilitySystemComponent>(Player->GetAbilitySystemComponent());
-	if (!CachedASC) return;
+	if (!CachedASC)
+	{
+		UE_LOG(LogTemp, Error, TEXT("GameFeelComponent: Could not find AbilitySystemComponent! Shakes/tags disabled."));
+	}
 
-	// Cache the post-process material instance that already lives on the player.
-	// The player creates CrushPPInstance in its own BeginPlay / InitializeAbilitySystem.
-	// We just grab the pointer — we never own it.
-	CachedPPMaterial = Player->GetCrushPPInstance();
+	// ── Create the Dynamic Material Instance ourselves ────────────────────────
+	// We do this here so nothing external needs to set it up.
+	if (TryGetPPInstance())
+	{
+		// Start fully transparent — no effects until triggered
+		WritePP_Chromatic(0.f);
+		WritePP_Vignette(0.f);
+		WritePP_BlendWeight(0.f); // invisible until crush mode activates
 
-	const FkdGameplayTags& Tags = FkdGameplayTags::Get();
+		UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: Post-process material instance created OK."));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning,TEXT("GameFeelComponent: CrushPostProcessMaterial not assigned in BP_Player! "
+				"Open BP_Player → select GameFeelComponent → assign material in Details panel."));
+	}
 
-	// ── Tag event subscriptions ───────────────────────────────────────────────
-	// State_InShadow fires when the player enters / exits the shadow plane.
-	CachedASC->RegisterGameplayTagEvent(Tags.State_InShadow,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &UkdGameFeedbackComponent::OnInShadowTagChanged);
+	// ── Subscribe to GAS tags and attributes ─────────────────────────────────
+	if (CachedASC)
+	{
+		const FkdGameplayTags& Tags = FkdGameplayTags::Get();
 
-	// State_Exhausted fires when stamina hits zero.
-	CachedASC->RegisterGameplayTagEvent(Tags.State_Exhausted,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &UkdGameFeedbackComponent::OnExhaustedTagChanged);
+		CachedASC->RegisterGameplayTagEvent(Tags.State_CrushMode,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &UkdGameFeedbackComponent::OnCrushModeTagChanged);
+		CachedASC->RegisterGameplayTagEvent(Tags.State_InShadow,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &UkdGameFeedbackComponent::OnInShadowTagChanged);
+		CachedASC->RegisterGameplayTagEvent(Tags.State_Exhausted,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &UkdGameFeedbackComponent::OnExhaustedTagChanged);
+		CachedASC->GetGameplayAttributeValueChangeDelegate(UkdAttributeSet::GetShadowStaminaAttribute()).AddUObject(this, &UkdGameFeedbackComponent::OnStaminaChanged);
 
-	// ── Stamina attribute delegate ────────────────────────────────────────────
-	CachedASC->GetGameplayAttributeValueChangeDelegate(UkdAttributeSet::GetShadowStaminaAttribute()).AddUObject(this, &UkdGameFeedbackComponent::OnStaminaChanged);
+		// Sync stamina fraction from current value
+		const float MaxStam = CachedASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
+		const float CurStam = CachedASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
+		CurrentStaminaFrac = (MaxStam > 0.f) ? FMath::Clamp(CurStam / MaxStam, 0.f, 1.f) : 1.f;
 
-	// Initialise stamina fraction from current value
-	const float MaxStam = CachedASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
-	const float CurStam = CachedASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
+		UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: GAS subscriptions registered OK."));
+	}
 
-	CurrentStaminaFrac = (MaxStam > 0.f) ? (CurStam / MaxStam) : 1.f;
+	// ── Warn about missing shake classes ────────────────────────────────────
+#if !UE_BUILD_SHIPPING
+	if (!DashShakeClass)
+		UE_LOG(LogTemp, Warning, TEXT("GameFeelComponent: DashShakeClass not assigned in BP_Player!"));
+	if (!ShadowEntryShakeClass)
+		UE_LOG(LogTemp, Warning, TEXT("GameFeelComponent: ShadowEntryShakeClass not assigned!"));
+	if (!ShadowExitShakeClass)
+		UE_LOG(LogTemp, Warning, TEXT("GameFeelComponent: ShadowExitShakeClass not assigned!"));
+	if (!StaminaEmptyShakeClass)
+		UE_LOG(LogTemp, Warning, TEXT("GameFeelComponent: StaminaEmptyShakeClass not assigned!"));
+#endif
 }
 
-
-void UkdGameFeedbackComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+// =============================================================================
+// Tick — decays chromatic aberration and pulses vignette
+// =============================================================================
+void UkdGameFeedbackComponent::TickComponent(float DeltaTime, ELevelTick TickType,
+	FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	// ── Chromatic aberration decay ────────────────────────────────────────────
+	// ── Chromatic aberration: exponential decay toward zero ──────────────────
 	if (CurrentChromatic > KINDA_SMALL_NUMBER)
 	{
 		CurrentChromatic = FMath::Max(0.f,CurrentChromatic - ChromaticDecaySpeed * DeltaTime);
-		SetChromaticAberration(CurrentChromatic);
+		WritePP_Chromatic(CurrentChromatic);
 	}
 
-	// ── Vignette pulse ────────────────────────────────────────────────────────
-	// Only pulse when stamina is below the threshold.
-	if (CurrentStaminaFrac < LowStaminaThreshold)
+	// ── Vignette: pulse only in crush mode when stamina is low ───────────────
+	if (bInCrushMode && CurrentStaminaFrac < LowStaminaThreshold)
 	{
-		// How deep below the threshold? 0 = just entered, 1 = fully exhausted.
+		// Severity: 0 = just crossed threshold, 1 = fully empty
 		const float Severity = 1.f - (CurrentStaminaFrac / LowStaminaThreshold);
-
-		// Pulse amplitude scales with severity (barely pulses at 35%, full at 0%).
-		const float PulseAmplitude = MaxVignetteIntensity * Severity;
-
-		// Advance phase and compute oscillated value.
 		VignettePhase += VignettePulseFrequency * 2.f * PI * DeltaTime;
-		const float PulsedTarget = PulseAmplitude* (0.5f + 0.5f * FMath::Sin(VignettePhase));
-		TargetVignette = PulsedTarget;
+		TargetVignette = MaxVignetteIntensity * Severity * (0.5f + 0.5f * FMath::Sin(VignettePhase));
 	}
 	else
 	{
-		// Stamina is healthy — fade vignette out.
 		TargetVignette = 0.f;
-		VignettePhase = 0.f;   // reset phase so next entry starts from silence
+		if (!bInCrushMode) VignettePhase = 0.f;
 	}
 
-	// Smooth lerp toward target to avoid sharp jumps.
-	CurrentVignette = FMath::FInterpTo(CurrentVignette, TargetVignette, DeltaTime, VignetteLerpSpeed);
-	SetVignetteIntensity(CurrentVignette);
+	const float NewVignette = FMath::FInterpTo(CurrentVignette, TargetVignette, DeltaTime, VignetteLerpSpeed);
 
-	// ── Auto-disable tick when nothing is animating ──────────────────────────
-	if (!NeedsTickThisFrame())
+	if (!FMath::IsNearlyEqual(NewVignette, CurrentVignette, 0.001f))
 	{
-		SetTickEnabled(false);
+		CurrentVignette = NewVignette;
+		WritePP_Vignette(CurrentVignette);
+	}
+
+	// Auto-disable tick when nothing is animating
+	if (!NeedsTick())
+	{
+		SetTickActive(false);
 	}
 }
 
+// =============================================================================
+// Public API
+// =============================================================================
 void UkdGameFeedbackComponent::OnDashPerformed()
 {
-	PlayCameraShake(DashShakeClass);
-
-	// Spike chromatic aberration — decays in Tick.
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: OnDashPerformed fired."));
+#endif
+	PlayShake(DashShakeClass);
 	CurrentChromatic = DashChromaticPeak;
-	SetChromaticAberration(CurrentChromatic);
-
-	SetTickEnabled(true);
+	WritePP_Chromatic(CurrentChromatic);
+	SetTickActive(true);
 }
 
-void UkdGameFeedbackComponent::OnInShadowTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+// =============================================================================
+// Tag callbacks
+// =============================================================================
+void UkdGameFeedbackComponent::OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCount)
 {
-	if (NewCount > 0)
+	bInCrushMode = (NewCount > 0);
+
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: CrushMode %s"), bInCrushMode ? TEXT("ENTERED") : TEXT("EXITED"));
+#endif
+
+	if (bInCrushMode)
 	{
-		// Entered shadow plane
-		PlayCameraShake(ShadowEntryShakeClass);
-		CurrentChromatic = ShadowEntryChromaticPeak;
-		SetChromaticAberration(CurrentChromatic);
+		// Make post-process visible now that we're in crush mode
+		WritePP_BlendWeight(1.f);
 	}
 	else
 	{
-		// Left shadow plane
-		PlayCameraShake(ShadowExitShakeClass);
+		// Zero everything out and hide the material
+		CurrentChromatic = 0.f;
+		CurrentVignette = 0.f;
+		TargetVignette = 0.f;
+		VignettePhase = 0.f;
+		WritePP_Chromatic(0.f);
+		WritePP_Vignette(0.f);
+		WritePP_BlendWeight(0.f);
 	}
-
-	SetTickEnabled(true);
 }
 
-void UkdGameFeedbackComponent::OnExhaustedTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+void UkdGameFeedbackComponent::OnInShadowTagChanged(const FGameplayTag Tag, int32 NewCount)
 {
 	if (NewCount > 0)
 	{
-		// Stamina just hit zero — big shake
-		PlayCameraShake(StaminaEmptyShakeClass);
-		SetTickEnabled(true);
+#if !UE_BUILD_SHIPPING
+		UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: Shadow ENTERED — shake + chroma"));
+#endif
+		PlayShake(ShadowEntryShakeClass);
+		CurrentChromatic = ShadowEntryChromaticPeak;
+		WritePP_Chromatic(CurrentChromatic);
+	}
+	else
+	{
+#if !UE_BUILD_SHIPPING
+		UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: Shadow EXITED — shake"));
+#endif
+		PlayShake(ShadowExitShakeClass);
+	}
+	SetTickActive(true);
+}
+
+void UkdGameFeedbackComponent::OnExhaustedTagChanged(const FGameplayTag Tag, int32 NewCount)
+{
+	if (NewCount > 0)
+	{
+#if !UE_BUILD_SHIPPING
+		UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: Stamina EXHAUSTED — big shake"));
+#endif
+		PlayShake(StaminaEmptyShakeClass);
+		SetTickActive(true);
 	}
 }
 
+// =============================================================================
+// Attribute callback
+// =============================================================================
 void UkdGameFeedbackComponent::OnStaminaChanged(const FOnAttributeChangeData& Data)
 {
 	if (!CachedASC) return;
 
-	const float MaxStam = CachedASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
+	const float Max = CachedASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
+	CurrentStaminaFrac = (Max > 0.f) ? FMath::Clamp(Data.NewValue / Max, 0.f, 1.f) : 1.f;
 
-	CurrentStaminaFrac = (MaxStam > 0.f) ? FMath::Clamp(Data.NewValue / MaxStam, 0.f, 1.f) : 1.f;
-
-	// Re-enable tick so the vignette can update this frame.
-	if (CurrentStaminaFrac < LowStaminaThreshold)
+	// Wake tick so vignette can update
+	if (bInCrushMode && CurrentStaminaFrac < LowStaminaThreshold)
 	{
-		SetTickEnabled(true);
+		SetTickActive(true);
 	}
 }
 
-void UkdGameFeedbackComponent::PlayCameraShake(TSubclassOf<UCameraShakeBase> ShakeClass)
+// =============================================================================
+// Helpers
+// =============================================================================
+void UkdGameFeedbackComponent::PlayShake(TSubclassOf<UCameraShakeBase> ShakeClass)
 {
-	if (!ShakeClass) return;
+	if (!ShakeClass)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("GameFeelComponent: Tried to play shake but class not assigned in BP_Player!"));
+		return;
+	}
 
 	AkdMyPlayer* Player = Cast<AkdMyPlayer>(GetOwner());
 	if (!Player) return;
 
 	APlayerController* PC = Cast<APlayerController>(Player->GetController());
-	if (!PC) return;
+	if (!PC)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("GameFeelComponent: No PlayerController found — shake skipped."));
+		return;
+	}
 
-	PC->ClientStartCameraShake(ShakeClass);
+	PC->ClientStartCameraShake(ShakeClass, 1.f);
+
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: Playing shake [%s]"),
+		*ShakeClass->GetName());
+#endif
 }
 
-void UkdGameFeedbackComponent::SetChromaticAberration(float Value)
+bool UkdGameFeedbackComponent::TryGetPPInstance()
 {
-	if (!CachedPPMaterial) return;
-	// Material scalar parameter — must match your post-process material exactly.
-	CachedPPMaterial->SetScalarParameterValue(TEXT("ChromaticAberration"), Value);
+	// Already created — return immediately
+	if (PPInstance) return true;
+
+	// No material assigned — nothing to do
+	if (!CrushPostProcessMaterial) return false;
+
+	// Require a camera to add the blendable to
+	if (!CachedCamera) return false;
+
+	// Create a unique dynamic instance so we can write scalar params
+	PPInstance = UMaterialInstanceDynamic::Create(CrushPostProcessMaterial, this);
+	if (!PPInstance) return false;
+
+	// Add to the camera's post-process chain at weight 0 (invisible until needed)
+	FWeightedBlendable Blendable;
+	Blendable.Weight = 0.f;
+	Blendable.Object = PPInstance;
+	CachedCamera->PostProcessSettings.WeightedBlendables.Array.Add(Blendable);
+
+	return true;
 }
 
-void UkdGameFeedbackComponent::SetVignetteIntensity(float Value)
+void UkdGameFeedbackComponent::WritePP_Chromatic(float Value)
 {
-	if (!CachedPPMaterial) return;
-	CachedPPMaterial->SetScalarParameterValue(TEXT("VignetteIntensity"), Value);
+	if (!PPInstance && !TryGetPPInstance()) return;
+	PPInstance->SetScalarParameterValue(PP_Chroma, Value);
 }
 
-void UkdGameFeedbackComponent::SetTickEnabled(bool bEnabled)
+void UkdGameFeedbackComponent::WritePP_Vignette(float Value)
 {
-	PrimaryComponentTick.SetTickFunctionEnable(bEnabled);
+	if (!PPInstance && !TryGetPPInstance()) return;
+	PPInstance->SetScalarParameterValue(PP_Vignette, Value);
 }
 
-bool UkdGameFeedbackComponent::NeedsTickThisFrame() const
+void UkdGameFeedbackComponent::WritePP_BlendWeight(float Weight)
 {
-	// Keep ticking if chromatic aberration hasn't decayed yet.
+	if (!CachedCamera) return;
+	// Update the weight of our blendable in the camera's array
+	for (FWeightedBlendable& Blend : CachedCamera->PostProcessSettings.WeightedBlendables.Array)
+	{
+		if (Blend.Object == PPInstance)
+		{
+			Blend.Weight = Weight;
+			return;
+		}
+	}
+}
+
+void UkdGameFeedbackComponent::SetTickActive(bool bActive)
+{
+	PrimaryComponentTick.SetTickFunctionEnable(bActive);
+}
+
+bool UkdGameFeedbackComponent::NeedsTick() const
+{
 	if (CurrentChromatic > KINDA_SMALL_NUMBER) return true;
-
-	// Keep ticking if vignette is still visible or pulsing.
 	if (CurrentVignette > KINDA_SMALL_NUMBER) return true;
-	if (CurrentStaminaFrac < LowStaminaThreshold) return true;
-
+	if (bInCrushMode && CurrentStaminaFrac < LowStaminaThreshold) return true;
 	return false;
 }
+

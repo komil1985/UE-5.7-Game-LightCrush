@@ -113,10 +113,7 @@ void AkdMyPlayer::BeginPlay()
 		InitializeAbilitySystem();
 
 		// Bind to tag changes for CrushMode
-		AbilitySystemComponent->RegisterGameplayTagEvent(
-			FkdGameplayTags::Get().State_CrushMode,
-			EGameplayTagEventType::NewOrRemoved
-		).AddUObject(this, &AkdMyPlayer::OnCrushModeTagChanged);
+		AbilitySystemComponent->RegisterGameplayTagEvent(FkdGameplayTags::Get().State_CrushMode,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AkdMyPlayer::OnCrushModeTagChanged);
 	}
 
 	if (StaminaWidgetComponent && StaminaWidgetClass)
@@ -132,13 +129,13 @@ void AkdMyPlayer::BeginPlay()
 		}
 	}
 
-	if (CrushPostProcessMaterial)
-	{
-		CrushPPInstance = UMaterialInstanceDynamic::Create(CrushPostProcessMaterial, this);
-
-		// Add to camera's post-process chain
-		Camera->PostProcessSettings.WeightedBlendables.Array.Add(FWeightedBlendable(1.0f, CrushPPInstance));
-	}
+	//if (CrushPostProcessMaterial)
+	//{
+	//	CrushPPInstance = UMaterialInstanceDynamic::Create(CrushPostProcessMaterial, this);
+	// 
+	//	// Add to camera's post-process chain
+	//	Camera->PostProcessSettings.WeightedBlendables.Array.Add(FWeightedBlendable(1.0f, CrushPPInstance));
+	//}
 }
 
 void AkdMyPlayer::RequestCrushToggle()

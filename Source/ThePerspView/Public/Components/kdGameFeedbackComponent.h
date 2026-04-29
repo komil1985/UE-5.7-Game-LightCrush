@@ -10,6 +10,7 @@
 class UkdAbilitySystemComponent;
 class UMaterialInstanceDynamic;
 class UCameraShakeBase;
+class UCameraComponent;
 struct FOnAttributeChangeData;
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class THEPERSPVIEW_API UkdGameFeedbackComponent : public UActorComponent
@@ -21,16 +22,16 @@ public:
 
 	// ── Public API (called by abilities / movement code) ─────────────────────
 
-	/** Call from UkdShadowDash::ActivateAbility after ApplyShadowDashImpulse(). */
+// ── Called externally by ShadowDash ability ───────────────────────────────
 	UFUNCTION(BlueprintCallable, Category = "GameFeel")
 	void OnDashPerformed();
 
-protected:
-	virtual void BeginPlay() override;
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType,FActorComponentTickFunction* ThisTickFunction) override;
+	// ── Post-process material to instantiate ─────────────────────────────────
+	// Assign M_CrushPostProcess in BP_Player Details panel.
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess")
+	TObjectPtr<UMaterialInterface> CrushPostProcessMaterial;
 
-	// ── Camera Shake Classes ─────────────────────────────────────────────────
-
+	// ── Camera Shake Classes — assign in BP_Player Details ───────────────────
 	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
 	TSubclassOf<UCameraShakeBase> DashShakeClass;
 
@@ -44,79 +45,76 @@ protected:
 	TSubclassOf<UCameraShakeBase> StaminaEmptyShakeClass;
 
 	// ── Chromatic Aberration ─────────────────────────────────────────────────
-
-	/** Peak aberration value injected on dash. */
 	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
 		meta = (ClampMin = "0.0", ClampMax = "5.0"))
 	float DashChromaticPeak = 1.5f;
 
-	/** Peak aberration value injected on shadow entry. */
 	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
 		meta = (ClampMin = "0.0", ClampMax = "5.0"))
 	float ShadowEntryChromaticPeak = 2.5f;
 
-	/** How fast chromatic aberration decays back to zero (units/sec). */
 	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
 		meta = (ClampMin = "1.0"))
 	float ChromaticDecaySpeed = 6.0f;
 
 	// ── Vignette ─────────────────────────────────────────────────────────────
-
-	/** Stamina fraction below which the vignette pulse starts (0-1). */
+	// Pulses when stamina drops below LowStaminaThreshold in 2D mode.
 	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
 		meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float LowStaminaThreshold = 0.35f;
 
-	/** Maximum vignette intensity at zero stamina. */
 	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
 		meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float MaxVignetteIntensity = 0.7f;
 
-	/** Pulse frequency in Hz (oscillations per second). */
 	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
 		meta = (ClampMin = "0.5", ClampMax = "10.0"))
 	float VignettePulseFrequency = 2.5f;
 
-	/** Lerp speed for vignette transitions (in/out). */
 	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
 		meta = (ClampMin = "1.0"))
 	float VignetteLerpSpeed = 5.0f;
 
-private:
-	// ── Internal state ───────────────────────────────────────────────────────
+protected:
+	virtual void BeginPlay() override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
+		FActorComponentTickFunction* ThisTickFunction) override;
 
+private:
+	// ── Cached references ────────────────────────────────────────────────────
 	UPROPERTY()
 	TObjectPtr<UkdAbilitySystemComponent> CachedASC;
 
 	UPROPERTY()
-	TObjectPtr<UMaterialInstanceDynamic> CachedPPMaterial;
+	TObjectPtr<UMaterialInstanceDynamic> PPInstance;
 
-	// Post-process runtime values
-	float CurrentChromatic = 0.f;   // decays to 0 each tick
-	float CurrentVignette = 0.f;   // lerps toward TargetVignette
-	float TargetVignette = 0.f;   // set by stamina change callback
-	float VignettePhase = 0.f;   // accumulates for sin pulse
-	float CurrentStaminaFrac = 1.f;   // 0-1, updated by attribute delegate
+	UPROPERTY()
+	TObjectPtr<UCameraComponent> CachedCamera;
 
-	// ── Tag event callbacks ──────────────────────────────────────────────────
+	// ── Runtime state ────────────────────────────────────────────────────────
+	float CurrentChromatic = 0.f;
+	float CurrentVignette = 0.f;
+	float TargetVignette = 0.f;
+	float VignettePhase = 0.f;
+	float CurrentStaminaFrac = 1.f;
+	bool  bInCrushMode = false;
 
-	UFUNCTION()
-	void OnInShadowTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
-
-	UFUNCTION()
-	void OnExhaustedTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
+	// ── Tag callbacks ────────────────────────────────────────────────────────
+	void OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCount);
+	void OnInShadowTagChanged(const FGameplayTag Tag, int32 NewCount);
+	void OnExhaustedTagChanged(const FGameplayTag Tag, int32 NewCount);
 
 	// ── Attribute callback ───────────────────────────────────────────────────
-
 	void OnStaminaChanged(const FOnAttributeChangeData& Data);
 
 	// ── Helpers ──────────────────────────────────────────────────────────────
-
-	void PlayCameraShake(TSubclassOf<UCameraShakeBase> ShakeClass);
-	void SetChromaticAberration(float Value);
-	void SetVignetteIntensity(float Value);
-	void SetTickEnabled(bool bEnabled);
-	bool NeedsTickThisFrame() const;
+	void PlayShake(TSubclassOf<UCameraShakeBase> ShakeClass);
+	void WritePP_Chromatic(float Value);
+	void WritePP_Vignette(float Value);
+	void WritePP_BlendWeight(float Weight);
+	bool TryGetPPInstance();
+	void SetTickActive(bool bActive);
+	bool NeedsTick() const;
 
 		
 };
