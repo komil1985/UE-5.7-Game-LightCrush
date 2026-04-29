@@ -13,6 +13,7 @@ class ADirectionalLight;
 class UCharacterMovementComponent;
 class AkdMyPlayer;
 class UGameplayEffect;
+struct FGameplayTag;
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class THEPERSPVIEW_API UkdCrushStateComponent : public UActorComponent
 {
@@ -60,16 +61,24 @@ public:
 	float ShadowStaminaDrainRate = 20.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
-	float StaminaRegenRate = 5.0f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
-	float RegenDelay = 2.0f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
 	TSubclassOf<UGameplayEffect> StaminaModEffectClass;
 
 	UPROPERTY(BlueprintAssignable, Category = "Stamina")
 	FOnDrainStateChanged OnDrainStateChanged;
+
+	// ── Stamina Regen (3D only, delayed) ────────────────────────────────────────
+
+	/** How long after exiting Crush Mode before regen begins (seconds). */
+	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
+	float RegenDelay = 2.0f;
+
+	/** Stamina points restored per second during regen. */
+	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
+	float StaminaRegenRate = 5.0f;
+
+	/** Timer firing frequency for regen ticks. Lower = smoother, more GAS calls. */
+	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
+	float RegenTickInterval = 0.1f;
 	//////////////////////////////////////////////////////////////////////////
 
 protected:
@@ -85,12 +94,20 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Crush")
 	float CrushGravityScale = 0.25f;
 
-	UFUNCTION()
-	void ApplyStaminaDelta(float Delta);	// Positive for regen, negative for drain
-
 	UPROPERTY()
 	TObjectPtr<AkdMyPlayer> CachedOwner = nullptr;
 
+	UFUNCTION()
+	void ApplyStaminaDelta(float Delta);	// Positive for regen, negative for drain
+
+	void OnCrushModeTagChanged_Regen(const FGameplayTag Tag, int32 NewCount);
+	void BeginRegen();
+	void RegenTick();
+	void StopRegen();
+
+	FTimerHandle RegenDelayHandle;
+	FTimerHandle RegenTickHandle;
+	bool bIsRegenerating = false;
 	float TimeSinceLastShadowCheck = 0.0f;
 	float TimeSinceLastMove = 0.0f;
 	FVector CachedLightDirection;

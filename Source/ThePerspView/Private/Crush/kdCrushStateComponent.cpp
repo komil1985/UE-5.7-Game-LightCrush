@@ -23,6 +23,10 @@ void UkdCrushStateComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	CachedOwner = Cast<AkdMyPlayer>(GetOwner());
+	if (UAbilitySystemComponent* ASC = CachedOwner->GetAbilitySystemComponent())
+	{
+		ASC->RegisterGameplayTagEvent(FkdGameplayTags::Get().State_CrushMode,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &UkdCrushStateComponent::OnCrushModeTagChanged_Regen);
+	}
 	FindDirectionalLight();
 
 }
@@ -321,4 +325,68 @@ void UkdCrushStateComponent::ApplyStaminaDelta(float Delta)
 		SpecHandle.Data->SetSetByCallerMagnitude(StaminaDeltaTag, Delta);
 		ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 	}
+}
+
+void UkdCrushStateComponent::OnCrushModeTagChanged_Regen(const FGameplayTag Tag, int32 NewCount)
+{
+	if (NewCount > 0)
+	{
+		// Entered Crush Mode — cancel any pending regen immediately
+		StopRegen();
+	}
+	else
+	{
+		// Exited Crush Mode — schedule regen after delay
+		GetWorld()->GetTimerManager().SetTimer(RegenDelayHandle,this,&UkdCrushStateComponent::BeginRegen,RegenDelay,false);
+	}
+}
+
+void UkdCrushStateComponent::BeginRegen()
+{
+	if (!CachedOwner) return;
+
+	UAbilitySystemComponent* ASC = CachedOwner->GetAbilitySystemComponent();
+	if (!ASC) return;
+
+	// Guard: player might have re-entered Crush Mode during the delay window
+	if (ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode)) return;
+
+	bIsRegenerating = true;
+
+	GetWorld()->GetTimerManager().SetTimer(RegenTickHandle, this, &UkdCrushStateComponent::RegenTick, RegenTickInterval, true);   // looping
+}
+
+void UkdCrushStateComponent::RegenTick()
+{
+	if (!CachedOwner) return;
+
+	UAbilitySystemComponent* ASC = CachedOwner->GetAbilitySystemComponent();
+	if (!ASC) return;
+
+	// Stop if Crush Mode was re-entered mid-regen (belt-and-suspenders)
+	if (ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+	{
+		StopRegen();
+		return;
+	}
+
+	const UkdAttributeSet* AttrSet = Cast<UkdAttributeSet>(ASC->GetAttributeSet(UkdAttributeSet::StaticClass()));
+	if (!AttrSet) return;
+
+	// Stop ticking once stamina is full — no wasted GAS calls
+	if (AttrSet->GetShadowStamina() >= AttrSet->GetMaxShadowStamina())
+	{
+		StopRegen();
+		return;
+	}
+
+	// Positive delta → regen. ApplyStaminaDelta already handles GAS + tag clamping
+	ApplyStaminaDelta(StaminaRegenRate * RegenTickInterval);
+}
+
+void UkdCrushStateComponent::StopRegen()
+{
+	bIsRegenerating = false;
+	GetWorld()->GetTimerManager().ClearTimer(RegenDelayHandle);
+	GetWorld()->GetTimerManager().ClearTimer(RegenTickHandle);
 }

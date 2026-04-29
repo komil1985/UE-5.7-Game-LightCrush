@@ -77,8 +77,21 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
-		FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType,FActorComponentTickFunction* ThisTickFunction) override;
+
+	// ── In-Shadow Rim Glow ────────────────────────────────────────────────────
+
+/** Peak rim glow intensity when fully in shadow. Set to 0 to disable. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess", meta = (ClampMin = "0.0", ClampMax = "3.0"))
+	float InShadowRimPeak = 1.2f;
+
+	/** Speed at which rim intensity lerps in/out. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess", meta = (ClampMin = "1.0"))
+	float RimLerpSpeed = 10.0f;
+
+	/** Name of the scalar parameter in your post-process material that controls rim intensity. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess")
+	FName RimIntensityParamName = FName("RimIntensity");
 
 private:
 	// ── Cached references ────────────────────────────────────────────────────
@@ -98,6 +111,8 @@ private:
 	float VignettePhase = 0.f;
 	float CurrentStaminaFrac = 1.f;
 	bool  bInCrushMode = false;
+	float CurrentRimIntensity = 0.f;
+	float TargetRimIntensity = 0.f;
 
 	// ── Tag callbacks ────────────────────────────────────────────────────────
 	void OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCount);
@@ -115,6 +130,7 @@ private:
 	bool TryGetPPInstance();
 	void SetTickActive(bool bActive);
 	bool NeedsTick() const;
+	void WritePP_Rim(float Value);
 
 		
 };

@@ -134,6 +134,12 @@ void UkdGameFeedbackComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 		WritePP_Vignette(CurrentVignette);
 	}
 
+	if (FMath::Abs(CurrentRimIntensity - TargetRimIntensity) > KINDA_SMALL_NUMBER)
+	{
+		CurrentRimIntensity = FMath::FInterpTo(CurrentRimIntensity, TargetRimIntensity, DeltaTime, RimLerpSpeed);
+		WritePP_Rim(CurrentRimIntensity);
+	}
+
 	// Auto-disable tick when nothing is animating
 	if (!NeedsTick())
 	{
@@ -203,6 +209,9 @@ void UkdGameFeedbackComponent::OnInShadowTagChanged(const FGameplayTag Tag, int3
 		PlayShake(ShadowExitShakeClass);
 	}
 	SetTickActive(true);
+
+	TargetRimIntensity = (NewCount > 0) ? InShadowRimPeak : 0.f;
+	SetTickActive(NeedsTick());
 }
 
 void UkdGameFeedbackComponent::OnExhaustedTagChanged(const FGameplayTag Tag, int32 NewCount)
@@ -260,8 +269,7 @@ void UkdGameFeedbackComponent::PlayShake(TSubclassOf<UCameraShakeBase> ShakeClas
 	PC->ClientStartCameraShake(ShakeClass, 1.f);
 
 #if !UE_BUILD_SHIPPING
-	UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: Playing shake [%s]"),
-		*ShakeClass->GetName());
+	UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: Playing shake [%s]"), *ShakeClass->GetName());
 #endif
 }
 
@@ -322,9 +330,20 @@ void UkdGameFeedbackComponent::SetTickActive(bool bActive)
 
 bool UkdGameFeedbackComponent::NeedsTick() const
 {
-	if (CurrentChromatic > KINDA_SMALL_NUMBER) return true;
-	if (CurrentVignette > KINDA_SMALL_NUMBER) return true;
-	if (bInCrushMode && CurrentStaminaFrac < LowStaminaThreshold) return true;
-	return false;
+	//if (CurrentChromatic > KINDA_SMALL_NUMBER) return true;
+	//if (CurrentVignette > KINDA_SMALL_NUMBER) return true;
+	//if (bInCrushMode && CurrentStaminaFrac < LowStaminaThreshold) return true;
+	//return false;
+
+	return bInCrushMode
+		|| CurrentChromatic > KINDA_SMALL_NUMBER
+		|| FMath::Abs(CurrentVignette - TargetVignette) > KINDA_SMALL_NUMBER
+		|| FMath::Abs(CurrentRimIntensity - TargetRimIntensity) > KINDA_SMALL_NUMBER;
+}
+
+void UkdGameFeedbackComponent::WritePP_Rim(float Value)
+{
+	if (!TryGetPPInstance()) return;
+	PPInstance->SetScalarParameterValue(RimIntensityParamName, Value);
 }
 
