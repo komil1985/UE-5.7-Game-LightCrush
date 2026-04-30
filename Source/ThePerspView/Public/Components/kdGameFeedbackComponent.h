@@ -75,23 +75,38 @@ public:
 		meta = (ClampMin = "1.0"))
 	float VignetteLerpSpeed = 5.0f;
 
+	// ── Shadow Vignette (screen darkens when player enters shadow) ────────────
+
+/** Vignette intensity applied when player IS standing in shadow.
+ *  Stacks additively on top of the low-stamina vignette. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float InShadowVignetteStrength = 0.45f;
+
+	/** How fast the shadow vignette fades in/out (higher = snappier). */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess", meta = (ClampMin = "1.0"))
+	float ShadowVignetteLerpSpeed = 4.0f;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,FActorComponentTickFunction* ThisTickFunction) override;
 
-	// ── In-Shadow Rim Glow ────────────────────────────────────────────────────
+	// ── 2. Rim Glow (character mesh material) ────────────────────────────────
 
-/** Peak rim glow intensity when fully in shadow. Set to 0 to disable. */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess", meta = (ClampMin = "0.0", ClampMax = "3.0"))
-	float InShadowRimPeak = 1.2f;
+	/** Peak rim glow intensity when fully in shadow. 0 = disabled. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shadow | Rim", meta = (ClampMin = "0.0", ClampMax = "3.0"))
+	float RimPeakIntensity = 1.2f;
 
-	/** Speed at which rim intensity lerps in/out. */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess", meta = (ClampMin = "1.0"))
-	float RimLerpSpeed = 10.0f;
+	/** Fade speed for the rim glow. Higher = snappier. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shadow | Rim", meta = (ClampMin = "1.0"))
+	float RimLerpSpeed = 8.0f;
 
-	/** Name of the scalar parameter in your post-process material that controls rim intensity. */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess")
+	/** Scalar parameter name in your character mesh material for rim intensity. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shadow | Rim")
 	FName RimIntensityParamName = FName("RimIntensity");
+
+	/** Which material slot index on the skeletal mesh carries the rim param. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shadow | Rim", meta = (ClampMin = "0"))
+	int32 RimMaterialSlotIndex = 0;
 
 private:
 	// ── Cached references ────────────────────────────────────────────────────
@@ -100,6 +115,9 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UMaterialInstanceDynamic> PPInstance;
+
+	UPROPERTY()
+	TObjectPtr<UMaterialInstanceDynamic> CharMeshDMI;
 
 	UPROPERTY()
 	TObjectPtr<UCameraComponent> CachedCamera;
@@ -113,6 +131,8 @@ private:
 	bool  bInCrushMode = false;
 	float CurrentRimIntensity = 0.f;
 	float TargetRimIntensity = 0.f;
+	float CurrentShadowVignette = 0.f;
+	float TargetShadowVignette = 0.f;
 
 	// ── Tag callbacks ────────────────────────────────────────────────────────
 	void OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCount);

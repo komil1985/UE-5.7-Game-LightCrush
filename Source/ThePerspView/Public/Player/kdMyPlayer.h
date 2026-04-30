@@ -31,6 +31,7 @@ class UWidgetComponent;
 class UStaticMeshComponent;
 class UMaterialInstanceDynamic;
 class UkdGameFeedbackComponent;
+class UkdLowStaminaWidget;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
@@ -81,6 +82,21 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
 	TObjectPtr<UWidgetComponent> StaminaWidgetComponent;
+
+	// -- Low Stamina Warning Widget -------------------------------------------- //
+
+/** Blueprint widget class for the world-space "LOW STAMINA!" popup.
+ *  Assign WBP_LowStaminaWarning in the Details panel of BP_Player. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<UkdLowStaminaWidget> LowStaminaWidgetClass;
+
+	/** Cached instance — created at BeginPlay from LowStaminaWidgetClass. */
+	UPROPERTY()
+	TObjectPtr<UkdLowStaminaWidget> LowStaminaWidget;
+
+	/** World-space widget component — positioned above the stamina bar. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
+	TObjectPtr<UWidgetComponent> LowStaminaWidgetComponent;
 	/*--------------------------------------------------------------------------*/
 
 	/** Called by the controller on Dash input. Finds and activates UkdCrushToggle. */
@@ -143,5 +159,8 @@ private:
 
 	// Weighted blendable to control intensity
 	FWeightedBlendable CrushBlendable;
+
+	/** Triggers the "LOW STAMINA!" world-space flash above the player's head. */
+	void NotifyLowStaminaWarning();
 
 };

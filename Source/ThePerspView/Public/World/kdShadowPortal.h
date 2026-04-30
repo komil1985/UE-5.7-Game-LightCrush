@@ -43,6 +43,32 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Portal", meta = (ClampMin = "0.1"))
 	float CooldownDuration = 1.5f;
 
+	// ── Blueprint Hooks ───────────────────────────────────────────────────────
+
+/** Fires on the SOURCE portal the moment the player teleports.
+ *  Use for Niagara burst, warp sound, camera shake. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Portal")
+	void BP_OnTeleportUsed(AkdMyPlayer* TeleportedPlayer);
+
+	/** Fires on BOTH portals when a cooldown begins. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Portal")
+	void BP_OnCooldownStarted();
+
+	/** Fires when this portal's cooldown ends and it's ready again. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Portal")
+	void BP_OnCooldownEnded();
+
+	// ── Cooldown Visual ───────────────────────────────────────────────────────
+
+	/** Mesh opacity applied to the material while on cooldown (0=invisible, 1=full).
+	 *  Requires your portal material to have an "Opacity" scalar parameter. */
+	UPROPERTY(EditDefaultsOnly, Category = "Portal", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float CooldownMeshOpacity = 0.25f;
+
+	/** Name of the scalar parameter on your portal mesh material for opacity control. */
+	UPROPERTY(EditDefaultsOnly, Category = "Portal")
+	FName OpacityParamName = FName("Opacity");
+
 	// ── State (readable by linked portal) ────────────────────────────────────
 
 	bool bCanTeleport = true;
@@ -70,6 +96,9 @@ private:
 
 	UFUNCTION()
 	void EnableTeleport();
+
+	UFUNCTION()
+	void SetPortalCooldownVisual(bool bOnCooldown);
 
 	FTimerHandle CooldownTimerHandle;
 

@@ -10,6 +10,7 @@
 #include "Camera/CameraComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "GameFramework/Character.h"
+#include "Components/SkeletalMeshComponent.h"
 
 
 // ── Parameter names must match your material exactly ─────────────────────────
@@ -35,7 +36,7 @@ void UkdGameFeedbackComponent::BeginPlay()
 	AkdMyPlayer* Player = Cast<AkdMyPlayer>(GetOwner());
 	if (!Player)
 	{
-		UE_LOG(LogTemp, Error, TEXT("GameFeelComponent: Owner is not AkdMyPlayer! Component disabled."));
+		UE_LOG(LogTemp, Error, TEXT("GameFeedbackComponent: Owner is not AkdMyPlayer! Component disabled."));
 		return;
 	}
 
@@ -46,7 +47,30 @@ void UkdGameFeedbackComponent::BeginPlay()
 	CachedASC = Cast<UkdAbilitySystemComponent>(Player->GetAbilitySystemComponent());
 	if (!CachedASC)
 	{
-		UE_LOG(LogTemp, Error, TEXT("GameFeelComponent: Could not find AbilitySystemComponent! Shakes/tags disabled."));
+		UE_LOG(LogTemp, Error, TEXT("GameFeedbackComponent: Could not find AbilitySystemComponent! Shakes/tags disabled."));
+	}
+
+	// ── Create CharMeshDMI for rim glow ──────────────────────────────────────
+	// Must happen AFTER the mesh is fully initialized (BeginPlay guarantees this).
+	if (ACharacter* Char = Cast<ACharacter>(GetOwner()))
+	{
+		if (USkeletalMeshComponent* Mesh = Char->GetMesh())
+		{
+			UMaterialInterface* BaseMat = Mesh->GetMaterial(RimMaterialSlotIndex);
+			if (BaseMat)
+			{
+				CharMeshDMI = UMaterialInstanceDynamic::Create(BaseMat, this);
+				Mesh->SetMaterial(RimMaterialSlotIndex, CharMeshDMI);
+				// Initialise to zero so there's no flash on first frame
+				CharMeshDMI->SetScalarParameterValue(RimIntensityParamName, 0.f);
+				UE_LOG(LogTemp, Log, TEXT("GameFeedbackComponent: CharMeshDMI created OK (slot %d)."), RimMaterialSlotIndex);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning,
+					TEXT("GameFeedbackComponent: No material at RimMaterialSlotIndex=%d on mesh!"), RimMaterialSlotIndex);
+			}
+		}
 	}
 
 	// ── Create the Dynamic Material Instance ourselves ────────────────────────
@@ -58,12 +82,12 @@ void UkdGameFeedbackComponent::BeginPlay()
 		WritePP_Vignette(0.f);
 		WritePP_BlendWeight(0.f); // invisible until crush mode activates
 
-		UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: Post-process material instance created OK."));
+		UE_LOG(LogTemp, Log, TEXT("GameFeedbackComponent: Post-process material instance created OK."));
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning,TEXT("GameFeelComponent: CrushPostProcessMaterial not assigned in BP_Player! "
-				"Open BP_Player → select GameFeelComponent → assign material in Details panel."));
+		UE_LOG(LogTemp, Warning,TEXT("GameFeedbackComponent: CrushPostProcessMaterial not assigned in BP_Player! "
+				"Open BP_Player → select GameFeedbackComponent → assign material in Details panel."));
 	}
 
 	// ── Subscribe to GAS tags and attributes ─────────────────────────────────
@@ -81,41 +105,95 @@ void UkdGameFeedbackComponent::BeginPlay()
 		const float CurStam = CachedASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
 		CurrentStaminaFrac = (MaxStam > 0.f) ? FMath::Clamp(CurStam / MaxStam, 0.f, 1.f) : 1.f;
 
-		UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: GAS subscriptions registered OK."));
+		UE_LOG(LogTemp, Log, TEXT("GameFeedbackComponent: GAS subscriptions registered OK."));
 	}
 
 	// ── Warn about missing shake classes ────────────────────────────────────
 #if !UE_BUILD_SHIPPING
 	if (!DashShakeClass)
-		UE_LOG(LogTemp, Warning, TEXT("GameFeelComponent: DashShakeClass not assigned in BP_Player!"));
+		UE_LOG(LogTemp, Warning, TEXT("GameFeedbackComponent: DashShakeClass not assigned in BP_Player!"));
 	if (!ShadowEntryShakeClass)
-		UE_LOG(LogTemp, Warning, TEXT("GameFeelComponent: ShadowEntryShakeClass not assigned!"));
+		UE_LOG(LogTemp, Warning, TEXT("GameFeedbackComponent: ShadowEntryShakeClass not assigned!"));
 	if (!ShadowExitShakeClass)
-		UE_LOG(LogTemp, Warning, TEXT("GameFeelComponent: ShadowExitShakeClass not assigned!"));
+		UE_LOG(LogTemp, Warning, TEXT("GameFeedbackComponent: ShadowExitShakeClass not assigned!"));
 	if (!StaminaEmptyShakeClass)
-		UE_LOG(LogTemp, Warning, TEXT("GameFeelComponent: StaminaEmptyShakeClass not assigned!"));
+		UE_LOG(LogTemp, Warning, TEXT("GameFeedbackComponent: StaminaEmptyShakeClass not assigned!"));
 #endif
 }
 
 // =============================================================================
 // Tick — decays chromatic aberration and pulses vignette
 // =============================================================================
-void UkdGameFeedbackComponent::TickComponent(float DeltaTime, ELevelTick TickType,
-	FActorComponentTickFunction* ThisTickFunction)
+void UkdGameFeedbackComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
+	//Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	//// ── Chromatic aberration: exponential decay toward zero ──────────────────
+	//if (CurrentChromatic > KINDA_SMALL_NUMBER)
+	//{
+	//	CurrentChromatic = FMath::Max(0.f,CurrentChromatic - ChromaticDecaySpeed * DeltaTime);
+	//	WritePP_Chromatic(CurrentChromatic);
+	//}
+
+	//// ── Vignette: pulse only in crush mode when stamina is low ───────────────
+	//if (bInCrushMode && CurrentStaminaFrac < LowStaminaThreshold)
+	//{
+	//	// Severity: 0 = just crossed threshold, 1 = fully empty
+	//	const float Severity = 1.f - (CurrentStaminaFrac / LowStaminaThreshold);
+	//	VignettePhase += VignettePulseFrequency * 2.f * PI * DeltaTime;
+	//	TargetVignette = MaxVignetteIntensity * Severity * (0.5f + 0.5f * FMath::Sin(VignettePhase));
+	//}
+	//else
+	//{
+	//	TargetVignette = 0.f;
+	//	if (!bInCrushMode) VignettePhase = 0.f;
+	//}
+
+	//const float NewVignette = FMath::FInterpTo(CurrentVignette, TargetVignette, DeltaTime, VignetteLerpSpeed);
+
+	//if (!FMath::IsNearlyEqual(NewVignette, CurrentVignette, 0.001f))
+	//{
+	//	CurrentVignette = NewVignette;
+	//	WritePP_Vignette(CurrentVignette);
+	//}
+
+	//// ── Shadow vignette lerp ──────────────────────────────────────────────────
+	//if (FMath::Abs(CurrentShadowVignette - TargetShadowVignette) > KINDA_SMALL_NUMBER)
+	//{
+	//	CurrentShadowVignette = FMath::FInterpTo(CurrentShadowVignette, TargetShadowVignette, DeltaTime, ShadowVignetteLerpSpeed);
+
+	//	// Combine both vignettes — stamina pulse + shadow entry
+	//	// WritePP_Vignette already exists; just feed it the combined value
+	//	const float Combined = FMath::Clamp(CurrentVignette + CurrentShadowVignette, 0.f, 1.f);
+	//	WritePP_Vignette(Combined);
+	//}
+
+	//// ── Rim glow lerp ─────────────────────────────────────────────────────────
+	//if (FMath::Abs(CurrentRimIntensity - TargetRimIntensity) > KINDA_SMALL_NUMBER)
+	//{
+	//	CurrentRimIntensity = FMath::FInterpTo(CurrentRimIntensity, TargetRimIntensity, DeltaTime, RimLerpSpeed);
+	//	WritePP_Rim(CurrentRimIntensity);
+	//}
+
+	//// Auto-disable tick when nothing is animating
+	//if (!NeedsTick())
+	//{
+	//	SetTickActive(false);
+	//}
+
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	// ── Chromatic aberration: exponential decay toward zero ──────────────────
+	// ── Chromatic aberration decay ────────────────────────────────────────────
 	if (CurrentChromatic > KINDA_SMALL_NUMBER)
 	{
-		CurrentChromatic = FMath::Max(0.f,CurrentChromatic - ChromaticDecaySpeed * DeltaTime);
+		CurrentChromatic = FMath::Max(0.f, CurrentChromatic - ChromaticDecaySpeed * DeltaTime);
 		WritePP_Chromatic(CurrentChromatic);
 	}
 
-	// ── Vignette: pulse only in crush mode when stamina is low ───────────────
+	// ── Stamina vignette target ───────────────────────────────────────────────
+	// Only calculate TargetVignette here — do NOT write to material yet.
 	if (bInCrushMode && CurrentStaminaFrac < LowStaminaThreshold)
 	{
-		// Severity: 0 = just crossed threshold, 1 = fully empty
 		const float Severity = 1.f - (CurrentStaminaFrac / LowStaminaThreshold);
 		VignettePhase += VignettePulseFrequency * 2.f * PI * DeltaTime;
 		TargetVignette = MaxVignetteIntensity * Severity * (0.5f + 0.5f * FMath::Sin(VignettePhase));
@@ -126,21 +204,24 @@ void UkdGameFeedbackComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 		if (!bInCrushMode) VignettePhase = 0.f;
 	}
 
-	const float NewVignette = FMath::FInterpTo(CurrentVignette, TargetVignette, DeltaTime, VignetteLerpSpeed);
+	// ── Shadow vignette lerp ──────────────────────────────────────────────────
+	CurrentShadowVignette = FMath::FInterpTo(CurrentShadowVignette, TargetShadowVignette, DeltaTime, ShadowVignetteLerpSpeed);
 
-	if (!FMath::IsNearlyEqual(NewVignette, CurrentVignette, 0.001f))
-	{
-		CurrentVignette = NewVignette;
-		WritePP_Vignette(CurrentVignette);
-	}
+	// ── Stamina vignette lerp ─────────────────────────────────────────────────
+	CurrentVignette = FMath::FInterpTo(CurrentVignette, TargetVignette, DeltaTime, VignetteLerpSpeed);
 
+	// ── FIX 2: ONE combined vignette write, always, every tick ───────────────
+	// Both sources always summed. No conditional. No second write anywhere.
+	const float CombinedVignette = FMath::Clamp(CurrentVignette + CurrentShadowVignette, 0.f, 1.f);
+	WritePP_Vignette(CombinedVignette);
+
+	// ── Rim glow lerp ─────────────────────────────────────────────────────────
 	if (FMath::Abs(CurrentRimIntensity - TargetRimIntensity) > KINDA_SMALL_NUMBER)
 	{
 		CurrentRimIntensity = FMath::FInterpTo(CurrentRimIntensity, TargetRimIntensity, DeltaTime, RimLerpSpeed);
 		WritePP_Rim(CurrentRimIntensity);
 	}
 
-	// Auto-disable tick when nothing is animating
 	if (!NeedsTick())
 	{
 		SetTickActive(false);
@@ -153,7 +234,7 @@ void UkdGameFeedbackComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 void UkdGameFeedbackComponent::OnDashPerformed()
 {
 #if !UE_BUILD_SHIPPING
-	UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: OnDashPerformed fired."));
+	UE_LOG(LogTemp, Log, TEXT("GameFeedbackComponent: OnDashPerformed fired."));
 #endif
 	PlayShake(DashShakeClass);
 	CurrentChromatic = DashChromaticPeak;
@@ -169,7 +250,7 @@ void UkdGameFeedbackComponent::OnCrushModeTagChanged(const FGameplayTag Tag, int
 	bInCrushMode = (NewCount > 0);
 
 #if !UE_BUILD_SHIPPING
-	UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: CrushMode %s"), bInCrushMode ? TEXT("ENTERED") : TEXT("EXITED"));
+	UE_LOG(LogTemp, Log, TEXT("GameFeedbackComponent: CrushMode %s"), bInCrushMode ? TEXT("ENTERED") : TEXT("EXITED"));
 #endif
 
 	if (bInCrushMode)
@@ -184,9 +265,15 @@ void UkdGameFeedbackComponent::OnCrushModeTagChanged(const FGameplayTag Tag, int
 		CurrentVignette = 0.f;
 		TargetVignette = 0.f;
 		VignettePhase = 0.f;
+		CurrentRimIntensity = 0.0f;
+		TargetRimIntensity = 0.f;
+		CurrentShadowVignette = 0.f;
+		TargetShadowVignette = 0.f;
+
 		WritePP_Chromatic(0.f);
 		WritePP_Vignette(0.f);
 		WritePP_BlendWeight(0.f);
+		WritePP_Rim(0.0f);
 	}
 }
 
@@ -195,7 +282,7 @@ void UkdGameFeedbackComponent::OnInShadowTagChanged(const FGameplayTag Tag, int3
 	if (NewCount > 0)
 	{
 #if !UE_BUILD_SHIPPING
-		UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: Shadow ENTERED — shake + chroma"));
+		UE_LOG(LogTemp, Log, TEXT("GameFeedbackComponent: Shadow ENTERED — shake + chroma"));
 #endif
 		PlayShake(ShadowEntryShakeClass);
 		CurrentChromatic = ShadowEntryChromaticPeak;
@@ -204,14 +291,15 @@ void UkdGameFeedbackComponent::OnInShadowTagChanged(const FGameplayTag Tag, int3
 	else
 	{
 #if !UE_BUILD_SHIPPING
-		UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: Shadow EXITED — shake"));
+		UE_LOG(LogTemp, Log, TEXT("GameFeedbackComponent: Shadow EXITED — shake"));
 #endif
 		PlayShake(ShadowExitShakeClass);
 	}
-	SetTickActive(true);
+	//SetTickActive(true);
 
-	TargetRimIntensity = (NewCount > 0) ? InShadowRimPeak : 0.f;
-	SetTickActive(NeedsTick());
+	TargetRimIntensity = (NewCount > 0) ? RimPeakIntensity : 0.f;
+	TargetShadowVignette = (NewCount > 0) ? InShadowVignetteStrength : 0.f;
+	SetTickActive(true);
 }
 
 void UkdGameFeedbackComponent::OnExhaustedTagChanged(const FGameplayTag Tag, int32 NewCount)
@@ -219,7 +307,7 @@ void UkdGameFeedbackComponent::OnExhaustedTagChanged(const FGameplayTag Tag, int
 	if (NewCount > 0)
 	{
 #if !UE_BUILD_SHIPPING
-		UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: Stamina EXHAUSTED — big shake"));
+		UE_LOG(LogTemp, Log, TEXT("GameFeedbackComponent: Stamina EXHAUSTED — big shake"));
 #endif
 		PlayShake(StaminaEmptyShakeClass);
 		SetTickActive(true);
@@ -251,7 +339,7 @@ void UkdGameFeedbackComponent::PlayShake(TSubclassOf<UCameraShakeBase> ShakeClas
 	if (!ShakeClass)
 	{
 		UE_LOG(LogTemp, Warning,
-			TEXT("GameFeelComponent: Tried to play shake but class not assigned in BP_Player!"));
+			TEXT("GameFeedbackComponent: Tried to play shake but class not assigned in BP_Player!"));
 		return;
 	}
 
@@ -262,14 +350,14 @@ void UkdGameFeedbackComponent::PlayShake(TSubclassOf<UCameraShakeBase> ShakeClas
 	if (!PC)
 	{
 		UE_LOG(LogTemp, Warning,
-			TEXT("GameFeelComponent: No PlayerController found — shake skipped."));
+			TEXT("GameFeedbackComponent: No PlayerController found — shake skipped."));
 		return;
 	}
 
 	PC->ClientStartCameraShake(ShakeClass, 1.f);
 
 #if !UE_BUILD_SHIPPING
-	UE_LOG(LogTemp, Log, TEXT("GameFeelComponent: Playing shake [%s]"), *ShakeClass->GetName());
+	UE_LOG(LogTemp, Log, TEXT("GameFeedbackComponent: Playing shake [%s]"), *ShakeClass->GetName());
 #endif
 }
 
@@ -330,20 +418,21 @@ void UkdGameFeedbackComponent::SetTickActive(bool bActive)
 
 bool UkdGameFeedbackComponent::NeedsTick() const
 {
-	//if (CurrentChromatic > KINDA_SMALL_NUMBER) return true;
-	//if (CurrentVignette > KINDA_SMALL_NUMBER) return true;
-	//if (bInCrushMode && CurrentStaminaFrac < LowStaminaThreshold) return true;
-	//return false;
+	//return bInCrushMode
+	//	|| CurrentChromatic > KINDA_SMALL_NUMBER
+	//	|| FMath::Abs(CurrentVignette - TargetVignette) > KINDA_SMALL_NUMBER
+	//	|| FMath::Abs(CurrentRimIntensity - TargetRimIntensity) > KINDA_SMALL_NUMBER;
 
 	return bInCrushMode
 		|| CurrentChromatic > KINDA_SMALL_NUMBER
 		|| FMath::Abs(CurrentVignette - TargetVignette) > KINDA_SMALL_NUMBER
+		|| FMath::Abs(CurrentShadowVignette - TargetShadowVignette) > KINDA_SMALL_NUMBER
 		|| FMath::Abs(CurrentRimIntensity - TargetRimIntensity) > KINDA_SMALL_NUMBER;
 }
 
 void UkdGameFeedbackComponent::WritePP_Rim(float Value)
 {
-	if (!TryGetPPInstance()) return;
-	PPInstance->SetScalarParameterValue(RimIntensityParamName, Value);
+	if (!CharMeshDMI) return;
+	CharMeshDMI->SetScalarParameterValue(RimIntensityParamName, Value);
 }
 

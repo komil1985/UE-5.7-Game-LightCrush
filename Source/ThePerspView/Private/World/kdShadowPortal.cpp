@@ -107,6 +107,8 @@ void AkdShadowPortal::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedComp,
 	// which prevents the player from getting stuck in a wall mid-teleport.
 	Player->SetActorLocation(ExitWorldLocation, false, nullptr, ETeleportType::TeleportPhysics);
 
+	BP_OnTeleportUsed(Player);
+
 	// Preserve momentum through the portal — keep Y/Z velocity, hard-zero X
 	UCharacterMovementComponent* MoveComp = Player->GetCharacterMovement();
 	FVector CarriedVelocity = MoveComp->Velocity;
@@ -121,6 +123,14 @@ void AkdShadowPortal::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedComp,
 	// Disable BOTH portals so the player can't immediately re-enter at the destination.
 	bCanTeleport = false;
 	LinkedPortal->bCanTeleport = false;
+
+	SetPortalCooldownVisual(true);
+	if (LinkedPortal)
+	{
+		LinkedPortal->SetPortalCooldownVisual(true);
+		LinkedPortal->BP_OnCooldownStarted();
+	}
+	BP_OnCooldownStarted();
 
 	// Re-enable this portal after cooldown
 	FTimerDelegate SelfDelegate;
@@ -144,5 +154,14 @@ void AkdShadowPortal::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedComp,
 void AkdShadowPortal::EnableTeleport()
 {
 	bCanTeleport = true;
+	SetPortalCooldownVisual(false);
+	BP_OnCooldownEnded();
+}
+
+void AkdShadowPortal::SetPortalCooldownVisual(bool bOnCooldown)
+{
+	if (!PortalMesh) return;
+	const float TargetOpacity = bOnCooldown ? CooldownMeshOpacity : 1.0f;
+	PortalMesh->SetScalarParameterValueOnMaterials(OpacityParamName, TargetOpacity);
 }
 

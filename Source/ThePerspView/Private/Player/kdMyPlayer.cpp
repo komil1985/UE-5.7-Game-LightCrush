@@ -24,6 +24,8 @@
 #include "Components/kdDeathComponent.h"
 #include "Components/kdFallDamageComponent.h"
 #include "Components/kdGameFeedbackComponent.h"
+#include "UI/Widget/kdLowStaminaWidget.h"
+
 
 
 
@@ -85,11 +87,17 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	AttributeSet = CreateDefaultSubobject<UkdAttributeSet>(TEXT("AttributeSet"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
-	/* -- Widget Components -- */
+	/* -- Stamina Widget Component -- */
 	StaminaWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("StaminaWidgetComponent"));
 	StaminaWidgetComponent->SetupAttachment(GetMesh());
 	StaminaWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 100.0f));
 	StaminaWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
+
+	// Low Stamina Warning Widget — floats above the stamina bar
+	LowStaminaWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("LowStaminaWidgetComponent"));
+	LowStaminaWidgetComponent->SetupAttachment(GetMesh());
+	LowStaminaWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 150.0f));  // above StaminaWidgetComponent
+	LowStaminaWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 }
@@ -116,6 +124,7 @@ void AkdMyPlayer::BeginPlay()
 		AbilitySystemComponent->RegisterGameplayTagEvent(FkdGameplayTags::Get().State_CrushMode,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AkdMyPlayer::OnCrushModeTagChanged);
 	}
 
+	//--- Stamina Widget ---------------------------------------------------
 	if (StaminaWidgetComponent && StaminaWidgetClass)
 	{
 		StaminaWidgetComponent->SetWidgetClass(StaminaWidgetClass);
@@ -128,14 +137,20 @@ void AkdMyPlayer::BeginPlay()
 			StaminaWidget->InitializeWithAbilitySystemComponent(AbilitySystemComponent);
 		}
 	}
+	
+	// ── Low Stamina Warning Widget ──────────────────────────────────────────────
+	if (LowStaminaWidgetComponent && LowStaminaWidgetClass)
+	{
+		LowStaminaWidgetComponent->SetWidgetClass(LowStaminaWidgetClass);
+		LowStaminaWidgetComponent->InitWidget();
 
-	//if (CrushPostProcessMaterial)
-	//{
-	//	CrushPPInstance = UMaterialInstanceDynamic::Create(CrushPostProcessMaterial, this);
-	// 
-	//	// Add to camera's post-process chain
-	//	Camera->PostProcessSettings.WeightedBlendables.Array.Add(FWeightedBlendable(1.0f, CrushPPInstance));
-	//}
+		if (LowStaminaWidget = Cast<UkdLowStaminaWidget>(LowStaminaWidgetComponent->GetUserWidgetObject()))
+		{
+			// Hidden by default — only revealed when FlashWarning() is called
+			LowStaminaWidget->SetVisibility(ESlateVisibility::Hidden);
+		}
+	}
+
 }
 
 void AkdMyPlayer::RequestCrushToggle()
@@ -150,10 +165,18 @@ void AkdMyPlayer::RequestCrushToggle()
 			FGameplayAbilitySpec* Spec = AbilitySystemComponent->FindAbilitySpecFromClass(AbilityClass);
 			if (Spec)
 			{
-				bool bActivated = AbilitySystemComponent->TryActivateAbility(Spec->Handle);
+				const bool bActivated = AbilitySystemComponent->TryActivateAbility(Spec->Handle);
 #if !UE_BUILD_SHIPPING
 				UE_LOG(LogTemp, Log, TEXT("RequestCrushToggle: TryActivateAbility returned %d"), bActivated);
 #endif
+				// TryActivateAbility returns false for ANY block reason (transitioning,
+				// exhausted, etc.).  We only want the warning when the specific cause
+				// is stamina exhaustion — check the tag directly.
+				if (!bActivated &&
+					AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_Exhausted))
+				{
+					NotifyLowStaminaWarning();
+				}
 			}
 			else
 			{
@@ -312,5 +335,13 @@ void AkdMyPlayer::InitializeAbilitySystem()
 		// Set initial stamina values
 		AttributeSet->SetMaxShadowStamina(100.0f);
 		AttributeSet->SetShadowStamina(100.0f);
+	}
+}
+
+void AkdMyPlayer::NotifyLowStaminaWarning()
+{
+	if (LowStaminaWidget)
+	{
+		LowStaminaWidget->FlashWarning();
 	}
 }

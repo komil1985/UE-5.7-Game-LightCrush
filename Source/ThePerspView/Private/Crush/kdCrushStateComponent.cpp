@@ -71,30 +71,6 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 	float StaminaDelta = 0.0f;
 
-//	// Drain stamina only when in crush mode and moving
-//	if (bInCrushMode && bIsMoving)
-//	{
-//		StaminaDelta = -BaseStaminaDrainRate * DeltaTime;
-//#if !UE_BUILD_SHIPPING
-//		UE_LOG(LogTemp, Verbose, TEXT("  -> Draining: %f"), StaminaDelta);
-//#endif
-//	}
-//	else if (!bIsMoving && TimeSinceLastMove >= RegenDelay)
-//	{
-//		// Get current and max stamina values
-//		float CurrentStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
-//		float MaxStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
-//		// Only regen if below max
-//		if (CurrentStamina < MaxStamina)
-//		{
-//			float DesiredDelta = StaminaRegenRate * DeltaTime;
-//			StaminaDelta = FMath::Min(DesiredDelta, MaxStamina - CurrentStamina);
-//#if !UE_BUILD_SHIPPING
-//			UE_LOG(LogTemp, Verbose, TEXT("  -> Regenerating: %f"), StaminaDelta);
-//#endif
-//		}
-//	}
-
 	/*-------- Stamina Drain Logic ------------------------------------------------------*/
 	if (bInCrushMode)
 	{
@@ -114,14 +90,14 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	{
 		// ── 3D mode ──────────────────────────────────────────────────
 		// Always regenerate (moving or idle), as long as stamina isn’t already full.
-		const float CurrentStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
-		const float MaxStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
+		//const float CurrentStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
+		//const float MaxStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
 
-		if (CurrentStamina < MaxStamina)
-		{
-			const float DesiredDelta = StaminaRegenRate * DeltaTime;
-			StaminaDelta = FMath::Min(DesiredDelta, MaxStamina - CurrentStamina);
-		}
+		//if (CurrentStamina < MaxStamina)
+		//{
+		//	const float DesiredDelta = StaminaRegenRate * DeltaTime;
+		//	StaminaDelta = FMath::Min(DesiredDelta, MaxStamina - CurrentStamina);
+		//}
 	}
 	/*-----------------------------------------------------------------------------*/
 
