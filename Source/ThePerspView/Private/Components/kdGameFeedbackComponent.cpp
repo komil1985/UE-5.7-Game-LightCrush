@@ -418,11 +418,6 @@ void UkdGameFeedbackComponent::SetTickActive(bool bActive)
 
 bool UkdGameFeedbackComponent::NeedsTick() const
 {
-	//return bInCrushMode
-	//	|| CurrentChromatic > KINDA_SMALL_NUMBER
-	//	|| FMath::Abs(CurrentVignette - TargetVignette) > KINDA_SMALL_NUMBER
-	//	|| FMath::Abs(CurrentRimIntensity - TargetRimIntensity) > KINDA_SMALL_NUMBER;
-
 	return bInCrushMode
 		|| CurrentChromatic > KINDA_SMALL_NUMBER
 		|| FMath::Abs(CurrentVignette - TargetVignette) > KINDA_SMALL_NUMBER
