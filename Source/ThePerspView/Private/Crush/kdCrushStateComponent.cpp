@@ -11,6 +11,9 @@
 #include "AbilitySystem/kdAbilitySystemComponent.h"
 #include "GameplayTags/kdGameplayTags.h"
 #include "AbilitySystem/kdAttributeSet.h"
+#include "Components/CapsuleComponent.h"
+
+
 
 UkdCrushStateComponent::UkdCrushStateComponent()
 {

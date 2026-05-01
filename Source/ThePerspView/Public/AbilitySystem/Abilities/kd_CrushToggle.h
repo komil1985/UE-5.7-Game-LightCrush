@@ -43,5 +43,8 @@ protected:
 
 private:
     FActiveGameplayEffectHandle ShadowDrainEffectHandle;
+
+    /** Removes the drain effect (if live) and invalidates the handle. */
+    void RemoveDrainEffect();
 	
 };

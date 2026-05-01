@@ -99,6 +99,7 @@ void Ukd_CrushToggle::EndAbility(const FGameplayAbilitySpecHandle Handle, const 
     if (CachedTransitionComp)
     {
         CachedTransitionComp->OnTransitionComplete.RemoveDynamic(this, &Ukd_CrushToggle::OnTransitionFinished);
+        CachedTransitionComp = nullptr;
     }
 
     // Optionally remove drain effect if still active
@@ -111,13 +112,22 @@ void Ukd_CrushToggle::EndAbility(const FGameplayAbilitySpecHandle Handle, const 
         ShadowDrainEffectHandle.Invalidate();
     }
 
+    // ── Remove drain effect if the ability was cancelled mid-transition ────────
+    RemoveDrainEffect();
+
     Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
 void Ukd_CrushToggle::OnTransitionFinished(bool bNewCrushMode)
 {
 	UAbilitySystemComponent* ASC = CurrentActorInfo ? CurrentActorInfo->AbilitySystemComponent.Get() : nullptr;
-    if (!ASC) return;
+    if (!ASC)
+    {
+        UE_LOG(LogTemp, Warning,
+            TEXT("CrushToggle::OnTransitionFinished — ASC is null, ending ability."));
+        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+        return;
+    }
 
         const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
 
@@ -129,6 +139,8 @@ void Ukd_CrushToggle::OnTransitionFinished(bool bNewCrushMode)
         else
         {
             ASC->RemoveLooseGameplayTag(StateTags.State_CrushMode);
+
+            RemoveDrainEffect();
 
             // Remove all drain effects when exiting crush mode
             FGameplayTagContainer DrainTags;
@@ -165,5 +177,17 @@ void Ukd_CrushToggle::OnTransitionFinished(bool bNewCrushMode)
 
     // End ability
     EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+}
+
+void Ukd_CrushToggle::RemoveDrainEffect()
+{
+    if (!ShadowDrainEffectHandle.IsValid()) return;
+
+    if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+    {
+        ASC->RemoveActiveGameplayEffect(ShadowDrainEffectHandle);
+    }
+
+    ShadowDrainEffectHandle.Invalidate();
 }
 

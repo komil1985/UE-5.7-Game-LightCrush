@@ -172,8 +172,7 @@ void AkdMyPlayer::RequestCrushToggle()
 				// TryActivateAbility returns false for ANY block reason (transitioning,
 				// exhausted, etc.).  We only want the warning when the specific cause
 				// is stamina exhaustion — check the tag directly.
-				if (!bActivated &&
-					AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_Exhausted))
+				if (!bActivated &&	AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_Exhausted))
 				{
 					NotifyLowStaminaWarning();
 				}

@@ -36,7 +36,7 @@ public:
 	FVector PlayerOriginalScale;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings | Transition")
-	float OrthoWidth = 1500.0f;
+	float CrushOrthoWidth = 1500.0f;
 
 protected:
 	virtual void BeginPlay() override;
@@ -71,5 +71,21 @@ private:
 	float TargetOrthoWidthCache;
 	bool bTargetCrushMode = false;
 	float CurrentElapsedTime;
+	bool bProjectionSwitchDone = false;
 
+	// ── Stable baselines captured once at BeginPlay ───────────────────────────
+
+	/** Mesh scale before any crush transition — the true 3D player size. */
+	FVector Original3DScale = FVector::OneVector;
+
+	/** Camera OrthoWidth before any crush transition (perspective default). */
+	float   Original3DOrthoWidth = 512.f;
+
+	// ── Spring-arm rotation snapshots ────────────────────────────────────────
+
+	/** 3D spring-arm relative rotation restored when exiting crush mode. */
+	FRotator Original3DArmRotation = FRotator(-30.f, 0.f, 0.f);
+
+	/** 2D spring-arm relative rotation applied when entering crush mode. */
+	FRotator Crush2DArmRotation = FRotator::ZeroRotator;
 };
