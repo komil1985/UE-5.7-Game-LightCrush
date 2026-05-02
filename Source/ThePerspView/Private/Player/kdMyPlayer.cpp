@@ -25,6 +25,7 @@
 #include "Components/kdFallDamageComponent.h"
 #include "Components/kdGameFeedbackComponent.h"
 #include "UI/Widget/kdLowStaminaWidget.h"
+#include "Components/kdPlayerHoverComponent.h"
 
 
 
@@ -67,6 +68,7 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	DeathComponent = CreateDefaultSubobject<UkdDeathComponent>(TEXT("DeathComponent"));
 	FallDamageComponent = CreateDefaultSubobject<UkdFallDamageComponent>(TEXT("FallDamageComponent"));
 	GameFeedbackComponent = CreateDefaultSubobject<UkdGameFeedbackComponent>(TEXT("GameFeedbackComponent"));
+	HoverComponent = CreateDefaultSubobject<UkdPlayerHoverComponent>(TEXT("HoverComponent"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 	/*	--	Default Values	--	*/
@@ -149,6 +151,12 @@ void AkdMyPlayer::BeginPlay()
 			// Hidden by default — only revealed when FlashWarning() is called
 			LowStaminaWidget->SetVisibility(ESlateVisibility::Hidden);
 		}
+	}
+
+	// Both eyes blink in sync; add or remove entries freely.
+	if (HoverComponent)
+	{
+		HoverComponent->SetMeshComponents(GetMesh(), { EyeLeft, EyeRight });  // Pass both eye meshes
 	}
 
 }

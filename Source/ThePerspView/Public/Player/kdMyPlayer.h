@@ -32,6 +32,7 @@ class UStaticMeshComponent;
 class UMaterialInstanceDynamic;
 class UkdGameFeedbackComponent;
 class UkdLowStaminaWidget;
+class UkdPlayerHoverComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
@@ -71,6 +72,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UkdGameFeedbackComponent> GameFeedbackComponent;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Components")
+	TObjectPtr<UkdPlayerHoverComponent> HoverComponent;
 	/*--------------------------------------------------------------------------*/
 
 	// -- User Interface -- //

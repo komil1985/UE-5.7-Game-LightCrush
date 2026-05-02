@@ -7,6 +7,8 @@
 #include "Player/kdMyPlayer.h"
 #include "Crush/kdCrushTransitionComponent.h"
 #include "Crush/kdCrushStateComponent.h"
+#include "Components/kdGameFeedbackComponent.h"
+
 
 
 Ukd_CrushToggle::Ukd_CrushToggle()
@@ -51,12 +53,14 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
     AkdMyPlayer* Player = Cast <AkdMyPlayer>(AvatarActor);
     if (!Player)
     {
+        UE_LOG(LogTemp, Warning, TEXT("CrushToggle: AvatarActor is not AkdMyPlayer — aborting."));
         EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
         return;
     }
     CachedTransitionComp = Player->CrushTransitionComponent;
     if (!CachedTransitionComp)
     {
+        UE_LOG(LogTemp, Warning, TEXT("CrushToggle: No CrushTransitionComponent — aborting."));
         EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
         return;
     }
@@ -64,6 +68,17 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
     const FkdGameplayTags& Tags = FkdGameplayTags::Get();
 
     const bool bTargetCrushMode = !ASC->HasMatchingGameplayTag(Tags.State_CrushMode);
+
+    // ── 4. IMMEDIATE feedback — fires before anticipation delay ───────────────
+    //
+    // OnCrushTransitionStarted runs right now so the player gets instant
+    // audio-visual confirmation that input was registered, even before the
+    // scale punch and morph begin.  This is the most important frame for feel.
+    if (UkdGameFeedbackComponent* GFC = Player->FindComponentByClass<UkdGameFeedbackComponent>())
+    {
+        GFC->OnCrushTransitionStarted(bTargetCrushMode);
+    }
+
 
     // --- Apply drain effect when entering crush mode ---
     if (bTargetCrushMode && CrushDrainEffect)
@@ -129,46 +144,66 @@ void Ukd_CrushToggle::OnTransitionFinished(bool bNewCrushMode)
         return;
     }
 
-        const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
-
-        // Set final crush mode tag
-        if (bNewCrushMode)
+    // ── Landing feedback — fires at the first frame the morph is complete ──────
+    //
+    // Called BEFORE tag changes so OnCrushModeTagChanged in GFC sees the correct
+    // bInCrushMode for the state we are LEAVING, not the one we are entering.
+    // (The landing echo is about the physical "thud" of arrival, not the new state.)
+    AkdMyPlayer* Player = Cast<AkdMyPlayer>(CurrentActorInfo->AvatarActor.Get());
+    if (Player)
+    {
+        if (UkdGameFeedbackComponent* GFC =
+            Player->FindComponentByClass<UkdGameFeedbackComponent>())
         {
-            ASC->AddLooseGameplayTag(StateTags.State_CrushMode);
+            GFC->OnCrushTransitionFinished(bNewCrushMode);
         }
-        else
+    }
+
+    const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
+
+    // Set final crush mode tag
+    if (bNewCrushMode)
+    {
+        ASC->AddLooseGameplayTag(StateTags.State_CrushMode);
+    }
+    else
+    {
+        ASC->RemoveLooseGameplayTag(StateTags.State_CrushMode);
+
+        // Clean up InShadow if lingering
+        if (ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
         {
-            ASC->RemoveLooseGameplayTag(StateTags.State_CrushMode);
+            ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
+        }
 
-            RemoveDrainEffect();
+        RemoveDrainEffect();
 
-            // Remove all drain effects when exiting crush mode
-            FGameplayTagContainer DrainTags;
-            DrainTags.AddTag(StateTags.Effect_ShadowDrain);
-            ASC->RemoveActiveEffectsWithGrantedTags(DrainTags);
+        // Remove all drain effects when exiting crush mode
+        FGameplayTagContainer DrainTags;
+        DrainTags.AddTag(StateTags.Effect_ShadowDrain);
+        ASC->RemoveActiveEffectsWithGrantedTags(DrainTags);
             
-            // clear out stored handle if it was still active
-            if (ShadowDrainEffectHandle.IsValid())
-            {
-                ASC->RemoveActiveGameplayEffect(ShadowDrainEffectHandle);
-                ShadowDrainEffectHandle.Invalidate();
-            }
-        }
-
-        // Update shadow tracking in player
-        AkdMyPlayer* Player = Cast<AkdMyPlayer>(CurrentActorInfo->AvatarActor.Get());
-        if (Player && Player->CrushStateComponent)
+        // clear out stored handle if it was still active
+        if (ShadowDrainEffectHandle.IsValid())
         {
-            Player->CrushStateComponent->ToggleShadowTracking(bNewCrushMode);
+            ASC->RemoveActiveGameplayEffect(ShadowDrainEffectHandle);
+            ShadowDrainEffectHandle.Invalidate();
         }
+    }
+
+    // Update shadow tracking in player
+    //AkdMyPlayer* Player = Cast<AkdMyPlayer>(CurrentActorInfo->AvatarActor.Get());
+    if (Player && Player->CrushStateComponent)
+    {
+        Player->CrushStateComponent->ToggleShadowTracking(bNewCrushMode);
+    }
         
-        // Remove transitioning tag – but only if we are still the active ability
-        if (ASC->HasMatchingGameplayTag(StateTags.State_Transitioning))
-        {
-            ASC->RemoveLooseGameplayTag(StateTags.State_Transitioning);
-        }
+    // Remove transitioning tag – but only if we are still the active ability
+    //if (ASC->HasMatchingGameplayTag(StateTags.State_Transitioning))
+    //{
+    //    ASC->RemoveLooseGameplayTag(StateTags.State_Transitioning);
+    //}
     
-
     // Unbind delegate to avoid multiple calls
     if (CachedTransitionComp)
     {

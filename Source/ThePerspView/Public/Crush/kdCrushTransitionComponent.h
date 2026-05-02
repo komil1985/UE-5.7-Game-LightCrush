@@ -8,6 +8,36 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCrushTransitionComplete, bool, bIsCrushMode);
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UkdCrushTransitionComponent
+//
+// Drives the 3D ↔ 2D (Crush Mode) visual transition in three distinct phases:
+//
+//   1. ANTICIPATION  (AnticipationDuration seconds)
+//      A brief scale punch fired immediately so the player knows input landed.
+//      Entering Crush: player briefly scales UP (breath in before squashing flat).
+//      Exiting  Crush: player briefly scales DOWN (compress before expanding out).
+//
+//   2. MAIN MORPH  (TransitionDuration seconds, driven by CrushTimeline)
+//      Lerps mesh scale and camera OrthoWidth from current to target.
+//      Switches projection mode exactly once at the 0.5 alpha midpoint.
+//
+//   3. SETTLE  (SettleDuration seconds, timer-driven, purely visual)
+//      After the morph the scale overshoots by SettleOvershootAmount then
+//      exponentially decays back to target — a satisfying "pop" landing.
+//      OnTransitionComplete is broadcast BEFORE the settle so gameplay state
+//      updates happen without delay.
+//
+// SETUP:
+//   1. Attach to AkdMyPlayer in the constructor.
+//   2. Assign TransitionCurve (UCurveFloat, 0 → 1 over normalised time).
+//   3. Tune all Feel properties in the Blueprint defaults.
+//   4. The 3D mesh scale and 3D OrthoWidth are captured at BeginPlay —
+//      do not set them by hand.
+// ─────────────────────────────────────────────────────────────────────────────
+
+
 class UCurveFloat;
 class AkdMyPlayer;
 class UTimelineComponent;
@@ -38,19 +68,41 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Settings | Transition")
 	float CrushOrthoWidth = 1500.0f;
 
+	// ── Feel — Anticipation ───────────────────────────────────────────────────
+
+	/** How long the scale punch holds before the main morph begins (seconds).
+	 *  Set to 0 to disable anticipation entirely. */
+	UPROPERTY(EditDefaultsOnly, Category = "Crush | Transition | Feel", meta = (ClampMin = "0.0", ClampMax = "0.3"))
+	float AnticipationDuration = 0.08f;
+
+	/** Uniform scale fraction added during anticipation.
+	 *  Entering Crush → mesh scales UP by this amount   (e.g. 0.12 = 112 %).
+	 *  Exiting  Crush → mesh scales DOWN by half amount (e.g. 0.06 = 94 %). */
+	UPROPERTY(EditDefaultsOnly, Category = "Crush | Transition | Feel", meta = (ClampMin = "0.0", ClampMax = "0.5"))
+	float AnticipationScalePunch = 0.12f;
+
+	// ── Feel — Settle (post-morph overshoot) ─────────────────────────────────
+
+	/** Fraction past the target scale to overshoot on landing.
+	 *  e.g. 0.10 → target × 1.10, then decays back.  Set to 0 to disable. */
+	UPROPERTY(EditDefaultsOnly, Category = "Crush | Transition | Feel",	meta = (ClampMin = "0.0", ClampMax = "0.5"))
+	float SettleOvershootAmount = 0.10f;
+
+	/** Seconds for the overshoot to exponentially decay back to target scale. */
+	UPROPERTY(EditDefaultsOnly, Category = "Crush | Transition | Feel", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float SettleDuration = 0.18f;
+
 protected:
 	virtual void BeginPlay() override;
 	
 private:
-	UPROPERTY()
-	TObjectPtr<AkdMyPlayer> CachedOwner;
-
-	FTimerHandle TransitionTimerHandle;
-
-	float CurrentAlpha;
+	// ── Timeline plumbing ─────────────────────────────────────────────────────
 
 	UPROPERTY()
-	TObjectPtr<UTimelineComponent> CrushTimeline;		// Timeline for smooth transition 
+	TObjectPtr<UTimelineComponent> CrushTimeline;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Crush | Transition")
+	TObjectPtr<UCurveFloat> TransitionCurve;
 
 	UFUNCTION()
 	void HandleTimelineUpdate(float Value);
@@ -58,34 +110,41 @@ private:
 	UFUNCTION()
 	void HandleTimelineFinished();
 
-	UPROPERTY(EditDefaultsOnly, Category = "Crush Settings | Transition")
-	float TimerInterval = 0.016f;	// ~60 fps update rate for smooth animations
+	// ── Cached reference ──────────────────────────────────────────────────────
 
-	UPROPERTY(EditDefaultsOnly, Category = "Crush Settings | Transition")
-	TObjectPtr<UCurveFloat> TransitionCurve;
+	UPROPERTY()
+	TObjectPtr<AkdMyPlayer> CachedOwner;
 
-	// Cache initial values to lerp from
+	// ── Per-transition state ──────────────────────────────────────────────────
+
+	bool    bTargetCrushMode = false;
+	bool    bProjectionSwitchDone = false;
+
 	FVector InitialScale;
-	FVector TargetScaleCache;
-	float InitialOrthoWidth;
-	float TargetOrthoWidthCache;
-	bool bTargetCrushMode = false;
-	float CurrentElapsedTime;
-	bool bProjectionSwitchDone = false;
+	float   InitialOrthoWidth = 0.f;
+
+	FVector TargetScale;
+	float   TargetOrthoWidth = 0.f;
 
 	// ── Stable baselines captured once at BeginPlay ───────────────────────────
 
-	/** Mesh scale before any crush transition — the true 3D player size. */
-	FVector Original3DScale = FVector::OneVector;
-
-	/** Camera OrthoWidth before any crush transition (perspective default). */
-	float   Original3DOrthoWidth = 512.f;
-
-	// ── Spring-arm rotation snapshots ────────────────────────────────────────
-
-	/** 3D spring-arm relative rotation restored when exiting crush mode. */
+	FVector  Original3DScale = FVector::OneVector;
+	float    Original3DOrthoWidth = 512.f;
 	FRotator Original3DArmRotation = FRotator(-30.f, 0.f, 0.f);
-
-	/** 2D spring-arm relative rotation applied when entering crush mode. */
 	FRotator Crush2DArmRotation = FRotator::ZeroRotator;
+
+	// ── Anticipation ──────────────────────────────────────────────────────────
+
+	FTimerHandle AnticipationTimerHandle;
+
+	/** Called after AnticipationDuration elapses — starts the main morph. */
+	void BeginMainTimeline();
+
+	// ── Settle ────────────────────────────────────────────────────────────────
+
+	FTimerHandle SettleTickHandle;
+	float        SettleElapsed = 0.f;
+
+	/** 60 Hz looping tick — decays scale from the overshoot back to TargetScale. */
+	void SettleTick();
 };

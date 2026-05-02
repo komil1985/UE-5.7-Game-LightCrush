@@ -73,7 +73,7 @@ void UkdGameFeedbackComponent::BeginPlay()
 		}
 	}
 
-	// ── Create the Dynamic Material Instance ourselves ────────────────────────
+	// ── Create the PostProcess Dynamic Material Instance ourselves ────────────────────────
 	// We do this here so nothing external needs to set it up.
 	if (TryGetPPInstance())
 	{
@@ -110,14 +110,10 @@ void UkdGameFeedbackComponent::BeginPlay()
 
 	// ── Warn about missing shake classes ────────────────────────────────────
 #if !UE_BUILD_SHIPPING
-	if (!DashShakeClass)
-		UE_LOG(LogTemp, Warning, TEXT("GameFeedbackComponent: DashShakeClass not assigned in BP_Player!"));
-	if (!ShadowEntryShakeClass)
-		UE_LOG(LogTemp, Warning, TEXT("GameFeedbackComponent: ShadowEntryShakeClass not assigned!"));
-	if (!ShadowExitShakeClass)
-		UE_LOG(LogTemp, Warning, TEXT("GameFeedbackComponent: ShadowExitShakeClass not assigned!"));
-	if (!StaminaEmptyShakeClass)
-		UE_LOG(LogTemp, Warning, TEXT("GameFeedbackComponent: StaminaEmptyShakeClass not assigned!"));
+	if (!DashShakeClass) UE_LOG(LogTemp, Warning, TEXT("GameFeedbackComponent: DashShakeClass not assigned in BP_Player!"));
+	if (!ShadowEntryShakeClass) UE_LOG(LogTemp, Warning, TEXT("GameFeedbackComponent: ShadowEntryShakeClass not assigned!"));
+	if (!ShadowExitShakeClass) UE_LOG(LogTemp, Warning, TEXT("GameFeedbackComponent: ShadowExitShakeClass not assigned!"));
+	if (!StaminaEmptyShakeClass) UE_LOG(LogTemp, Warning, TEXT("GameFeedbackComponent: StaminaEmptyShakeClass not assigned!"));
 #endif
 }
 
@@ -429,5 +425,91 @@ void UkdGameFeedbackComponent::WritePP_Rim(float Value)
 {
 	if (!CharMeshDMI) return;
 	CharMeshDMI->SetScalarParameterValue(RimIntensityParamName, Value);
+}
+
+void UkdGameFeedbackComponent::OnCrushTransitionStarted(bool bToCrushMode)
+{
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("GFC: OnCrushTransitionStarted (entering=%d)"), bToCrushMode);
+#endif
+
+	// ── Cancel any pending PP hide from a previous exit ───────────────────────
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(PPHideTimerHandle);
+	}
+
+	if (bToCrushMode)
+	{
+		// Make the PP layer visible NOW so the entering chromatic spike renders
+		// before State.CrushMode is officially added by OnTransitionFinished.
+		WritePP_BlendWeight(1.f);
+		CurrentChromatic = CrushEnterChromaticPeak;
+		WritePP_Chromatic(CurrentChromatic);
+		PlayShake(CrushEnterShakeClass);
+	}
+	else
+	{
+		// PP is already visible (still in crush mode) — just spike and shake.
+		CurrentChromatic = CrushExitChromaticPeak;
+		WritePP_Chromatic(CurrentChromatic);
+		PlayShake(CrushExitShakeClass);
+	}
+
+	SetTickActive(true);
+}
+
+void UkdGameFeedbackComponent::OnCrushTransitionFinished(bool bNewCrushMode)
+{
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("GFC: OnCrushTransitionFinished (nowCrush=%d)"), bNewCrushMode);
+#endif
+
+	// Landing echo: spike chromatic to at least CrushLandChromaticPeak.
+	// If the earlier start spike hasn't fully decayed yet, take the larger value
+	// so the echo never looks weaker than expected.
+	CurrentChromatic = FMath::Max(CurrentChromatic, CrushLandChromaticPeak);
+	WritePP_Chromatic(CurrentChromatic);
+	PlayShake(CrushLandShakeClass);
+	SetTickActive(true);
+
+	if (!bNewCrushMode)
+	{
+		// Entering 3D — schedule the PP hide once the echo has decayed.
+		// OnCrushModeTagChanged will fire soon and zero vignette/rim;
+		// we handle blend-weight separately here so the echo stays visible.
+		SchedulePPHide();
+	}
+}
+
+void UkdGameFeedbackComponent::SchedulePPHide()
+{
+	if (!GetWorld()) return;
+
+	// How long before the landing echo fully decays to zero.
+	const float HideDelay = (ChromaticDecaySpeed > KINDA_SMALL_NUMBER) ? (CrushLandChromaticPeak / ChromaticDecaySpeed) + 0.05f : 0.5f;   // small buffer
+	GetWorld()->GetTimerManager().SetTimer(PPHideTimerHandle, this,	&UkdGameFeedbackComponent::HidePP, HideDelay, false);
+}
+
+void UkdGameFeedbackComponent::HidePP()
+{
+	// Hard-zero and hide the PP layer once all effects have decayed.
+	CurrentChromatic = 0.f;
+	CurrentVignette = 0.f;
+	TargetVignette = 0.f;
+	CurrentShadowVignette = 0.f;
+	TargetShadowVignette = 0.f;
+	CurrentRimIntensity = 0.f;
+	TargetRimIntensity = 0.f;
+	VignettePhase = 0.f;
+
+	WritePP_Chromatic(0.f);
+	WritePP_Vignette(0.f);
+	WritePP_Rim(0.f);
+	WritePP_BlendWeight(0.f);
+
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("GFC: PP layer hidden (crush exit echo decayed)."));
+#endif
 }
 

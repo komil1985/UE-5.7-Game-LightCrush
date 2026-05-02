@@ -22,7 +22,7 @@ public:
 
 	// ── Public API (called by abilities / movement code) ─────────────────────
 
-// ── Called externally by ShadowDash ability ───────────────────────────────
+	// ── Called externally by ShadowDash ability ───────────────────────────────
 	UFUNCTION(BlueprintCallable, Category = "GameFeel")
 	void OnDashPerformed();
 
@@ -44,6 +44,18 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
 	TSubclassOf<UCameraShakeBase> StaminaEmptyShakeClass;
 
+	/** Heavy shake at the moment the player initiates entering crush mode. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
+	TSubclassOf<UCameraShakeBase> CrushEnterShakeClass;
+
+	/** Shake at the moment the player initiates returning to 3D. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
+	TSubclassOf<UCameraShakeBase> CrushExitShakeClass;
+
+	/** Lighter "landing" shake that fires when the morph completes. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
+	TSubclassOf<UCameraShakeBase> CrushLandShakeClass;
+
 	// ── Chromatic Aberration ─────────────────────────────────────────────────
 	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
 		meta = (ClampMin = "0.0", ClampMax = "5.0"))
@@ -56,6 +68,21 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
 		meta = (ClampMin = "1.0"))
 	float ChromaticDecaySpeed = 6.0f;
+
+	/** Chromatic spike when the player first presses the crush-enter button. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+		meta = (ClampMin = "0.0", ClampMax = "5.0"))
+	float CrushEnterChromaticPeak = 3.0f;
+
+	/** Chromatic spike when the player first presses the crush-exit button. */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+		meta = (ClampMin = "0.0", ClampMax = "5.0"))
+	float CrushExitChromaticPeak = 2.2f;
+
+	/** Smaller echo spike when the main morph finishes (landing pop). */
+	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+		meta = (ClampMin = "0.0", ClampMax = "5.0"))
+	float CrushLandChromaticPeak = 1.4f;
 
 	// ── Vignette ─────────────────────────────────────────────────────────────
 	// Pulses when stamina drops below LowStaminaThreshold in 2D mode.
@@ -77,18 +104,14 @@ public:
 
 	// ── Shadow Vignette (screen darkens when player enters shadow) ────────────
 
-/** Vignette intensity applied when player IS standing in shadow.
- *  Stacks additively on top of the low-stamina vignette. */
+	/** Vignette intensity applied when player IS standing in shadow.
+	*  Stacks additively on top of the low-stamina vignette. */
 	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float InShadowVignetteStrength = 0.45f;
 
 	/** How fast the shadow vignette fades in/out (higher = snappier). */
 	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess", meta = (ClampMin = "1.0"))
 	float ShadowVignetteLerpSpeed = 4.0f;
-
-protected:
-	virtual void BeginPlay() override;
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType,FActorComponentTickFunction* ThisTickFunction) override;
 
 	// ── 2. Rim Glow (character mesh material) ────────────────────────────────
 
@@ -107,6 +130,37 @@ protected:
 	/** Which material slot index on the skeletal mesh carries the rim param. */
 	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shadow | Rim", meta = (ClampMin = "0"))
 	int32 RimMaterialSlotIndex = 0;
+
+	// ── Crush-mode transition hooks (called by kd_CrushToggle) ───────────────
+
+	/**
+	* Call at the very START of a crush toggle — before the anticipation delay.
+	*
+	* Entering crush  (bToCrushMode = true):
+	*   • Makes the post-process layer visible early so the chromatic spike
+	*     renders even before State.CrushMode is officially added.
+	*   • Spikes chromatic to CrushEnterChromaticPeak.
+	*   • Plays CrushEnterShakeClass.
+	*
+	* Exiting crush (bToCrushMode = false):
+	*   • PP is already visible; just spikes chromatic + plays exit shake.
+	*/
+	void OnCrushTransitionStarted(bool bToCrushMode);
+
+	/**
+	 * Call when the MAIN MORPH finishes (OnTransitionFinished in the ability,
+	 * before EndAbility).
+	 *
+	 * Plays a smaller chromatic echo ("landing pop") + CrushLandShakeClass.
+	 * The echo decays naturally via tick; the PP blend weight is hidden later
+	 * via a timer (on crush exit) so the echo remains visible long enough
+	 * to read.
+	 */
+	void OnCrushTransitionFinished(bool bNewCrushMode);
+
+protected:
+	virtual void BeginPlay() override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType,FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
 	// ── Cached references ────────────────────────────────────────────────────
@@ -152,5 +206,15 @@ private:
 	bool NeedsTick() const;
 	void WritePP_Rim(float Value);
 
+
+	// ── PP blend-weight deferred hide (used when exiting crush) ───────────────
+	//
+	// On crush exit, the chromatic echo needs to remain visible for a moment
+	// after State.CrushMode is removed.  Rather than hiding PP immediately in
+	// OnCrushModeTagChanged, we schedule a timer for when the echo has decayed.
+	FTimerHandle PPHideTimerHandle;
+
+	void SchedulePPHide();   // starts PPHideTimerHandle
+	void HidePP();           // fires when timer expires — zeros and hides the layer
 		
 };
