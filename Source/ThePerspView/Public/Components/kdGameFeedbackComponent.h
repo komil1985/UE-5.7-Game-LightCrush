@@ -7,6 +7,22 @@
 #include "GameplayTagContainer.h"
 #include "kdGameFeedbackComponent.generated.h"
 
+// ─────────────────────────────────────────────────────────────────────────────
+// UkdGameFeedbackComponent
+//
+// Manages all screen-space feedback for player state changes:
+//   • Chromatic aberration spikes (dash, crush, shadow entry)
+//   • Vignette pulse (low stamina, shadow entry)
+//   • Rim glow (mesh material, shadow entry)
+//   • Time-dilation freeze (crush toggle)
+//   • Depth of field blend (3D → 2D crush diorama look)
+//   • Color saturation + contrast grade (2D mode graphic look)
+//
+// DOF and color grading write directly to the camera's PostProcessSettings —
+// no extra material assets required.  The PP material (CrushPostProcessMaterial)
+// handles only chromatic aberration and vignette.
+// ─────────────────────────────────────────────────────────────────────────────
+
 class UkdAbilitySystemComponent;
 class UMaterialInstanceDynamic;
 class UCameraShakeBase;
@@ -17,204 +33,243 @@ class THEPERSPVIEW_API UkdGameFeedbackComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
-public:	
-	UkdGameFeedbackComponent();
+public:
+    UkdGameFeedbackComponent();
 
-	// ── Public API (called by abilities / movement code) ─────────────────────
+    // =========================================================================
+    // Public API
+    // =========================================================================
 
-	// ── Called externally by ShadowDash ability ───────────────────────────────
-	UFUNCTION(BlueprintCallable, Category = "GameFeel")
-	void OnDashPerformed();
+    UFUNCTION(BlueprintCallable, Category = "GameFeel")
+    void OnDashPerformed();
 
-	// ── Post-process material to instantiate ─────────────────────────────────
-	// Assign M_CrushPostProcess in BP_Player Details panel.
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess")
-	TObjectPtr<UMaterialInterface> CrushPostProcessMaterial;
+    /** Called the instant the crush button registers (before anticipation delay). */
+    void OnCrushTransitionStarted(bool bToCrushMode);
 
-	// ── Camera Shake Classes — assign in BP_Player Details ───────────────────
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
-	TSubclassOf<UCameraShakeBase> DashShakeClass;
+    /** Called when the main morph finishes (before EndAbility). */
+    void OnCrushTransitionFinished(bool bNewCrushMode);
 
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
-	TSubclassOf<UCameraShakeBase> ShadowEntryShakeClass;
+    // =========================================================================
+    // Camera Shake Classes
+    // =========================================================================
 
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
-	TSubclassOf<UCameraShakeBase> ShadowExitShakeClass;
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
+    TSubclassOf<UCameraShakeBase> DashShakeClass;
 
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
-	TSubclassOf<UCameraShakeBase> StaminaEmptyShakeClass;
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
+    TSubclassOf<UCameraShakeBase> ShadowEntryShakeClass;
 
-	/** Heavy shake at the moment the player initiates entering crush mode. */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
-	TSubclassOf<UCameraShakeBase> CrushEnterShakeClass;
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
+    TSubclassOf<UCameraShakeBase> ShadowExitShakeClass;
 
-	/** Shake at the moment the player initiates returning to 3D. */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
-	TSubclassOf<UCameraShakeBase> CrushExitShakeClass;
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
+    TSubclassOf<UCameraShakeBase> StaminaEmptyShakeClass;
 
-	/** Lighter "landing" shake that fires when the morph completes. */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
-	TSubclassOf<UCameraShakeBase> CrushLandShakeClass;
+    /** Heavy shake on crush-enter button press. */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
+    TSubclassOf<UCameraShakeBase> CrushEnterShakeClass;
 
-	// ── Chromatic Aberration ─────────────────────────────────────────────────
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
-		meta = (ClampMin = "0.0", ClampMax = "5.0"))
-	float DashChromaticPeak = 1.5f;
+    /** Medium shake on crush-exit button press. */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
+    TSubclassOf<UCameraShakeBase> CrushExitShakeClass;
 
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
-		meta = (ClampMin = "0.0", ClampMax = "5.0"))
-	float ShadowEntryChromaticPeak = 2.5f;
+    /** Light landing shake when morph completes. */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
+    TSubclassOf<UCameraShakeBase> CrushLandShakeClass;
 
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
-		meta = (ClampMin = "1.0"))
-	float ChromaticDecaySpeed = 6.0f;
+    // =========================================================================
+    // Time-dilation freeze
+    // =========================================================================
 
-	/** Chromatic spike when the player first presses the crush-enter button. */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
-		meta = (ClampMin = "0.0", ClampMax = "5.0"))
-	float CrushEnterChromaticPeak = 3.0f;
+    /** Global time dilation at freeze moment (0.05 = world at 5 % speed). */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Freeze",
+        meta = (ClampMin = "0.01", ClampMax = "1.0"))
+    float FreezeDilation = 0.05f;
 
-	/** Chromatic spike when the player first presses the crush-exit button. */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
-		meta = (ClampMin = "0.0", ClampMax = "5.0"))
-	float CrushExitChromaticPeak = 2.2f;
+    /** Real-world seconds the dilation lasts. */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Freeze",
+        meta = (ClampMin = "0.0", ClampMax = "0.3"))
+    float FreezeDuration = 0.07f;
 
-	/** Smaller echo spike when the main morph finishes (landing pop). */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
-		meta = (ClampMin = "0.0", ClampMax = "5.0"))
-	float CrushLandChromaticPeak = 1.4f;
+    // =========================================================================
+    // Post-process material (chromatic + vignette)
+    // =========================================================================
 
-	// ── Vignette ─────────────────────────────────────────────────────────────
-	// Pulses when stamina drops below LowStaminaThreshold in 2D mode.
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
-		meta = (ClampMin = "0.0", ClampMax = "1.0"))
-	float LowStaminaThreshold = 0.35f;
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess")
+    TObjectPtr<UMaterialInterface> CrushPostProcessMaterial;
 
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
-		meta = (ClampMin = "0.0", ClampMax = "1.0"))
-	float MaxVignetteIntensity = 0.7f;
+    // ── Chromatic ─────────────────────────────────────────────────────────────
 
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
-		meta = (ClampMin = "0.5", ClampMax = "10.0"))
-	float VignettePulseFrequency = 2.5f;
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+        meta = (ClampMin = "0.0", ClampMax = "5.0"))
+    float DashChromaticPeak = 1.5f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
-		meta = (ClampMin = "1.0"))
-	float VignetteLerpSpeed = 5.0f;
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+        meta = (ClampMin = "0.0", ClampMax = "5.0"))
+    float ShadowEntryChromaticPeak = 2.5f;
 
-	// ── Shadow Vignette (screen darkens when player enters shadow) ────────────
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+        meta = (ClampMin = "0.0", ClampMax = "5.0"))
+    float CrushEnterChromaticPeak = 3.0f;
 
-	/** Vignette intensity applied when player IS standing in shadow.
-	*  Stacks additively on top of the low-stamina vignette. */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess", meta = (ClampMin = "0.0", ClampMax = "1.0"))
-	float InShadowVignetteStrength = 0.45f;
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+        meta = (ClampMin = "0.0", ClampMax = "5.0"))
+    float CrushExitChromaticPeak = 2.2f;
 
-	/** How fast the shadow vignette fades in/out (higher = snappier). */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess", meta = (ClampMin = "1.0"))
-	float ShadowVignetteLerpSpeed = 4.0f;
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+        meta = (ClampMin = "0.0", ClampMax = "5.0"))
+    float CrushLandChromaticPeak = 1.4f;
 
-	// ── 2. Rim Glow (character mesh material) ────────────────────────────────
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+        meta = (ClampMin = "1.0"))
+    float ChromaticDecaySpeed = 6.0f;
 
-	/** Peak rim glow intensity when fully in shadow. 0 = disabled. */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shadow | Rim", meta = (ClampMin = "0.0", ClampMax = "3.0"))
-	float RimPeakIntensity = 1.2f;
+    // ── Vignette (low-stamina pulse) ──────────────────────────────────────────
 
-	/** Fade speed for the rim glow. Higher = snappier. */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shadow | Rim", meta = (ClampMin = "1.0"))
-	float RimLerpSpeed = 8.0f;
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+        meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float LowStaminaThreshold = 0.35f;
 
-	/** Scalar parameter name in your character mesh material for rim intensity. */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shadow | Rim")
-	FName RimIntensityParamName = FName("RimIntensity");
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+        meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float MaxVignetteIntensity = 0.7f;
 
-	/** Which material slot index on the skeletal mesh carries the rim param. */
-	UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shadow | Rim", meta = (ClampMin = "0"))
-	int32 RimMaterialSlotIndex = 0;
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+        meta = (ClampMin = "0.5", ClampMax = "10.0"))
+    float VignettePulseFrequency = 2.5f;
 
-	// ── Crush-mode transition hooks (called by kd_CrushToggle) ───────────────
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+        meta = (ClampMin = "1.0"))
+    float VignetteLerpSpeed = 5.0f;
 
-	/**
-	* Call at the very START of a crush toggle — before the anticipation delay.
-	*
-	* Entering crush  (bToCrushMode = true):
-	*   • Makes the post-process layer visible early so the chromatic spike
-	*     renders even before State.CrushMode is officially added.
-	*   • Spikes chromatic to CrushEnterChromaticPeak.
-	*   • Plays CrushEnterShakeClass.
-	*
-	* Exiting crush (bToCrushMode = false):
-	*   • PP is already visible; just spikes chromatic + plays exit shake.
-	*/
-	void OnCrushTransitionStarted(bool bToCrushMode);
+    // ── Shadow vignette ───────────────────────────────────────────────────────
 
-	/**
-	 * Call when the MAIN MORPH finishes (OnTransitionFinished in the ability,
-	 * before EndAbility).
-	 *
-	 * Plays a smaller chromatic echo ("landing pop") + CrushLandShakeClass.
-	 * The echo decays naturally via tick; the PP blend weight is hidden later
-	 * via a timer (on crush exit) so the echo remains visible long enough
-	 * to read.
-	 */
-	void OnCrushTransitionFinished(bool bNewCrushMode);
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+        meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float InShadowVignetteStrength = 0.45f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | PostProcess",
+        meta = (ClampMin = "1.0"))
+    float ShadowVignetteLerpSpeed = 4.0f;
+
+    // ── Rim glow ──────────────────────────────────────────────────────────────
+
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shadow | Rim",
+        meta = (ClampMin = "0.0", ClampMax = "3.0"))
+    float RimPeakIntensity = 1.2f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shadow | Rim",
+        meta = (ClampMin = "1.0"))
+    float RimLerpSpeed = 8.0f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shadow | Rim")
+    FName RimIntensityParamName = FName("RimIntensity");
+
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shadow | Rim",
+        meta = (ClampMin = "0"))
+    int32 RimMaterialSlotIndex = 0;
+
+    // =========================================================================
+    // Depth of field (2D diorama look) — written to camera PP settings
+    // =========================================================================
+
+    /** Enable DOF lerp when entering / exiting Crush mode. */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Camera | DOF")
+    bool bManageCrushDOF = true;
+
+    /** Cinematic f-stop in 2D mode (lower = more blur, 1.4–2.8 for diorama). */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Camera | DOF",
+        meta = (ClampMin = "0.5", ClampMax = "22.0"))
+    float Crush2DFStop = 2.0f;
+
+    /** Sensor width (mm) used with f-stop for blur calculation. */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Camera | DOF",
+        meta = (ClampMin = "1.0"))
+    float Crush2DSensorWidth = 150.f;
+
+    // =========================================================================
+    // Color grading (2D mode graphic look) — written to camera PP settings
+    // =========================================================================
+
+    /** Saturation multiplier in 2D mode (0.80–0.88 for a flat, graphic feel). */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Camera | Color",
+        meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float Crush2DSaturation = 0.82f;
+
+    /** Contrast multiplier in 2D mode (1.05–1.12 crispens the shadow silhouettes). */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Camera | Color",
+        meta = (ClampMin = "0.5", ClampMax = "2.0"))
+    float Crush2DContrast = 1.08f;
+
+    /** Lerp speed for DOF and color grading transitions. */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Camera | Color",
+        meta = (ClampMin = "0.5"))
+    float CameraGradeLerpSpeed = 5.f;
 
 protected:
-	virtual void BeginPlay() override;
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType,FActorComponentTickFunction* ThisTickFunction) override;
+    virtual void BeginPlay() override;
+    virtual void TickComponent(float DeltaTime, ELevelTick TickType,
+        FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
-	// ── Cached references ────────────────────────────────────────────────────
-	UPROPERTY()
-	TObjectPtr<UkdAbilitySystemComponent> CachedASC;
+    // ── Cached refs ───────────────────────────────────────────────────────────
+    UPROPERTY() TObjectPtr<UkdAbilitySystemComponent> CachedASC;
+    UPROPERTY() TObjectPtr<UMaterialInstanceDynamic>  PPInstance;
+    UPROPERTY() TObjectPtr<UMaterialInstanceDynamic>  CharMeshDMI;
+    UPROPERTY() TObjectPtr<UCameraComponent>          CachedCamera;
 
-	UPROPERTY()
-	TObjectPtr<UMaterialInstanceDynamic> PPInstance;
+    // ── Chromatic / vignette state ────────────────────────────────────────────
+    float CurrentChromatic = 0.f;
+    float CurrentVignette = 0.f;
+    float TargetVignette = 0.f;
+    float VignettePhase = 0.f;
+    float CurrentStaminaFrac = 1.f;
+    bool  bInCrushMode = false;
+    float CurrentRimIntensity = 0.f;
+    float TargetRimIntensity = 0.f;
+    float CurrentShadowVignette = 0.f;
+    float TargetShadowVignette = 0.f;
 
-	UPROPERTY()
-	TObjectPtr<UMaterialInstanceDynamic> CharMeshDMI;
+    // ── Time-dilation ─────────────────────────────────────────────────────────
+    float FreezeStartRealTime = -1.f;
 
-	UPROPERTY()
-	TObjectPtr<UCameraComponent> CachedCamera;
+    // ── Camera PP state (DOF + color grade) ───────────────────────────────────
+    // We store current and target for each grade param and lerp in Tick.
+    // 3D baselines are restored when crush mode exits.
 
-	// ── Runtime state ────────────────────────────────────────────────────────
-	float CurrentChromatic = 0.f;
-	float CurrentVignette = 0.f;
-	float TargetVignette = 0.f;
-	float VignettePhase = 0.f;
-	float CurrentStaminaFrac = 1.f;
-	bool  bInCrushMode = false;
-	float CurrentRimIntensity = 0.f;
-	float TargetRimIntensity = 0.f;
-	float CurrentShadowVignette = 0.f;
-	float TargetShadowVignette = 0.f;
+    float CurrentFStop = 0.f;    // 0 = DOF off (UE default)
+    float TargetFStop = 0.f;
 
-	// ── Tag callbacks ────────────────────────────────────────────────────────
-	void OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCount);
-	void OnInShadowTagChanged(const FGameplayTag Tag, int32 NewCount);
-	void OnExhaustedTagChanged(const FGameplayTag Tag, int32 NewCount);
+    float CurrentSensorWidth = 0.f;
+    float TargetSensorWidth = 0.f;
 
-	// ── Attribute callback ───────────────────────────────────────────────────
-	void OnStaminaChanged(const FOnAttributeChangeData& Data);
+    float CurrentSaturation = 1.f;
+    float TargetSaturation = 1.f;
 
-	// ── Helpers ──────────────────────────────────────────────────────────────
-	void PlayShake(TSubclassOf<UCameraShakeBase> ShakeClass);
-	void WritePP_Chromatic(float Value);
-	void WritePP_Vignette(float Value);
-	void WritePP_BlendWeight(float Weight);
-	bool TryGetPPInstance();
-	void SetTickActive(bool bActive);
-	bool NeedsTick() const;
-	void WritePP_Rim(float Value);
+    float CurrentContrast = 1.f;
+    float TargetContrast = 1.f;
 
+    void WriteCameraGrade();   // writes all four values to camera PP settings
 
-	// ── PP blend-weight deferred hide (used when exiting crush) ───────────────
-	//
-	// On crush exit, the chromatic echo needs to remain visible for a moment
-	// after State.CrushMode is removed.  Rather than hiding PP immediately in
-	// OnCrushModeTagChanged, we schedule a timer for when the echo has decayed.
-	FTimerHandle PPHideTimerHandle;
+    // ── Deferred PP hide (crush exit echo) ───────────────────────────────────
+    FTimerHandle PPHideTimerHandle;
+    void SchedulePPHide();
+    void HidePP();
 
-	void SchedulePPHide();   // starts PPHideTimerHandle
-	void HidePP();           // fires when timer expires — zeros and hides the layer
+    // ── Tag / attribute callbacks ─────────────────────────────────────────────
+    void OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCount);
+    void OnInShadowTagChanged(const FGameplayTag Tag, int32 NewCount);
+    void OnExhaustedTagChanged(const FGameplayTag Tag, int32 NewCount);
+    void OnStaminaChanged(const FOnAttributeChangeData& Data);
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    void PlayShake(TSubclassOf<UCameraShakeBase> ShakeClass);
+    void WritePP_Chromatic(float Value);
+    void WritePP_Vignette(float Value);
+    void WritePP_BlendWeight(float Weight);
+    void WritePP_Rim(float Value);
+    bool TryGetPPInstance();
+    void SetTickActive(bool bActive);
+    bool NeedsTick() const;
 		
 };

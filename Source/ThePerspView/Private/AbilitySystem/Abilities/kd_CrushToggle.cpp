@@ -47,7 +47,11 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
     }
 
     UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
-    if (!ASC) return;
+    if (!ASC)
+    {
+        EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+        return;
+    }
 
 	AActor* AvatarActor = ActorInfo->AvatarActor.Get();
     AkdMyPlayer* Player = Cast <AkdMyPlayer>(AvatarActor);
