@@ -92,12 +92,29 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
     // ── *** THE CRUSH: snap player X to the shadow plane *** ─────────────────
     // This is the physical act of pressing the player flat.  Combined with the
     // camera pulling back and narrowing, the world appears to collapse.
+    //if (bToCrushMode)
+    //{
+    //    FVector Loc = CachedOwner->GetActorLocation();
+    //    Loc.X = CrushWorldX;
+    //    CachedOwner->SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
+    //}
+
     if (bToCrushMode)
     {
-        FVector Loc = CachedOwner->GetActorLocation();
-        Loc.X = CrushWorldX;
-        CachedOwner->SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
+        const float CurrentX = CachedOwner->GetActorLocation().X;
+        PlayerXFrom = CurrentX;
+
+        if (bToCrushMode)
+        {
+            CachedPreCrushX = CurrentX;   // remember 3D depth for the return trip
+            PlayerXTo = CrushWorldX;
+        }
+        else
+        {
+            PlayerXTo = CachedPreCrushX;
+        }
     }
+
 
     // ── Player freeze + scale punch ───────────────────────────────────────────
     if (UCharacterMovementComponent* MC = CachedOwner->GetCharacterMovement())
@@ -192,6 +209,10 @@ void UkdCrushTransitionComponent::HandleTimelineUpdate(float Value)
     const float RollPeak = bTargetCrushMode ? -TransitionRollDegrees : TransitionRollDegrees;
     const float CurrentRoll = RollPeak * FMath::Sin(Alpha * PI);   // arch: 0 → peak → 0
 
+    FVector Loc = CachedOwner->GetActorLocation();
+    Loc.X = FMath::Lerp(PlayerXFrom, PlayerXTo, Alpha);
+    CachedOwner->SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
+
     ApplyCameraState(NewFOV, NewArmLength, NewArmRot, CurrentRoll);
 
     // ── Mid-point: lock / unlock yaw (fires exactly once per transition) ──────
@@ -228,8 +249,11 @@ void UkdCrushTransitionComponent::HandleTimelineFinished()
     }
 
     // Hard-snap everything to exact targets — eliminates floating-point residual.
-    if (CachedOwner->Camera)
-        CachedOwner->Camera->SetFieldOfView(FOVTo);
+    if (CachedOwner->Camera) CachedOwner->Camera->SetFieldOfView(FOVTo);
+
+    FVector Loc = CachedOwner->GetActorLocation();
+    Loc.X = PlayerXTo;
+    CachedOwner->SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
 
     if (CachedOwner->SpringArm)
     {

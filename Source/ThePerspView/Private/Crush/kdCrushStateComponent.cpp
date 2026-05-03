@@ -270,84 +270,40 @@ void UkdCrushStateComponent::FindDirectionalLight()
 
 void UkdCrushStateComponent::ResetPhysicsTo3D()
 {
-	//if (!CachedOwner) return;
-	//
-	//UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
-	//
-	//MoveComp->SetMovementMode(MOVE_Walking);
-	//MoveComp->GravityScale = 1.0f;
-	//MoveComp->MaxWalkSpeed = 600.0f;
-	//MoveComp->SetPlaneConstraintEnabled(false);
-
 	if (!CachedOwner) return;
 
 	UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
-	UCapsuleComponent* Capsule = CachedOwner->GetCapsuleComponent();
+	if (!MoveComp) return;
 
-	if (!MoveComp || !Capsule) return;
-
-	// ── Step 1: Find the actual floor below the player's current position ──────
-	//
-	// The player's 2D position (Y, Z) maps into 3D space, but the floor there
-	// may be at a completely different Z than where the character currently is.
-	// A capsule sweep downward finds the real surface before Walking physics
-	// takes over — preventing floating, embedding, or landing on a wrong floor.
-
-	const float CapsuleRadius = Capsule->GetScaledCapsuleRadius();
-	const float CapsuleHalfHeight = Capsule->GetScaledCapsuleHalfHeight();
-	const float MaxSearchDistance = 800.f;    // cm to search below
-
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(CachedOwner);
-
-	const FVector CurrentLoc = CachedOwner->GetActorLocation();
-	const FVector TraceStart = CurrentLoc;
-	const FVector TraceEnd = CurrentLoc - FVector(0.f, 0.f, MaxSearchDistance);
-
-	FHitResult FloorHit;
-	const bool bFoundFloor = GetWorld()->SweepSingleByChannel(
-		FloorHit,
-		TraceStart,
-		TraceEnd,
-		FQuat::Identity,
-		ECC_WorldStatic,
-		FCollisionShape::MakeCapsule(CapsuleRadius, CapsuleHalfHeight),
-		QueryParams);
-
-	if (bFoundFloor)
-	{
-		// Place the player standing on the found surface.
-		// FloorHit.Location is the capsule's centre when the hit occurred —
-		// that is already the correct actor location (capsule origin = actor root).
-		const FVector SafeLoc = FloorHit.Location;
-		CachedOwner->SetActorLocation(SafeLoc, false, nullptr, ETeleportType::TeleportPhysics);
-
-#if !UE_BUILD_SHIPPING
-		UE_LOG(LogTemp, Log,
-			TEXT("CrushStateComponent: ResetPhysicsTo3D — floor found at Z=%.1f (delta=%.1f)."),
-			SafeLoc.Z, SafeLoc.Z - CurrentLoc.Z);
-#endif
-	}
-	else
-	{
-		// No floor within search range — player is over a gap.
-		// Leave them at current position and let Walking physics handle the fall.
-		// FallDamageComponent will handle any consequential damage.
-#if !UE_BUILD_SHIPPING
-		UE_LOG(LogTemp, Warning,
-			TEXT("CrushStateComponent: ResetPhysicsTo3D — no floor within %.0f cm. "
-				"Player may fall."), MaxSearchDistance);
-#endif
-	}
-
-	// ── Step 2: Restore normal 3D walking physics ─────────────────────────────
-	MoveComp->SetMovementMode(MOVE_Walking);
+	// ── Restore movement properties ───────────────────────────────────────────
 	MoveComp->GravityScale = 1.0f;
 	MoveComp->MaxWalkSpeed = 600.0f;
 	MoveComp->SetPlaneConstraintEnabled(false);
 
-	// Zero out any residual 2D velocity so the player doesn't slide on landing.
-	MoveComp->Velocity = FVector::ZeroVector;
+	// ── Zero the shadow-plane velocity component ──────────────────────────────
+	// X accumulates nothing meaningful in shadow mode (PhysShadow2D hard-zeros
+	// it every frame), but sanitise it anyway before handing off to 3D physics.
+	FVector ExitVel = MoveComp->Velocity;
+	ExitVel.X = 0.f;
+	MoveComp->Velocity = ExitVel;
+
+	// ── Hand off to Falling, NOT Walking ─────────────────────────────────────
+	// Walking requires an immediate floor contact that may not exist if the
+	// player was elevated on the shadow plane.  Falling is always safe:
+	//   • On the ground  → CMC detects the floor on the next frame and
+	//                       transitions to Walking automatically — no snap.
+	//   • In the air     → gravity takes over; FallDamageComponent handles
+	//                       the landing exactly as a normal fall would.
+	// The old approach (sweep + SetActorLocation) caused the visible ground
+	// snap because it teleported the capsule to the swept floor position
+	// regardless of how high the player was.
+	MoveComp->SetMovementMode(MOVE_Falling);
+
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log,
+		TEXT("CrushStateComponent: ResetPhysicsTo3D — handed off to MOVE_Falling at Z=%.1f."),
+		CachedOwner->GetActorLocation().Z);
+#endif
 }
 
 void UkdCrushStateComponent::ApplyStaminaDelta(float Delta)

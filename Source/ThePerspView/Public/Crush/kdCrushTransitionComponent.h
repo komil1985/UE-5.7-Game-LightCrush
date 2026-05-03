@@ -212,6 +212,14 @@ private:
     float        SettleElapsed = 0.f;
     void         SettleTick();
 
+    // ── Player world-X lerp ───────────────────────────────────────────────────
+    // Captured at the START of each transition so mid-cancel is handled cleanly.
+    float PlayerXFrom = 0.f;
+    float PlayerXTo = 0.f;
+
+    // Saved when ENTERING crush so we know where to return on exit.
+    float CachedPreCrushX = 0.f;
+
     // ── Camera helpers ────────────────────────────────────────────────────────
     void ApplyCameraState(float FOV, float ArmLen, const FRotator& ArmRot, float Roll);
     void RestoreCameraDefaults();
