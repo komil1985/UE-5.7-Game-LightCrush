@@ -270,23 +270,23 @@ void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 {
 	if (!AbilitySystemComponent) return;
 
-	// Set Plane constraints for 2D movement
 	if (bNewCrushState)
 	{
-		// Align Player to (X) axis
-		FVector NewLocation = GetActorLocation();
-		NewLocation.X = PlaneConstraintXValue;
-		SetActorLocation(NewLocation);
-
-		GetCharacterMovement()->SetPlaneConstraintNormal(PlaneConstraintNormal);
-		GetCharacterMovement()->SetPlaneConstraintEnabled(true);
+		// ── Entering 2D ───────────────────────────────────────────────────────
+		// Lock the plane at the player's CURRENT X — no position snap at all.
+		// The player stays exactly where they are; only Y/Z movement is allowed.
+		UCharacterMovementComponent* MoveComp = GetCharacterMovement();
+		MoveComp->SetPlaneConstraintNormal(PlaneConstraintNormal);
+		MoveComp->SetPlaneConstraintOrigin(GetActorLocation()); // ← the key line
+		MoveComp->SetPlaneConstraintEnabled(true);
 	}
 	else
 	{
+		// ── Exiting 2D ────────────────────────────────────────────────────────
+		// Player's X never changed, Y/Z are wherever they moved in 2D.
+		// Just release the constraint — position is already correct.
 		GetCharacterMovement()->SetPlaneConstraintEnabled(false);
 	}
-	// Tell the physics engine to start/stop tracking shadows
-	if (CrushStateComponent) CrushStateComponent->ToggleShadowTracking(bNewCrushState);
 }
 
 void AkdMyPlayer::OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 NewCount)

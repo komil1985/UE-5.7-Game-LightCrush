@@ -151,8 +151,8 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Crush | Movement")
 	FVector PlaneConstraintNormal = FVector(1.f, 0.f, 0.f);		// Lock x axis movement
 
-	UPROPERTY(EditAnywhere, Category = "Crush | Movement")
-	float PlaneConstraintXValue = 0.0f;
+	//UPROPERTY(EditAnywhere, Category = "Crush | Movement")
+	//float PlaneConstraintXValue = 0.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Crush | Visuals")
 	TObjectPtr<UMaterialInterface> CrushPostProcessMaterial;
