@@ -95,16 +95,16 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 
     // Apply X plane constraint before anything moves — player cannot fall
     // even if the floor geometry hasn't slid to X = CrushWorldX yet.
-    if (bToCrushMode)
-        ApplyPlaneConstraint();
+    //if (bToCrushMode)
+    //    ApplyPlaneConstraint();
 
     // Snap player X to shadow plane.
-    if (bToCrushMode)
-    {
-        FVector Loc = CachedOwner->GetActorLocation();
-        Loc.X = CrushWorldX;
-        CachedOwner->SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
-    }
+    //if (bToCrushMode)
+    //{
+    //    FVector Loc = CachedOwner->GetActorLocation();
+    //    Loc.X = CrushWorldX;
+    //    CachedOwner->SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
+    //}
 
     // Freeze movement.
     if (UCharacterMovementComponent* MC = CachedOwner->GetCharacterMovement())
@@ -585,16 +585,20 @@ void UkdCrushTransitionComponent::ApplyZSquashStretch(float Alpha, USkeletalMesh
 
 void UkdCrushTransitionComponent::ApplyPlaneConstraint()
 {
-    UCharacterMovementComponent* MC = CachedOwner->GetCharacterMovement();
+    UCharacterMovementComponent* MC = CachedOwner ? CachedOwner->GetCharacterMovement() : nullptr;
     if (!MC) return;
+
+    // Lock to the player's CURRENT X — wherever they are standing right now.
+    // This is the only correct plane origin; CrushWorldX is irrelevant.
+    const float PlayerCurrentX = CachedOwner->GetActorLocation().X;
 
     MC->SetPlaneConstraintEnabled(true);
     MC->SetPlaneConstraintNormal(FVector(1.f, 0.f, 0.f));
-    MC->SetPlaneConstraintOrigin(FVector(CrushWorldX, 0.f, 0.f));
+    MC->SetPlaneConstraintOrigin(FVector(PlayerCurrentX, 0.f, 0.f));
 
 #if !UE_BUILD_SHIPPING
     UE_LOG(LogTemp, Log,
-        TEXT("CrushTransition: Plane constraint ON (X=%.0f)"), CrushWorldX);
+        TEXT("CrushTransition: Plane constraint ON at player X=%.1f"), PlayerCurrentX);
 #endif
 }
 

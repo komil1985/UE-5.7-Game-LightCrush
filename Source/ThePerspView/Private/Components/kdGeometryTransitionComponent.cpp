@@ -173,9 +173,36 @@ void UkdGeometryTransitionComponent::TickComponent(float DeltaTime, ELevelTick T
 void UkdGeometryTransitionComponent::OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCount)
 {
     if (!CachedMesh) return;
+
     bToCrushMode = (NewCount > 0);
+
+    // ── Recalculate crush target from the player's current X ─────────────────
+    // Runs at the moment of toggle so every crush snaps geometry to wherever
+    // the player actually is — not a designer-set constant.
+    if (bToCrushMode)
+    {
+        AkdMyPlayer* Player = Cast<AkdMyPlayer>(
+            UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
+
+        if (Player)
+        {
+            const float PlayerWorldX = Player->GetActorLocation().X;
+            const float ActorWorldX = GetOwner()->GetActorLocation().X;
+
+            // Convert player world X into mesh-relative X delta.
+            // mesh world X ≈ actorWorldX + relativeX (valid for unrotated actors).
+            MeshRelX_Crush = MeshRelX_Original + (PlayerWorldX - ActorWorldX);
+            MeshRelScaleX_Crush = OriginalMeshRelativeScale.X * CrushXScaleMultiplier;
+
+#if !UE_BUILD_SHIPPING
+            UE_LOG(LogTemp, Log,
+                TEXT("GeometryTransition [%s]: CrushTarget X = %.1f (playerWorldX=%.1f)"),
+                *GetOwner()->GetName(), PlayerWorldX, PlayerWorldX);
+#endif
+        }
+    }
+
     StateElapsed = 0.f;
     State = (ShiverDuration > KINDA_SMALL_NUMBER) ? EGeoState::Shivering : EGeoState::Morphing;
-
     SetComponentTickEnabled(true);
 }
