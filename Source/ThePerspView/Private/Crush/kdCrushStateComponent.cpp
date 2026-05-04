@@ -6,6 +6,12 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/DirectionalLight.h"
+#include "Engine/PointLight.h"
+#include "Engine/SpotLight.h"
+#include "Engine/RectLight.h"
+#include "Components/LightComponent.h"
+#include "Components/LocalLightComponent.h"
+#include "Components/SpotLightComponent.h" 
 #include "DrawDebugHelpers.h"
 #include "Engine/World.h"
 #include "AbilitySystem/kdAbilitySystemComponent.h"
@@ -31,7 +37,9 @@ void UkdCrushStateComponent::BeginPlay()
 	{
 		ASC->RegisterGameplayTagEvent(FkdGameplayTags::Get().State_CrushMode,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &UkdCrushStateComponent::OnCrushModeTagChanged_Regen);
 	}
-	FindDirectionalLight();
+	//FindDirectionalLight();
+
+	DiscoverAndRegisterLights();
 
 }
 
@@ -144,7 +152,7 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	}
 
 	// Refresh cached light direction every tick so rotating lights move shadows in real time
-	if (DirectionalLightActor) CachedLightDirection = -DirectionalLightActor->GetActorForwardVector();
+	//if (DirectionalLightActor) CachedLightDirection = -DirectionalLightActor->GetActorForwardVector();
 
 	// Adaptive interval based on movement speed
 	const float DesiredInterval = bIsMoving ? ShadowCheckFrequencyMoving : ShadowCheckFrequency;
@@ -215,59 +223,93 @@ void UkdCrushStateComponent::HandleVerticalInput(float Value)
 bool UkdCrushStateComponent::IsStandingInShadow() const
 {
 	if (!CachedOwner || !GetWorld()) return false;
-	
-	FHitResult HitResult;
+	if (RegisteredLights.IsEmpty())  return false;
+
+	const FVector PlayerLocation = CachedOwner->GetActorLocation();
+
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(CachedOwner);
 
-	FVector Start = CachedOwner->GetActorLocation();
-	FVector End = Start + (CachedLightDirection * ShadowTraceDistance);
+	int32 NumRelevantLights = 0;  // Lights that actually reach the player
+	int32 NumBlockedLights = 0;  // Of those, how many are occluded
 
-	bool bIsHit = GetWorld()->LineTraceSingleByChannel
-	(
-		HitResult,
-		Start,
-		End,
-		ECC_Visibility,
-		Params
-	);
+	for (const FkdRegisteredLight& Light : RegisteredLights)
+	{
+		const FVector LightDir = GetLightDirectionForPlayer(Light, PlayerLocation);
+
+		// ZeroVector = light doesn't affect this position (out of range / cone).
+		// Skip it — it neither helps nor hurts the shadow vote.
+		if (LightDir.IsNearlyZero()) continue;
+
+		++NumRelevantLights;
+
+		// For directional: trace to max distance.
+		// For positional: trace all the way to the light actor (more accurate, no over-shooting).
+		const FVector TraceEnd = (Light.Type == EkdLightSourceType::Directional)
+			? PlayerLocation + LightDir * ShadowTraceDistance
+			: Light.LightActor->GetActorLocation();
+
+		FHitResult HitResult;
+		const bool bBlocked = GetWorld()->LineTraceSingleByChannel(
+			HitResult,
+			PlayerLocation,
+			TraceEnd,
+			ECC_Visibility,
+			Params
+		);
+
+		if (bBlocked) ++NumBlockedLights;
 
 #if !UE_BUILD_SHIPPING
-	if (bShowDebugLines)
-	{
-		DrawDebugLine(GetWorld(), Start, bIsHit ? HitResult.ImpactPoint : Start + CachedLightDirection * 1000.0f,
-			bIsHit ? FColor::Green : FColor::Red, false, ShadowCheckFrequency * 1.1f, 0, 2.0f);
-	}
+		if (bShowDebugLines)
+		{
+			DrawDebugLine(
+				GetWorld(),
+				PlayerLocation,
+				bBlocked ? HitResult.ImpactPoint : TraceEnd,
+				bBlocked ? FColor::Green : FColor::Red,
+				false,
+				ShadowCheckFrequency * 1.1f,
+				0, 2.0f
+			);
+		}
 #endif
-
-	return bIsHit;
-
-}
-
-void UkdCrushStateComponent::FindDirectionalLight()
-{
-	UWorld* World = GetWorld();
-	if (!World)	return;
-
-	// Find the Light Source Actor in the world (assuming there's only one for simplicity)
-	if (!DirectionalLightActor)
-	{
-		TArray<AActor*> FoundLights;
-		UGameplayStatics::GetAllActorsOfClass(World, ADirectionalLight::StaticClass(), FoundLights);
-		if (FoundLights.Num() > 0)
-		{
-			DirectionalLightActor = Cast<ADirectionalLight>(FoundLights[0]);
-			CachedLightDirection = -DirectionalLightActor->GetActorForwardVector(); // Light direction is opposite to forward vector
-		}
-		else
-		{
-			CachedLightDirection = FVector(0, 0, 1); // Default to upward light if no directional light found
-		#if !UE_BUILD_SHIPPING
-			UE_LOG(LogTemp, Warning, TEXT("CrushStateComponent: No DirectionalLight found!"));
-		#endif
-		}
 	}
+
+	// Edge case: no lights actually reach the player → not in shadow
+	if (NumRelevantLights == 0) return false;
+
+	// Designer-configurable voting rule
+	return bRequireAllLightsBlocked
+		? (NumBlockedLights == NumRelevantLights)  // ALL lights must be blocked
+		: (NumBlockedLights > 0);                 // ANY one blocked is enough
+
 }
+
+//void UkdCrushStateComponent::FindDirectionalLight()
+//{
+//	UWorld* World = GetWorld();
+//	if (!World)	return;
+//
+//	// Find the Light Source Actor in the world (assuming there's only one for simplicity)
+//	if (!DirectionalLightActor)
+//	{
+//		TArray<AActor*> FoundLights;
+//		UGameplayStatics::GetAllActorsOfClass(World, ADirectionalLight::StaticClass(), FoundLights);
+//		if (FoundLights.Num() > 0)
+//		{
+//			DirectionalLightActor = Cast<ADirectionalLight>(FoundLights[0]);
+//			CachedLightDirection = -DirectionalLightActor->GetActorForwardVector(); // Light direction is opposite to forward vector
+//		}
+//		else
+//		{
+//			CachedLightDirection = FVector(0, 0, 1); // Default to upward light if no directional light found
+//		#if !UE_BUILD_SHIPPING
+//			UE_LOG(LogTemp, Warning, TEXT("CrushStateComponent: No DirectionalLight found!"));
+//		#endif
+//		}
+//	}
+//}
 
 void UkdCrushStateComponent::ResetPhysicsTo3D()
 {
@@ -389,6 +431,173 @@ void UkdCrushStateComponent::ResetPhysicsTo3D()
 
 	// Zero residual 2D velocity so the player doesn't slide on landing.
 	MoveComp->Velocity = FVector::ZeroVector;
+}
+
+void UkdCrushStateComponent::DiscoverAndRegisterLights()
+{
+	RegisteredLights.Empty();
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	// ── Manual override path ─────────────────────────────────────────────────
+	// When the designer explicitly lists lights, skip auto-discovery entirely.
+	if (ManualLightOverrides.Num() > 0)
+	{
+		for (AActor* Actor : ManualLightOverrides)
+		{
+			FkdRegisteredLight Entry;
+			if (Actor && TryBuildLightEntry(Actor, Entry))
+			{
+				RegisteredLights.Add(Entry);
+			}
+		}
+
+#if !UE_BUILD_SHIPPING
+		UE_LOG(LogTemp, Log,
+			TEXT("CrushStateComponent: Registered %d manual light(s)."),
+			RegisteredLights.Num());
+#endif
+		return;
+	}
+
+	// ── Auto-discovery path ───────────────────────────────────────────────────
+	// Iterate each supported UE light class. A single GetAllActorsOfClass pass
+	// per class is cheaper than iterating all world actors with RTTI checks.
+	static const TArray<UClass*, TFixedAllocator<4>> LightClasses =
+	{
+		ADirectionalLight::StaticClass(),
+		ASpotLight::StaticClass(),   // Spot before Point — USpotLightComponent : UPointLightComponent
+		APointLight::StaticClass(),
+		ARectLight::StaticClass(),
+	};
+
+	for (UClass* LightClass : LightClasses)
+	{
+		TArray<AActor*> Found;
+		UGameplayStatics::GetAllActorsOfClass(World, LightClass, Found);
+		for (AActor* Actor : Found)
+		{
+			FkdRegisteredLight Entry;
+			if (TryBuildLightEntry(Actor, Entry))
+			{
+				RegisteredLights.Add(Entry);
+			}
+		}
+	}
+
+#if !UE_BUILD_SHIPPING
+	if (RegisteredLights.IsEmpty())
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("CrushStateComponent: No visible light sources found. Shadow detection disabled."));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log,
+			TEXT("CrushStateComponent: Auto-registered %d light source(s)."),
+			RegisteredLights.Num());
+	}
+#endif
+}
+
+bool UkdCrushStateComponent::TryBuildLightEntry(AActor* Actor, FkdRegisteredLight& OutEntry) const
+{
+	if (!Actor) return false;
+
+	// All UE light actors extend ALight which exposes GetLightComponent().
+	ALight* LightActor = Cast<ALight>(Actor);
+	if (!LightActor) return false;
+
+	ULightComponent* LightComp = Cast<ULightComponent>(LightActor->GetLightComponent());
+	if (!LightComp || !LightComp->IsVisible()) return false;
+
+	OutEntry.LightActor = Actor;
+
+	// ── Directional ──────────────────────────────────────────────────────────
+	if (Cast<ADirectionalLight>(Actor))
+	{
+		OutEntry.Type = EkdLightSourceType::Directional;
+		OutEntry.AttenuationRadius = 0.f;   // infinite range
+		OutEntry.OuterConeAngleDeg = 0.f;
+		return true;
+	}
+
+	// ── Spot (must precede Point because USpotLightComponent : UPointLightComponent)
+	if (USpotLightComponent* SpotComp = Cast<USpotLightComponent>(LightComp))
+	{
+		OutEntry.Type = EkdLightSourceType::Spot;
+		OutEntry.AttenuationRadius = SpotComp->AttenuationRadius;
+		OutEntry.OuterConeAngleDeg = SpotComp->OuterConeAngle;
+		return true;
+	}
+
+	// ── Point and Rect (both use ULocalLightComponent for attenuation radius)
+	if (ULocalLightComponent* LocalComp = Cast<ULocalLightComponent>(LightComp))
+	{
+		OutEntry.Type = Cast<ARectLight>(Actor)
+			? EkdLightSourceType::Rect
+			: EkdLightSourceType::Point;
+		OutEntry.AttenuationRadius = LocalComp->AttenuationRadius;
+		OutEntry.OuterConeAngleDeg = 0.f;
+		return true;
+	}
+
+	return false;  // unsupported light type
+}
+
+FVector UkdCrushStateComponent::GetLightDirectionForPlayer(const FkdRegisteredLight& Light, const FVector& PlayerLocation) const
+{
+	if (!Light.LightActor) return FVector::ZeroVector;
+
+	const FVector LightPos = Light.LightActor->GetActorLocation();
+
+	switch (Light.Type)
+	{
+		// ── Directional: uniform direction, no attenuation ───────────────────────
+	case EkdLightSourceType::Directional:
+		// Actor forward vector points AWAY from the light direction in UE convention.
+		return -Light.LightActor->GetActorForwardVector();
+
+		// ── Point / Rect: radial, cull by radius ─────────────────────────────────
+	case EkdLightSourceType::Point:
+	case EkdLightSourceType::Rect:
+	{
+		if (Light.AttenuationRadius > 0.f &&
+			FVector::DistSquared(PlayerLocation, LightPos) > FMath::Square(Light.AttenuationRadius))
+		{
+			return FVector::ZeroVector;  // Out of range — this light doesn't reach the player
+		}
+		// Direction: from player UP toward the light (trace goes toward light source)
+		return (LightPos - PlayerLocation).GetSafeNormal();
+	}
+
+	// ── Spot: radial + cone-angle cull ────────────────────────────────────────
+	case EkdLightSourceType::Spot:
+	{
+		// Radius cull
+		if (Light.AttenuationRadius > 0.f &&
+			FVector::DistSquared(PlayerLocation, LightPos) > FMath::Square(Light.AttenuationRadius))
+		{
+			return FVector::ZeroVector;
+		}
+
+		// Cone cull — player must be inside the outer cone for the spot to illuminate them
+		const FVector SpotForward = Light.LightActor->GetActorForwardVector();
+		const FVector ToPlayer = (PlayerLocation - LightPos).GetSafeNormal();
+		const float   DotProduct = FVector::DotProduct(SpotForward, ToPlayer);
+		const float   CosOuterCone = FMath::Cos(FMath::DegreesToRadians(Light.OuterConeAngleDeg));
+
+		if (DotProduct < CosOuterCone)
+		{
+			return FVector::ZeroVector;  // Player is outside the spot cone — not illuminated
+		}
+
+		return (LightPos - PlayerLocation).GetSafeNormal();
+	}
+
+	default:
+		return FVector::ZeroVector;
+	}
 }
 
 void UkdCrushStateComponent::ApplyStaminaDelta(float Delta)
