@@ -10,7 +10,7 @@ UkdAttributeSet::UkdAttributeSet()
 {
     InitShadowStamina(100.f);      
     InitMaxShadowStamina(100.f);   
-
+    
     InitLightHealth(100.f);        
     InitMaxLightHealth(100.f);
 }

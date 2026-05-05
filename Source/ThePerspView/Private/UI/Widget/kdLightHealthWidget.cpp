@@ -90,11 +90,14 @@ void UkdLightHealthWidget::InitializeWithComponent(UkdLightHealthComponent* InCo
 
             // Sync immediately if already in CrushMode (e.g. BeginPlay hot-reload)
             bInCrushMode = ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode);
+
+            // Also sync shadow state immediately
+            bInShadow = ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_InShadow);
         }
     }
 
     // ── Sync initial display values from component ────────────────────────────
-    bInShadow = InComponent->GetHealthPercent() >= 0.f;  // shadow state comes via tag
+    //bInShadow = InComponent->GetHealthPercent() >= 0.f;  // shadow state comes via tag
     TargetHealth = InComponent->GetHealthPercent();
     DisplayHealth = TargetHealth;
     TargetBarColor = bInShadow ? ShadowHealColor : LightDamageColor;
@@ -106,11 +109,11 @@ void UkdLightHealthWidget::InitializeWithComponent(UkdLightHealthComponent* InCo
         Bar_LightHealth->SetFillColorAndOpacity(CurrentBarColor);
     }
 
-    // Hide the widget until CrushMode is active
-    if (!bInCrushMode && Overlay_Root)
-    {
-        Overlay_Root->SetVisibility(ESlateVisibility::Hidden);
-    }
+    //// Hide the widget until CrushMode is active
+    //if (!bInCrushMode && Overlay_Root)
+    //{
+    //    Overlay_Root->SetVisibility(ESlateVisibility::Hidden);
+    //}
 }
 
 void UkdLightHealthWidget::OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCount)
@@ -119,17 +122,43 @@ void UkdLightHealthWidget::OnCrushModeTagChanged(const FGameplayTag Tag, int32 N
 
     BP_OnCrushModeChanged(bInCrushMode);
 
+    SetVisibility(bInCrushMode ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
+
     // Fallback show/hide if no Blueprint animation is authored
     if (Overlay_Root)
     {
-        Overlay_Root->SetVisibility(
-            bInCrushMode ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
+        Overlay_Root->SetVisibility(bInCrushMode ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
+    }
+
+    // Sync shadow state when entering crush mode
+    if (bInCrushMode)
+    {
+        if (CachedComponent)
+        {
+            bInShadow = CachedComponent->GetHealthPercent() >= 0.f; // placeholder
+        }
+
+        // Re-sync the bar immediately so it shows the current value
+        if (CachedComponent && Bar_LightHealth)
+        {
+            TargetHealth = CachedComponent->GetHealthPercent();
+            DisplayHealth = TargetHealth;
+            Bar_LightHealth->SetPercent(DisplayHealth);
+        }
     }
 }
 
 void UkdLightHealthWidget::OnHealthChanged(float Current, float Max)
 {
     TargetHealth = (Max > 0.f) ? FMath::Clamp(Current / Max, 0.f, 1.f) : 0.f;
+
+    DisplayHealth = TargetHealth;
+
+    if (Bar_LightHealth)
+    {
+        Bar_LightHealth->SetPercent(DisplayHealth);
+        Bar_LightHealth->SetFillColorAndOpacity(CurrentBarColor);
+    }
 }
 
 void UkdLightHealthWidget::OnCriticalChanged(bool bNewCritical)
@@ -139,8 +168,7 @@ void UkdLightHealthWidget::OnCriticalChanged(bool bNewCritical)
 
     if (Txt_LightDanger)
     {
-        Txt_LightDanger->SetVisibility(
-            bIsCritical ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
+        Txt_LightDanger->SetVisibility(bIsCritical ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
     }
 
     BP_OnCriticalStateChanged(bIsCritical);
@@ -150,6 +178,12 @@ void UkdLightHealthWidget::OnShadowStateChanged(bool bNewInShadow)
 {
     bInShadow = bNewInShadow;
     TargetBarColor = bInShadow ? ShadowHealColor : LightDamageColor;
+    CurrentBarColor = TargetBarColor;   // snap colour immediately so bar always matches state
+
+    if (Bar_LightHealth)
+    {
+        Bar_LightHealth->SetFillColorAndOpacity(CurrentBarColor);
+    }
 }
 
 void UkdLightHealthWidget::TickBarLerp(float DeltaTime)
