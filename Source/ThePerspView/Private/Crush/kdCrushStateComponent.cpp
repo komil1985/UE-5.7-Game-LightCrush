@@ -286,151 +286,32 @@ bool UkdCrushStateComponent::IsStandingInShadow() const
 
 }
 
-//void UkdCrushStateComponent::FindDirectionalLight()
-//{
-//	UWorld* World = GetWorld();
-//	if (!World)	return;
-//
-//	// Find the Light Source Actor in the world (assuming there's only one for simplicity)
-//	if (!DirectionalLightActor)
-//	{
-//		TArray<AActor*> FoundLights;
-//		UGameplayStatics::GetAllActorsOfClass(World, ADirectionalLight::StaticClass(), FoundLights);
-//		if (FoundLights.Num() > 0)
-//		{
-//			DirectionalLightActor = Cast<ADirectionalLight>(FoundLights[0]);
-//			CachedLightDirection = -DirectionalLightActor->GetActorForwardVector(); // Light direction is opposite to forward vector
-//		}
-//		else
-//		{
-//			CachedLightDirection = FVector(0, 0, 1); // Default to upward light if no directional light found
-//		#if !UE_BUILD_SHIPPING
-//			UE_LOG(LogTemp, Warning, TEXT("CrushStateComponent: No DirectionalLight found!"));
-//		#endif
-//		}
-//	}
-//}
-
 void UkdCrushStateComponent::ResetPhysicsTo3D()
 {
-//	if (!CachedOwner) return;
-//
-//	UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
-//	if (!MoveComp) return;
-//
-//	// ── Restore movement properties ───────────────────────────────────────────
-//	MoveComp->GravityScale = 1.0f;
-//	MoveComp->MaxWalkSpeed = 600.0f;
-//	MoveComp->SetPlaneConstraintEnabled(false);
-//
-//	// ── Zero the shadow-plane velocity component ──────────────────────────────
-//	// X accumulates nothing meaningful in shadow mode (PhysShadow2D hard-zeros
-//	// it every frame), but sanitise it anyway before handing off to 3D physics.
-//	FVector ExitVel = MoveComp->Velocity;
-//	ExitVel.X = 0.f;
-//	MoveComp->Velocity = ExitVel;
-//
-//	// ── Hand off to Falling, NOT Walking ─────────────────────────────────────
-//	// Walking requires an immediate floor contact that may not exist if the
-//	// player was elevated on the shadow plane.  Falling is always safe:
-//	//   • On the ground  → CMC detects the floor on the next frame and
-//	//                       transitions to Walking automatically — no snap.
-//	//   • In the air     → gravity takes over; FallDamageComponent handles
-//	//                       the landing exactly as a normal fall would.
-//	// The old approach (sweep + SetActorLocation) caused the visible ground
-//	// snap because it teleported the capsule to the swept floor position
-//	// regardless of how high the player was.
-//	MoveComp->SetMovementMode(MOVE_Falling);
-//
-//#if !UE_BUILD_SHIPPING
-//	UE_LOG(LogTemp, Log,
-//		TEXT("CrushStateComponent: ResetPhysicsTo3D — handed off to MOVE_Falling at Z=%.1f."),
-//		CachedOwner->GetActorLocation().Z);
-//#endif
-
 	if (!CachedOwner) return;
 
 	UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
-	UCapsuleComponent* Capsule = CachedOwner->GetCapsuleComponent();
-	if (!MoveComp || !Capsule) return;
+	if (!MoveComp) return;
 
 	// ── Restore movement properties ───────────────────────────────────────────
 	MoveComp->GravityScale = 1.0f;
 	MoveComp->MaxWalkSpeed = 600.0f;
 	MoveComp->SetPlaneConstraintEnabled(false);
+
+	// Zero X velocity — it was hard-zeroed every frame in shadow mode anyway,
+	// but sanitise before handing off to 3D physics.
 	FVector ExitVel = MoveComp->Velocity;
 	ExitVel.X = 0.f;
 	MoveComp->Velocity = ExitVel;
 	MoveComp->SetMovementMode(MOVE_Falling);
 
-	// ── Step 1: Find the real floor at the player's current Y/Z ──────────────
-	//
-	// The plane constraint kept the player at X = CrushWorldX throughout the
-	// session.  Their Y/Z is their last 2D position.  A downward capsule sweep
-	// from that position finds the floor they should land on in 3D.
-	//
-	// We must do this BEFORE removing the plane constraint or enabling Walking,
-	// otherwise the movement component may immediately apply gravity and miss
-	// the sweep window.
-
-	const float CapsuleRadius = Capsule->GetScaledCapsuleRadius();
-	const float CapsuleHalfHeight = Capsule->GetScaledCapsuleHalfHeight();
-	const float MaxSearchDistance = 800.f;   // cm to search below
-
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(CachedOwner);
-
-	const FVector TraceStart = CachedOwner->GetActorLocation();
-	const FVector TraceEnd = TraceStart - FVector(0.f, 0.f, MaxSearchDistance);
-
-	FHitResult FloorHit;
-	const bool bFoundFloor = GetWorld()->SweepSingleByChannel(
-		FloorHit,
-		TraceStart,
-		TraceEnd,
-		FQuat::Identity,
-		ECC_WorldStatic,
-		FCollisionShape::MakeCapsule(CapsuleRadius, CapsuleHalfHeight),
-		QueryParams);
-
-	if (bFoundFloor)
-	{
-		// FloorHit.Location is the capsule centre at the hit — correct actor origin.
-		CachedOwner->SetActorLocation(FloorHit.Location, false, nullptr, ETeleportType::TeleportPhysics);
-
 #if !UE_BUILD_SHIPPING
-		UE_LOG(LogTemp, Log,
-			TEXT("CrushStateComponent: ResetPhysicsTo3D — floor at Z=%.1f (delta=%.1f)."),
-			FloorHit.Location.Z, FloorHit.Location.Z - TraceStart.Z);
+	UE_LOG(LogTemp, Log,
+		TEXT("CrushStateComponent: ResetPhysicsTo3D → MOVE_Falling at (%.1f, %.1f, %.1f)"),
+		CachedOwner->GetActorLocation().X,
+		CachedOwner->GetActorLocation().Y,
+		CachedOwner->GetActorLocation().Z);
 #endif
-	}
-	else
-	{
-		// No floor within search range — leave position and let Walking physics
-		// apply gravity naturally.  FallDamageComponent handles consequences.
-#if !UE_BUILD_SHIPPING
-		UE_LOG(LogTemp, Warning,
-			TEXT("CrushStateComponent: ResetPhysicsTo3D — no floor within %.0f cm. "
-				"Player may fall."), MaxSearchDistance);
-#endif
-	}
-
-	// ── Step 2: Release the plane constraint ──────────────────────────────────
-	//
-	// Only NOW, after we have a confirmed floor position, is it safe to remove
-	// the X constraint.  The player is standing on geometry — they will not fall.
-	if (UkdCrushTransitionComponent* TC = CachedOwner->CrushTransitionComponent)
-	{
-		TC->ReleasePlaneConstraint();
-	}
-
-	// ── Step 3: Restore 3D walking physics ───────────────────────────────────
-	MoveComp->SetMovementMode(MOVE_Walking);
-	MoveComp->GravityScale = 1.0f;
-	MoveComp->MaxWalkSpeed = 600.0f;
-
-	// Zero residual 2D velocity so the player doesn't slide on landing.
-	MoveComp->Velocity = FVector::ZeroVector;
 }
 
 void UkdCrushStateComponent::DiscoverAndRegisterLights()
@@ -547,7 +428,7 @@ bool UkdCrushStateComponent::TryBuildLightEntry(AActor* Actor, FkdRegisteredLigh
 
 FVector UkdCrushStateComponent::GetLightDirectionForPlayer(const FkdRegisteredLight& Light, const FVector& PlayerLocation) const
 {
-	if (!Light.LightActor) return FVector::ZeroVector;
+	if (!IsValid(Light.LightActor)) return FVector::ZeroVector;
 
 	const FVector LightPos = Light.LightActor->GetActorLocation();
 
