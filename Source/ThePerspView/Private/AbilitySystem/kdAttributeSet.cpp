@@ -6,7 +6,14 @@
 #include "GameplayEffectExtension.h"
 
 
-UkdAttributeSet::UkdAttributeSet(){}
+UkdAttributeSet::UkdAttributeSet()
+{
+    InitShadowStamina(100.f);      
+    InitMaxShadowStamina(100.f);   
+
+    InitLightHealth(100.f);        
+    InitMaxLightHealth(100.f);
+}
 
 
 void UkdAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
@@ -14,6 +21,10 @@ void UkdAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, fl
     if (Attribute == GetShadowStaminaAttribute())
     {
         NewValue = FMath::Clamp(NewValue, 0.f, GetMaxShadowStamina());
+    }
+    else if (Attribute == GetLightHealthAttribute())
+    {
+        NewValue = FMath::Clamp(NewValue, 0.f, GetMaxLightHealth());
     }
 }
 
@@ -67,5 +78,14 @@ void UkdAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallback
                 ASC->RemoveLooseGameplayTag(Tags.State_Exhausted);
             }
         }
+    }
+    else if (Data.EvaluatedData.Attribute == GetLightHealthAttribute())
+    {
+        float NewHealth = FMath::Clamp(LightHealth.GetCurrentValue(), 0.f, MaxLightHealth.GetCurrentValue());
+        LightHealth.SetCurrentValue(NewHealth);
+
+#if !UE_BUILD_SHIPPING
+        UE_LOG(LogTemp, Log, TEXT("Health changed to: %f"), NewHealth);
+#endif
     }
 }

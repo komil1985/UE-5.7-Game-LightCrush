@@ -26,6 +26,8 @@
 #include "Components/kdGameFeedbackComponent.h"
 #include "UI/Widget/kdLowStaminaWidget.h"
 #include "Components/kdPlayerHoverComponent.h"
+#include "Components/kdLightHealthComponent.h"
+#include "UI/Widget/kdLightHealthWidget.h"
 
 
 
@@ -69,6 +71,7 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	FallDamageComponent = CreateDefaultSubobject<UkdFallDamageComponent>(TEXT("FallDamageComponent"));
 	GameFeedbackComponent = CreateDefaultSubobject<UkdGameFeedbackComponent>(TEXT("GameFeedbackComponent"));
 	HoverComponent = CreateDefaultSubobject<UkdPlayerHoverComponent>(TEXT("HoverComponent"));
+	LightHealthComponent = CreateDefaultSubobject<UkdLightHealthComponent>(TEXT("LightHealthComponent"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 	/*	--	Default Values	--	*/
@@ -95,11 +98,17 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	StaminaWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 100.0f));
 	StaminaWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
 
-	// Low Stamina Warning Widget — floats above the stamina bar
+	// Low Stamina Warning Widget Component — floats above the stamina bar
 	LowStaminaWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("LowStaminaWidgetComponent"));
 	LowStaminaWidgetComponent->SetupAttachment(GetMesh());
 	LowStaminaWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 150.0f));  // above StaminaWidgetComponent
-	LowStaminaWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
+	LowStaminaWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);	
+
+	// ── Light Health Widget Component ─────────────────────────────────────────
+	LightHealthWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("LightHealthWidgetComponent"));
+	LightHealthWidgetComponent->SetupAttachment(GetMesh());
+	LightHealthWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 60.0f));
+	LightHealthWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 }
@@ -157,6 +166,22 @@ void AkdMyPlayer::BeginPlay()
 	if (HoverComponent)
 	{
 		HoverComponent->SetMeshComponents(GetMesh(), { EyeLeft, EyeRight });  // Pass both eye meshes
+	}
+
+	// ── Light Health Widget ───────────────────────────────────────────────────
+	if (LightHealthWidgetComponent && LightHealthWidgetClass)
+	{
+		LightHealthWidgetComponent->SetWidgetClass(LightHealthWidgetClass);
+		LightHealthWidgetComponent->InitWidget();
+
+		if (LightHealthWidget = Cast<UkdLightHealthWidget>(LightHealthWidgetComponent->GetUserWidgetObject()))
+		{
+			// Wire the component to the widget — subscribes all delegates
+			LightHealthWidget->InitializeWithComponent(LightHealthComponent);
+
+			// Hidden by default; the widget shows itself when CrushMode activates
+			LightHealthWidget->SetVisibility(ESlateVisibility::Hidden);
+		}
 	}
 
 }

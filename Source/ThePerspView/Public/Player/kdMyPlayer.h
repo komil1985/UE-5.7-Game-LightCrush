@@ -33,6 +33,8 @@ class UMaterialInstanceDynamic;
 class UkdGameFeedbackComponent;
 class UkdLowStaminaWidget;
 class UkdPlayerHoverComponent;
+class UkdLightHealthComponent;
+class UkdLightHealthWidget;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
@@ -75,6 +77,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UkdPlayerHoverComponent> HoverComponent;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Components")
+	TObjectPtr<UkdLightHealthComponent> LightHealthComponent;
 	/*--------------------------------------------------------------------------*/
 
 	// -- User Interface -- //
@@ -89,8 +94,8 @@ public:
 
 	// -- Low Stamina Warning Widget -------------------------------------------- //
 
-/** Blueprint widget class for the world-space "LOW STAMINA!" popup.
- *  Assign WBP_LowStaminaWarning in the Details panel of BP_Player. */
+	/** Blueprint widget class for the world-space "LOW STAMINA!" popup.
+	*  Assign WBP_LowStaminaWarning in the Details panel of BP_Player. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
 	TSubclassOf<UkdLowStaminaWidget> LowStaminaWidgetClass;
 
@@ -101,6 +106,18 @@ public:
 	/** World-space widget component — positioned above the stamina bar. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
 	TObjectPtr<UWidgetComponent> LowStaminaWidgetComponent;
+
+	/** Blueprint widget class for the light-health bar. Assign WBP_LightHealth in Details. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<UkdLightHealthWidget> LightHealthWidgetClass;
+
+	/** Cached widget instance — created at BeginPlay from LightHealthWidgetClass. */
+	UPROPERTY()
+	TObjectPtr<UkdLightHealthWidget> LightHealthWidget;
+
+	/** World-space widget component that hosts the light health bar. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
+	TObjectPtr<UWidgetComponent> LightHealthWidgetComponent;
 	/*--------------------------------------------------------------------------*/
 
 	/** Called by the controller on Dash input. Finds and activates UkdCrushToggle. */

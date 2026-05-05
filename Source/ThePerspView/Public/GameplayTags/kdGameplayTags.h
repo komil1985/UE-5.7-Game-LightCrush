@@ -27,6 +27,8 @@ public:
 	//Attributes
 	FGameplayTag Attribute_ShadowStamina;
 	FGameplayTag Attribute_MaxShadowStamina;
+	FGameplayTag Attribute_LightHealth;
+	FGameplayTag Attribute_MaxLightHealth;
 
 	//States
 	FGameplayTag State_CrushMode;
@@ -35,9 +37,12 @@ public:
 	FGameplayTag State_Exhausted;
 	FGameplayTag State_Dashing;
 	FGameplayTag State_EnemyContact;
+	FGameplayTag State_InLight;
 
 	//Effects
 	FGameplayTag Effect_ShadowDrain;
+	FGameplayTag Effect_LightDamage;  
+	FGameplayTag Effect_ShadowHeal;
 
 	//Interactions
 	FGameplayTag Interact_CrushOnly;

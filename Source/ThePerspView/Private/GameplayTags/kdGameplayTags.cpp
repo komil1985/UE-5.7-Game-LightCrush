@@ -31,6 +31,22 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Attribute_MaxShadowStamina.ToString());
 #endif
+
+	GameplayTags.Attribute_LightHealth = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Attribute.LightHealth"),
+		FString("Health that drains in light and regens in shadow (Crush Mode)")
+	);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Attribute_LightHealth.ToString());
+#endif
+
+	GameplayTags.Attribute_MaxLightHealth = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Attribute.MaxLightHealth"),
+		FString("Maximum Light Health value")
+	);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Attribute_MaxLightHealth.ToString());
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Abilities Tags
@@ -94,20 +110,34 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 		FName("State.Exhausted"),
 		FString("Player stamina depleted")
 	);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.State_Exhausted.ToString());
+#endif
 
 	GameplayTags.State_Dashing = UGameplayTagsManager::Get().AddNativeGameplayTag(
 		FName("State.Dashing"),
 		FString("Player is in dash cooldown / blocks / re-activation")
 	);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.State_Dashing.ToString());
+#endif
 
 	GameplayTags.State_EnemyContact = UGameplayTagsManager::Get().AddNativeGameplayTag(
 		FName("State.EnemyContact"),
 		FString("Player is in contact with an enemy")
 	);
-
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.State_Exhausted.ToString());
 #endif
+
+	GameplayTags.State_InLight = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("State.InLight"),
+		FString("Player is exposed to light while in Crush Mode — taking damage")
+	);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.State_InLight.ToString());
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Effect Tags
@@ -118,6 +148,23 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Effect_ShadowDrain.ToString());
 #endif
+
+	GameplayTags.Effect_LightDamage = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Effect.LightDamage"),
+		FString("Tag granted by the light-damage gameplay effect")
+	);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Effect_LightDamage.ToString());
+#endif
+
+	GameplayTags.Effect_ShadowHeal = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Effect.ShadowHeal"),
+		FString("Tag granted by the shadow-heal gameplay effect")
+	);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Effect_ShadowHeal.ToString());
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Interaction Tags

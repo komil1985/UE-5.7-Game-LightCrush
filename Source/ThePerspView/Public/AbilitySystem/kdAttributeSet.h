@@ -35,6 +35,14 @@ public:
     FGameplayAttributeData MaxShadowStamina;
 	ATTRIBUTE_ACCESSORS(UkdAttributeSet, MaxShadowStamina);
 
+    UPROPERTY(BlueprintReadOnly, Category = "Attributes")
+    FGameplayAttributeData LightHealth;
+    ATTRIBUTE_ACCESSORS(UkdAttributeSet, LightHealth);
+
+    UPROPERTY(BlueprintReadOnly, Category = "Attributes")
+    FGameplayAttributeData MaxLightHealth;
+    ATTRIBUTE_ACCESSORS(UkdAttributeSet, MaxLightHealth);
+
 protected:
     virtual void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data) override; 
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
