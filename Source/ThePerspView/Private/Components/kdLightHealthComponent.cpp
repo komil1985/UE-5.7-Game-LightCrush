@@ -9,8 +9,6 @@
 #include "Components/kdDeathComponent.h"
 #include "AbilitySystemComponent.h"
 
-
-
 UkdLightHealthComponent::UkdLightHealthComponent()
 {
     PrimaryComponentTick.bCanEverTick = false;
@@ -28,8 +26,7 @@ void UkdLightHealthComponent::BeginPlay()
     if (!CachedPlayer)
     {
         UE_LOG(LogTemp, Warning,
-            TEXT("LightHealthComponent [%s]: Owner is not AkdMyPlayer — disabled."),
-            *GetName());
+            TEXT("LightHealthComponent [%s]: Owner is not AkdMyPlayer — disabled."), *GetName());
         return;
     }
 
@@ -37,30 +34,24 @@ void UkdLightHealthComponent::BeginPlay()
     if (!ASC)
     {
         UE_LOG(LogTemp, Warning,
-            TEXT("LightHealthComponent: No AbilitySystemComponent found — disabled."));
+            TEXT("LightHealthComponent: No AbilitySystemComponent — disabled."));
         return;
     }
 
     const FkdGameplayTags& Tags = FkdGameplayTags::Get();
 
-    // ── CrushMode tag → start / stop the health tick ──────────────────────────
     ASC->RegisterGameplayTagEvent(Tags.State_CrushMode, EGameplayTagEventType::NewOrRemoved)
         .AddUObject(this, &UkdLightHealthComponent::OnCrushModeTagChanged);
 
-    // ── InShadow tag → switch between heal and damage mode ────────────────────
     ASC->RegisterGameplayTagEvent(Tags.State_InShadow, EGameplayTagEventType::NewOrRemoved)
         .AddUObject(this, &UkdLightHealthComponent::OnInShadowTagChanged);
 
-    // ── Respawn → restore health automatically ────────────────────────────────
-    // Binds to the DeathComponent's delegate so we need zero coupling with
-    // AkdGameModeBase or UkdDeathComponent internals.
     if (CachedPlayer->DeathComponent)
     {
         CachedPlayer->DeathComponent->OnRespawnComplete.AddDynamic(
             this, &UkdLightHealthComponent::OnRespawnComplete);
     }
 
-    // ── Sync initial state if level starts already in CrushMode ───────────────
     if (ASC->HasMatchingGameplayTag(Tags.State_CrushMode))
     {
         bIsInShadow = ASC->HasMatchingGameplayTag(Tags.State_InShadow);
@@ -68,8 +59,7 @@ void UkdLightHealthComponent::BeginPlay()
     }
 
 #if !UE_BUILD_SHIPPING
-    UE_LOG(LogTemp, Log, TEXT("LightHealthComponent: Initialised — MaxHealth=%.0f"),
-        GetMaxHealth());
+    UE_LOG(LogTemp, Log, TEXT("LightHealthComponent: Initialised — MaxHealth=%.0f"), GetMaxHealth());
 #endif
 }
 
@@ -81,7 +71,6 @@ void UkdLightHealthComponent::OnCrushModeTagChanged(const FGameplayTag Tag, int3
 {
     if (NewCount > 0)
     {
-        // Entered CrushMode — sync shadow state then start ticking
         if (UAbilitySystemComponent* ASC = CachedPlayer ? CachedPlayer->GetAbilitySystemComponent() : nullptr)
         {
             const bool bNewShadow = ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_InShadow);
@@ -95,7 +84,6 @@ void UkdLightHealthComponent::OnCrushModeTagChanged(const FGameplayTag Tag, int3
     }
     else
     {
-        // Exited CrushMode — stop ticking (no damage / heal in 3D mode)
         StopHealthTick();
     }
 }
@@ -103,7 +91,7 @@ void UkdLightHealthComponent::OnCrushModeTagChanged(const FGameplayTag Tag, int3
 void UkdLightHealthComponent::OnInShadowTagChanged(const FGameplayTag Tag, int32 NewCount)
 {
     const bool bNewShadow = (NewCount > 0);
-    if (bNewShadow == bIsInShadow) return;  // no change, skip broadcast
+    if (bNewShadow == bIsInShadow) return;
 
     bIsInShadow = bNewShadow;
     OnShadowStateChanged.Broadcast(bIsInShadow);
@@ -121,6 +109,7 @@ void UkdLightHealthComponent::OnInShadowTagChanged(const FGameplayTag Tag, int32
 void UkdLightHealthComponent::StartHealthTick()
 {
     UWorld* World = GetWorld();
+    if (!World) return;
     if (World->GetTimerManager().IsTimerActive(HealthTickHandle)) return;
 
     World->GetTimerManager().SetTimer(
@@ -128,21 +117,21 @@ void UkdLightHealthComponent::StartHealthTick()
         this,
         &UkdLightHealthComponent::HealthTick,
         HealthTickInterval,
-        true   // repeating
-    );
+        true);
 }
 
 void UkdLightHealthComponent::StopHealthTick()
 {
-    UWorld* World = GetWorld();
-    World->GetTimerManager().ClearTimer(HealthTickHandle);
+    if (UWorld* World = GetWorld())
+    {
+        World->GetTimerManager().ClearTimer(HealthTickHandle);
+    }
 }
 
 void UkdLightHealthComponent::HealthTick()
 {
     if (!CachedPlayer) return;
 
-    // Positive delta = healing (shadow), negative = damage (light)
     const float Delta = bIsInShadow
         ? (ShadowHealRate * HealthTickInterval)
         : -(LightDamageRate * HealthTickInterval);
@@ -150,15 +139,18 @@ void UkdLightHealthComponent::HealthTick()
     const float Current = GetCurrentHealth();
     const float Max = GetMaxHealth();
 
-    if (Max <= 0.f) return;  // attribute not yet initialised
+    if (Max <= 0.f) return;
 
     const float NewVal = FMath::Clamp(Current + Delta, 0.f, Max);
+
+    // ── KEY FIX ──────────────────────────────────────────────────────────────
+    // SetCurrentHealth now uses ASC->SetNumericAttributeBase which fires
+    // GetGameplayAttributeValueChangeDelegate — the same delegate the widget
+    // listens to via InitializeWithASC. This is identical to how StaminaWidget
+    // receives updates.
     SetCurrentHealth(NewVal);
 
-    // Broadcast to UI
-    OnLightHealthChanged.Broadcast(NewVal, Max);
-
-    // ── Critical threshold transition ─────────────────────────────────────────
+    // Critical threshold (still uses custom delegate — widget binds to this too)
     const bool bNowCritical = (NewVal / Max) < CriticalHealthThreshold;
     if (bNowCritical != bWasCritical)
     {
@@ -166,7 +158,6 @@ void UkdLightHealthComponent::HealthTick()
         OnLightCriticalChanged.Broadcast(bNowCritical);
     }
 
-    // ── Death on depletion ────────────────────────────────────────────────────
     if (NewVal <= 0.f)
     {
         StopHealthTick();
@@ -200,14 +191,17 @@ void UkdLightHealthComponent::SetCurrentHealth(float NewValue)
     UAbilitySystemComponent* ASC = CachedPlayer->GetAbilitySystemComponent();
     if (!ASC) return;
 
-    const UAttributeSet* BaseSet = ASC->GetAttributeSet(UkdAttributeSet::StaticClass());
-    if (!BaseSet) return;
-
-    UkdAttributeSet* AttrSet = const_cast<UkdAttributeSet*>(Cast<UkdAttributeSet>(BaseSet));
-    if (AttrSet)
-    {
-        AttrSet->SetLightHealth(NewValue);
-    }
+    // ── KEY FIX ──────────────────────────────────────────────────────────────
+    // Use ASC->SetNumericAttributeBase instead of AttrSet->SetLightHealth.
+    //
+    // AttrSet->SetLightHealth only writes FGameplayAttributeData::CurrentValue
+    // directly, bypassing ASC entirely. GetGameplayAttributeValueChangeDelegate
+    // is NEVER fired — so the widget (which uses that delegate) gets nothing.
+    //
+    // ASC->SetNumericAttributeBase goes through InternalUpdateNumericalAttribute
+    // which broadcasts GetGameplayAttributeValueChangeDelegate, calls
+    // PreAttributeChange for clamping, and is the correct GAS-native path.
+    ASC->SetNumericAttributeBase(UkdAttributeSet::GetLightHealthAttribute(), NewValue);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -242,10 +236,8 @@ void UkdLightHealthComponent::RestoreLightHealth()
     const float Max = GetMaxHealth();
     if (Max <= 0.f) return;
 
-    SetCurrentHealth(Max);
+    SetCurrentHealth(Max);  // fires GAS delegate → widget updates automatically
     bWasCritical = false;
-
-    OnLightHealthChanged.Broadcast(Max, Max);
     OnLightCriticalChanged.Broadcast(false);
 
 #if !UE_BUILD_SHIPPING
@@ -260,8 +252,6 @@ void UkdLightHealthComponent::RestoreLightHealth()
 void UkdLightHealthComponent::TriggerLightDeath()
 {
     if (!CachedPlayer) return;
-
-    // Guard against double-death — defer to DeathComponent's own guard
     if (CachedPlayer->DeathComponent && !CachedPlayer->DeathComponent->IsAlive()) return;
 
 #if !UE_BUILD_SHIPPING

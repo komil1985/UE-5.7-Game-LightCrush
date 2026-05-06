@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "GameplayTagContainer.h"
+#include "AbilitySystemComponent.h"
 #include "kdLightHealthWidget.generated.h"
 
 
@@ -30,8 +31,13 @@ public:
      * Wires up the component delegates and initialises the bar state.
      * Called by AkdMyPlayer::BeginPlay after widget creation.
      */
-    UFUNCTION(BlueprintCallable, Category = "Light Health")
-    void InitializeWithComponent(UkdLightHealthComponent* InComponent);
+    //UFUNCTION(BlueprintCallable, Category = "Light Health")
+    //void InitializeWithComponent(UkdLightHealthComponent* InComponent);
+
+    void InitializeWithASC(UAbilitySystemComponent* InASC, UkdLightHealthComponent* InComponent);
+
+    void ShowWidget();
+    void HideWidget();
 
     // ── Blueprint hooks ───────────────────────────────────────────────────────
 
@@ -70,6 +76,11 @@ public:
         meta = (ClampMin = "0.05", ClampMax = "1.0"))
     float DangerBlinkInterval = 0.35f;
 
+    /** Below this fraction → critical warning text appears. */
+    UPROPERTY(EditDefaultsOnly, Category = "Light Health | Warning",
+        meta = (ClampMin = "0.0", ClampMax = "0.5"))
+    float CriticalHealthThreshold = 0.25f;
+
 protected:
     // ── UMG Bindings ──────────────────────────────────────────────────────────
 
@@ -84,6 +95,9 @@ protected:
 
 private:
     // ── Component reference ───────────────────────────────────────────────────
+
+    UPROPERTY()
+    TObjectPtr<UAbilitySystemComponent> CachedASC;
 
     UPROPERTY()
     TObjectPtr<UkdLightHealthComponent> CachedComponent;
@@ -107,13 +121,17 @@ private:
     FDelegateHandle CriticalChangedHandle;
     FDelegateHandle ShadowStateChangedHandle;
 
+    // ── GAS attribute callbacks (same as StaminaWidget) ───────────────────────
+    void OnLightHealthChanged(const FOnAttributeChangeData& Data);
+    void OnMaxLightHealthChanged(const FOnAttributeChangeData& Data);
+
     // ── Tag callbacks (registered on ASC) ────────────────────────────────────
 
-    void OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCount);
+    //void OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCount);
 
     // ── Component delegate callbacks ──────────────────────────────────────────
 
-    void OnHealthChanged(float Current, float Max);
+    //void OnHealthChanged(float Current, float Max);
     void OnCriticalChanged(bool bNewCritical);
     void OnShadowStateChanged(bool bNewInShadow);
 
@@ -122,4 +140,6 @@ private:
     void TickBarLerp(float DeltaTime);
     void TickColourLerp(float DeltaTime);
     void TickDangerBlink(float DeltaTime);
+
+    void UpdateBar(float CurrentHealth, float MaxHealth);
 };

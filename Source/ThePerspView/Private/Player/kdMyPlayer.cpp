@@ -105,10 +105,10 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	LowStaminaWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);	
 
 	// ── Light Health Widget Component ─────────────────────────────────────────
-	LightHealthWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("LightHealthWidgetComponent"));
-	LightHealthWidgetComponent->SetupAttachment(GetMesh());
-	LightHealthWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 60.0f));
-	LightHealthWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
+	//LightHealthWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("LightHealthWidgetComponent"));
+	//LightHealthWidgetComponent->SetupAttachment(GetMesh());
+	//LightHealthWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 60.0f));
+	//LightHealthWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 }
@@ -169,20 +169,46 @@ void AkdMyPlayer::BeginPlay()
 	}
 
 	// ── Light Health Widget ───────────────────────────────────────────────────
-	if (LightHealthWidgetComponent && LightHealthWidgetClass)
-	{
-		LightHealthWidgetComponent->SetWidgetClass(LightHealthWidgetClass);
-		LightHealthWidgetComponent->InitWidget();
+	//if (LightHealthWidgetComponent && LightHealthWidgetClass)
+	//{
+	//	LightHealthWidgetComponent->SetWidgetClass(LightHealthWidgetClass);
+	//	LightHealthWidgetComponent->InitWidget();
+	//
+	//	if (LightHealthWidget = Cast<UkdLightHealthWidget>(LightHealthWidgetComponent->GetUserWidgetObject()))
+	//	{
+	//		// Wire the component to the widget — subscribes all delegates
+	//		LightHealthWidget->InitializeWithComponent(LightHealthComponent);
+	//
+	//		// Hidden by default; the widget shows itself when CrushMode activates
+	//		LightHealthWidget->SetVisibility(ESlateVisibility::Hidden);
+	//	}
+	//}
 
-		if (LightHealthWidget = Cast<UkdLightHealthWidget>(LightHealthWidgetComponent->GetUserWidgetObject()))
-		{
-			// Wire the component to the widget — subscribes all delegates
-			LightHealthWidget->InitializeWithComponent(LightHealthComponent);
+	// ── Light Health Widget — created as a screen-space viewport widget ───────
+    if (LightHealthWidgetClass)
+    {
+        APlayerController* PC = Cast<APlayerController>(GetController());
+        if (!PC) PC = GetWorld()->GetFirstPlayerController();
 
-			// Hidden by default; the widget shows itself when CrushMode activates
-			LightHealthWidget->SetVisibility(ESlateVisibility::Hidden);
-		}
-	}
+        LightHealthWidget = CreateWidget<UkdLightHealthWidget>(PC, LightHealthWidgetClass);
+        if (LightHealthWidget)
+        {
+            LightHealthWidget->AddToViewport(5);		// ZOrder 5: above gameplay, below menus
+            LightHealthWidget->SetVisibility(ESlateVisibility::Hidden);		// hidden until CrushMode
+            LightHealthWidget->InitializeWithASC(AbilitySystemComponent, LightHealthComponent);
+
+            UE_LOG(LogTemp, Log, TEXT("LightHealthWidget: Created and added to viewport."));
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error,
+                TEXT("LightHealthWidget: CreateWidget FAILED. Ensure WBP_LightHealth parent class is UkdLightHealthWidget."));
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("LightHealthWidgetClass not assigned in BP_Player Details panel!"));
+    }
 
 }
 
@@ -316,6 +342,22 @@ void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 
 void AkdMyPlayer::OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
 {
+	// ── Widget visibility ─────────────────────────────────────────────────────
+	// MUST be first — before the State_Transitioning guard below.
+	// When entering Crush Mode, State_CrushMode is added while State_Transitioning
+	// is still active (EndAbility hasn't fired yet), so anything after the guard
+	// is never reached on enter. Widget visibility must never depend on that guard.
+	if (LightHealthWidget)
+	{
+		if (NewCount > 0)
+			LightHealthWidget->ShowWidget();
+		else
+			LightHealthWidget->HideWidget();
+	}
+
+	// ── Transition guard ──────────────────────────────────────────────────────
+	// Only protects StartTransition(false) from double-firing during a live
+	// transition. Everything above this line runs unconditionally.
 	if (AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_Transitioning))
 	{
 		return;
@@ -323,14 +365,11 @@ void AkdMyPlayer::OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 Ne
 
 	if (NewCount == 0)
 	{
-		// Crush mode was removed – revert to 3D
+		// Exiting Crush Mode — start the 3D camera/mesh transition
 		if (CrushTransitionComponent)
 		{
 			CrushTransitionComponent->StartTransition(false);
 		}
-		// Also ensure physics are reset (ToggleShadowTracking will be called when transition finishes)
-		// Optionally, you can force an immediate reset here if needed, but better to let the transition handle it.
-		
 	}
 }
 

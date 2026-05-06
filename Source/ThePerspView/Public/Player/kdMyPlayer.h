@@ -115,9 +115,9 @@ public:
 	UPROPERTY()
 	TObjectPtr<UkdLightHealthWidget> LightHealthWidget;
 
-	/** World-space widget component that hosts the light health bar. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
-	TObjectPtr<UWidgetComponent> LightHealthWidgetComponent;
+	///** World-space widget component that hosts the light health bar. */
+	//UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
+	//TObjectPtr<UWidgetComponent> LightHealthWidgetComponent;
 	/*--------------------------------------------------------------------------*/
 
 	/** Called by the controller on Dash input. Finds and activates UkdCrushToggle. */
