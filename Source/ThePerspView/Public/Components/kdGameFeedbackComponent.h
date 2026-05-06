@@ -28,6 +28,7 @@ class UMaterialInstanceDynamic;
 class UCameraShakeBase;
 class UCameraComponent;
 struct FOnAttributeChangeData;
+class UNiagaraSystem;
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class THEPERSPVIEW_API UkdGameFeedbackComponent : public UActorComponent
 {
@@ -206,6 +207,55 @@ public:
         meta = (ClampMin = "0.5"))
     float CameraGradeLerpSpeed = 5.f;
 
+    // =========================================================================
+// Dash Smear  (Material vertex-stretch — driven via CharMeshDMI)
+// =========================================================================
+
+/** Scalar param on the character mesh material: 0=no smear, 1=full stretch. */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Smear")
+    FName SmearStrengthParamName = FName("SmearStrength");
+
+    /**
+     * Vector param on the character mesh material: smear axis in the shadow
+     * plane (Y/Z only — X is always 0 in Shadow2D mode).
+     */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Smear")
+    FName SmearDirectionParamName = FName("SmearDirection");
+
+    /** Smear intensity the instant the dash impulse fires. */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Smear",
+        meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float DashSmearPeak = 0.85f;
+
+    /**
+     * Exponential decay rate for smear falloff.
+     * 8 → smear clears in ~0.18 s.  Raise for a snappier pop.
+     */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Smear",
+        meta = (ClampMin = "1.0", ClampMax = "30.0"))
+    float SmearDecaySpeed = 8.0f;
+
+    // =========================================================================
+    // Shadow-Entry Smoke  (Niagara burst)
+    // =========================================================================
+
+    /** Dark wispy smoke Niagara system spawned the instant the player enters shadow. */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Smoke")
+    TObjectPtr<UNiagaraSystem> ShadowSmokeSystem;
+
+    /** Uniform scale of the spawned smoke burst. */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Smoke",
+        meta = (ClampMin = "0.1", ClampMax = "5.0"))
+    float ShadowSmokeScale = 1.0f;
+
+    /**
+     * World-space Z offset so the smoke burst centres on the character torso
+     * rather than the feet origin.
+     */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Smoke",
+        meta = (ClampMin = "0.0"))
+    float ShadowSmokeZOffset = 60.0f;
+
 protected:
     virtual void BeginPlay() override;
     virtual void TickComponent(float DeltaTime, ELevelTick TickType,
@@ -251,6 +301,10 @@ private:
 
     void WriteCameraGrade();   // writes all four values to camera PP settings
 
+    // ── Smear runtime state ───────────────────────────────────────────────────
+    float   CurrentSmear = 0.f;
+    FVector LastDashDirection = FVector::ZeroVector;
+
     // ── Deferred PP hide (crush exit echo) ───────────────────────────────────
     FTimerHandle PPHideTimerHandle;
     void SchedulePPHide();
@@ -268,8 +322,10 @@ private:
     void WritePP_Vignette(float Value);
     void WritePP_BlendWeight(float Weight);
     void WritePP_Rim(float Value);
+    void WriteMesh_Smear(float Strength, const FVector& PlanarDirection);
     bool TryGetPPInstance();
     void SetTickActive(bool bActive);
     bool NeedsTick() const;
+    void SpawnShadowEntrySmoke();
 		
 };

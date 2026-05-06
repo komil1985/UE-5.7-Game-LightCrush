@@ -11,6 +11,10 @@
 #include "GameFramework/Character.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "NiagaraSystem.h"
+#include "NiagaraFunctionLibrary.h"
+
+
 
 static const FName PP_Chroma = TEXT("ChromaticAberration");
 static const FName PP_Vignette = TEXT("VignetteIntensity");
@@ -129,6 +133,25 @@ void UkdGameFeedbackComponent::TickComponent(
         WritePP_Chromatic(CurrentChromatic);
     }
 
+    // ── Smear decay ───────────────────────────────────────────────────────────
+    if (CurrentSmear > KINDA_SMALL_NUMBER)
+    {
+        CurrentSmear = FMath::FInterpTo(CurrentSmear, 0.f, DeltaTime, SmearDecaySpeed);
+
+        // Clamp to zero so the param is cleanly off, not floating near 0
+        if (CurrentSmear < 0.005f)
+        {
+            CurrentSmear = 0.f;
+            WriteMesh_Smear(0.f, FVector::ZeroVector);
+        }
+        else
+        {
+            // Keep direction live from cached snapshot — velocity may be zero
+            // mid-dash-frame when braking starts, but direction is still valid.
+            WriteMesh_Smear(CurrentSmear, LastDashDirection);
+        }
+    }
+
     // ── Stamina vignette ──────────────────────────────────────────────────────
     if (bInCrushMode && CurrentStaminaFrac < LowStaminaThreshold)
     {
@@ -236,6 +259,23 @@ void UkdGameFeedbackComponent::OnDashPerformed()
     CurrentChromatic = DashChromaticPeak;
     WritePP_Chromatic(CurrentChromatic);
     SetTickActive(true);
+
+
+    // ── NEW: Vertex-smear burst ───────────────────────────────────────────────
+    if (ACharacter* Char = Cast<ACharacter>(GetOwner()))
+    {
+        // Snapshot velocity direction at impulse moment.
+        // Velocity is already set by ApplyShadowDashImpulse before this fires.
+        const FVector Vel = Char->GetVelocity();
+        if (!Vel.IsNearlyZero())
+        {
+            // Only Y+Z — X is always locked in Shadow2D mode.
+            LastDashDirection = FVector(0.f, Vel.Y, Vel.Z).GetSafeNormal();
+        }
+
+        CurrentSmear = DashSmearPeak;
+        WriteMesh_Smear(CurrentSmear, LastDashDirection);
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -369,6 +409,12 @@ void UkdGameFeedbackComponent::OnInShadowTagChanged(const FGameplayTag Tag, int3
     TargetRimIntensity = (NewCount > 0) ? RimPeakIntensity : 0.f;
     TargetShadowVignette = (NewCount > 0) ? InShadowVignetteStrength : 0.f;
     SetTickActive(true);
+
+    // ── NEW: Shadow-entry smoke burst ─────────────────────────────────────────
+    if (NewCount > 0)
+    {
+        SpawnShadowEntrySmoke();
+    }
 }
 
 void UkdGameFeedbackComponent::OnExhaustedTagChanged(const FGameplayTag Tag, int32 NewCount)
@@ -452,6 +498,45 @@ void UkdGameFeedbackComponent::WritePP_Rim(float Value)
     CharMeshDMI->SetScalarParameterValue(RimIntensityParamName, Value);
 }
 
+void UkdGameFeedbackComponent::WriteMesh_Smear(float Strength, const FVector& PlanarDirection)
+{
+    if (!CharMeshDMI) return;
+
+    CharMeshDMI->SetScalarParameterValue(SmearStrengthParamName, Strength);
+
+    // Pass Y+Z only — the material vertex shader will read these as the
+    // stretch axis.  X is always 0 in the shadow plane so we skip it.
+    const FLinearColor DirParam(
+        0.f,
+        PlanarDirection.Y,
+        PlanarDirection.Z,
+        0.f);
+
+    CharMeshDMI->SetVectorParameterValue(SmearDirectionParamName, DirParam);
+}
+
+void UkdGameFeedbackComponent::SpawnShadowEntrySmoke()
+{
+    if (!ShadowSmokeSystem) return;
+
+    AActor* Owner = GetOwner();
+    if (!Owner || !Owner->GetWorld()) return;
+
+    // Offset spawn upward so smoke centres on the character torso
+    const FVector SpawnLocation =
+        Owner->GetActorLocation() + FVector(0.f, 0.f, ShadowSmokeZOffset);
+
+    UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+        Owner->GetWorld(),
+        ShadowSmokeSystem,
+        SpawnLocation,
+        FRotator::ZeroRotator,
+        FVector(ShadowSmokeScale),
+        /*bAutoDestroy*/ true,
+        /*bAutoActivate*/ true,
+        ENCPoolMethod::AutoRelease);
+}
+
 void UkdGameFeedbackComponent::SetTickActive(bool bActive)
 {
     PrimaryComponentTick.SetTickFunctionEnable(bActive);
@@ -462,6 +547,7 @@ bool UkdGameFeedbackComponent::NeedsTick() const
     return bInCrushMode
         || FreezeStartRealTime >= 0.f
         || CurrentChromatic > KINDA_SMALL_NUMBER
+        || CurrentSmear > KINDA_SMALL_NUMBER
         || FMath::Abs(CurrentVignette - TargetVignette) > KINDA_SMALL_NUMBER
         || FMath::Abs(CurrentShadowVignette - TargetShadowVignette) > KINDA_SMALL_NUMBER
         || FMath::Abs(CurrentRimIntensity - TargetRimIntensity) > KINDA_SMALL_NUMBER
@@ -469,3 +555,4 @@ bool UkdGameFeedbackComponent::NeedsTick() const
         || FMath::Abs(CurrentSaturation - TargetSaturation) > 0.001f
         || FMath::Abs(CurrentContrast - TargetContrast) > 0.001f;
 }
+
