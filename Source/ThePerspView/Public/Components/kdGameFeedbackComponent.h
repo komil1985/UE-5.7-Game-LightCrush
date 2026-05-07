@@ -42,7 +42,7 @@ public:
     // =========================================================================
 
     UFUNCTION(BlueprintCallable, Category = "GameFeel")
-    void OnDashPerformed();
+    void OnDashPerformed(FVector DashDirection = FVector::ZeroVector);
 
     /** Called the instant the crush button registers (before anticipation delay). */
     void OnCrushTransitionStarted(bool bToCrushMode);

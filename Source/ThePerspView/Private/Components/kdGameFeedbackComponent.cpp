@@ -253,7 +253,7 @@ void UkdGameFeedbackComponent::WriteCameraGrade()
 // Public API
 // =============================================================================
 
-void UkdGameFeedbackComponent::OnDashPerformed()
+void UkdGameFeedbackComponent::OnDashPerformed(FVector DashDirection)
 {
     PlayShake(DashShakeClass);
     CurrentChromatic = DashChromaticPeak;
@@ -261,20 +261,24 @@ void UkdGameFeedbackComponent::OnDashPerformed()
     SetTickActive(true);
 
 
-    // ── NEW: Vertex-smear burst ───────────────────────────────────────────────
-    if (ACharacter* Char = Cast<ACharacter>(GetOwner()))
+    if (!DashDirection.IsNearlyZero())
     {
-        // Snapshot velocity direction at impulse moment.
-        // Velocity is already set by ApplyShadowDashImpulse before this fires.
-        const FVector Vel = Char->GetVelocity();
-        if (!Vel.IsNearlyZero())
-        {
-            // Only Y+Z — X is always locked in Shadow2D mode.
-            LastDashDirection = FVector(0.f, Vel.Y, Vel.Z).GetSafeNormal();
-        }
-
+        LastDashDirection = DashDirection;
         CurrentSmear = DashSmearPeak;
         WriteMesh_Smear(CurrentSmear, LastDashDirection);
+
+#if !UE_BUILD_SHIPPING
+        UE_LOG(LogTemp, Log,
+            TEXT("GameFeedback: Smear fired. Peak=%.2f Dir=(0, %.2f, %.2f)  DMI=%s"),
+            DashSmearPeak, LastDashDirection.Y, LastDashDirection.Z,
+            CharMeshDMI ? TEXT("VALID") : TEXT("NULL <<< THIS IS YOUR BUG IF NULL"));
+#endif
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning,
+            TEXT("GameFeedback: OnDashPerformed called with zero direction — smear skipped. "
+                "ApplyShadowDashImpulse returned early (no input direction found)."));
     }
 }
 
@@ -500,16 +504,26 @@ void UkdGameFeedbackComponent::WritePP_Rim(float Value)
 
 void UkdGameFeedbackComponent::WriteMesh_Smear(float Strength, const FVector& PlanarDirection)
 {
-    if (!CharMeshDMI) return;
+    if (!CharMeshDMI)
+    {
+        UE_LOG(LogTemp, Warning,
+            TEXT("GameFeedback: WriteMesh_Smear — CharMeshDMI is NULL. "
+                "Check RimMaterialSlotIndex (%d) matches the slot with your smear material."),
+            RimMaterialSlotIndex);
+        return;
+    }
 
     CharMeshDMI->SetScalarParameterValue(SmearStrengthParamName, Strength);
 
-    // Pass Y+Z only — the material vertex shader will read these as the
-    // stretch axis.  X is always 0 in the shadow plane so we skip it.
+    // ── FIX: Negate direction so TRAILING vertices stretch BACKWARD ───────────
+    // Passing +DashDir caused the leading (front-facing) vertices to displace
+    // forward, making the smear appear on the face the player is moving toward.
+    // Negating flips the mask: trailing vertices (dot = -1 with original dir,
+    // now dot = +1 with negated dir) get saturated to 1 and displace backward.
     const FLinearColor DirParam(
         0.f,
-        PlanarDirection.Y,
-        PlanarDirection.Z,
+        -PlanarDirection.Y,   // ← negated
+        -PlanarDirection.Z,   // ← negated
         0.f);
 
     CharMeshDMI->SetVectorParameterValue(SmearDirectionParamName, DirParam);

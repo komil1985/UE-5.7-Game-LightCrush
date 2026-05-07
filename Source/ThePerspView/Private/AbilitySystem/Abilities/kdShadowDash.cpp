@@ -64,11 +64,14 @@ void UkdShadowDash::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
 	UE_LOG(LogTemp, Log, TEXT("ShadowDash: impulse applied, strength=%.0f"), DashStrength);
 #endif
 
-	   // Notify game feel component — triggers shake + aberration spike
-   if (UkdGameFeedbackComponent* GF = Player->FindComponentByClass<UkdGameFeedbackComponent>())
-   {
-       GF->OnDashPerformed();
-   }
+	const FVector PostDashVelocity = MoveComp->Velocity;
+	const FVector DashDir2D = FVector(0.f, PostDashVelocity.Y, PostDashVelocity.Z).GetSafeNormal();
+
+	// Notify game feel component — triggers shake + aberration spike
+	if (UkdGameFeedbackComponent* GF = Player->FindComponentByClass<UkdGameFeedbackComponent>())
+    {
+        GF->OnDashPerformed(DashDir2D);
+    }
 
 	// Dash is fire-and-forget — end immediately so the ability slot is free
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
