@@ -514,18 +514,7 @@ void UkdGameFeedbackComponent::WriteMesh_Smear(float Strength, const FVector& Pl
     }
 
     CharMeshDMI->SetScalarParameterValue(SmearStrengthParamName, Strength);
-
-    // ── FIX: Negate direction so TRAILING vertices stretch BACKWARD ───────────
-    // Passing +DashDir caused the leading (front-facing) vertices to displace
-    // forward, making the smear appear on the face the player is moving toward.
-    // Negating flips the mask: trailing vertices (dot = -1 with original dir,
-    // now dot = +1 with negated dir) get saturated to 1 and displace backward.
-    const FLinearColor DirParam(
-        0.f,
-        -PlanarDirection.Y,   // ← negated
-        -PlanarDirection.Z,   // ← negated
-        0.f);
-
+    const FLinearColor DirParam(0.f, -PlanarDirection.Y, -PlanarDirection.Z, 0.f);
     CharMeshDMI->SetVectorParameterValue(SmearDirectionParamName, DirParam);
 }
 
