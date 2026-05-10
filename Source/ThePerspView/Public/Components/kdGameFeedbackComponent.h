@@ -176,7 +176,7 @@ public:
 
     /** Enable DOF lerp when entering / exiting Crush mode. */
     UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Camera | DOF")
-    bool bManageCrushDOF = true;
+    bool bManageCrushDOF = false;
 
     /** Cinematic f-stop in 2D mode (lower = more blur, 1.4–2.8 for diorama). */
     UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Camera | DOF",
@@ -195,12 +195,12 @@ public:
     /** Saturation multiplier in 2D mode (0.80–0.88 for a flat, graphic feel). */
     UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Camera | Color",
         meta = (ClampMin = "0.0", ClampMax = "1.0"))
-    float Crush2DSaturation = 0.82f;
+    float Crush2DSaturation = 1.0f;
 
     /** Contrast multiplier in 2D mode (1.05–1.12 crispens the shadow silhouettes). */
     UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Camera | Color",
         meta = (ClampMin = "0.5", ClampMax = "2.0"))
-    float Crush2DContrast = 1.08f;
+    float Crush2DContrast = 1.0f;
 
     /** Lerp speed for DOF and color grading transitions. */
     UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Camera | Color",
@@ -208,10 +208,10 @@ public:
     float CameraGradeLerpSpeed = 5.f;
 
     // =========================================================================
-// Dash Smear  (Material vertex-stretch — driven via CharMeshDMI)
-// =========================================================================
+    // Dash Smear  (Material vertex-stretch — driven via CharMeshDMI)
+    // =========================================================================
 
-/** Scalar param on the character mesh material: 0=no smear, 1=full stretch. */
+    /** Scalar param on the character mesh material: 0=no smear, 1=full stretch. */
     UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Smear")
     FName SmearStrengthParamName = FName("SmearStrength");
 

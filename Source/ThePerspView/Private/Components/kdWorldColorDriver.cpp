@@ -30,55 +30,33 @@ void UkdWorldColorDriver::BeginPlay()
 {
     Super::BeginPlay();
 
-    if (!ColorTheme)
+    // ── PostProcessComponent (only needed if ColorTheme is assigned) ──────────
+    if (ColorTheme)
     {
-#if !UE_BUILD_SHIPPING
-        UE_LOG(LogTemp, Warning,
-            TEXT("WorldColorDriver: No ColorTheme assigned — component is inactive."));
-#endif
-        return;
+        PostProcessComp = GetOwner()->FindComponentByClass<UPostProcessComponent>();
+        if (!PostProcessComp)
+        {
+            PostProcessComp = NewObject<UPostProcessComponent>(
+                GetOwner(), UPostProcessComponent::StaticClass(),
+                TEXT("WorldColorPostProcess"));
+            PostProcessComp->bAutoActivate = true;
+            PostProcessComp->RegisterComponent();
+        }
+        PostProcessComp->bUnbound = true;
+        PostProcessComp->Priority = 1000.f;
+        PostProcessComp->BlendWeight = 1.f;
+
+        if (ColorTheme->WorldColorMPC && GetWorld())
+            MPCInstance = GetWorld()->GetParameterCollectionInstance(ColorTheme->WorldColorMPC);
     }
 
-    // ── Acquire or create the PostProcessComponent ────────────────────────────
-    // We look for an existing one first so we don't double-up if the player
-    // Blueprint already has one placed manually.
-    PostProcessComp = GetOwner()->FindComponentByClass<UPostProcessComponent>();
-
-    if (!PostProcessComp)
-    {
-        PostProcessComp = NewObject<UPostProcessComponent>(
-            GetOwner(),
-            UPostProcessComponent::StaticClass(),
-            TEXT("WorldColorPostProcess"));
-
-        PostProcessComp->bAutoActivate = true;
-        PostProcessComp->RegisterComponent();
-    }
-
-    // Unbound = affects the whole scene regardless of the player's position.
-    // Priority 1000 overrides any world post-process volumes placed in levels.
-    PostProcessComp->bUnbound = true;
-    PostProcessComp->Priority = 1000.f;
-    PostProcessComp->BlendWeight = 1.f;
-
-    // ── Cache the MPC instance ────────────────────────────────────────────────
-    if (ColorTheme->WorldColorMPC && GetWorld())
-    {
-        MPCInstance = GetWorld()->GetParameterCollectionInstance(ColorTheme->WorldColorMPC);
-    }
-
+    // ── Find PPVs by tag — NO ColorTheme dependency ───────────────────────────
     TArray<AActor*> Found;
     UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("LightPPV"), Found);
     if (Found.Num() > 0)
     {
         CachedLightVolume = Cast<APostProcessVolume>(Found[0]);
-        if (CachedLightVolume)
-        {
-            CachedLightVolume->BlendWeight = 1.f;
-#if !UE_BUILD_SHIPPING
-            UE_LOG(LogTemp, Log, TEXT("WorldColorDriver: Found LightPPV — %s"), *CachedLightVolume->GetName());
-#endif
-        }
+        if (CachedLightVolume) CachedLightVolume->BlendWeight = 1.f;
     }
 
     Found.Reset();
@@ -86,17 +64,10 @@ void UkdWorldColorDriver::BeginPlay()
     if (Found.Num() > 0)
     {
         CachedShadowVolume = Cast<APostProcessVolume>(Found[0]);
-        if (CachedShadowVolume)
-        {
-            CachedShadowVolume->BlendWeight = 0.f;  // starts off
-#if !UE_BUILD_SHIPPING
-            UE_LOG(LogTemp, Log, TEXT("WorldColorDriver: Found ShadowPPV — %s"), *CachedShadowVolume->GetName());
-#endif
-        }
+        if (CachedShadowVolume) CachedShadowVolume->BlendWeight = 0.f;
     }
 
-    // ── Register for State.CrushMode tag changes ──────────────────────────────
-    // Same pattern used by AkdShadowPortal::BeginPlay.
+    // ── ASC tag registration — NO ColorTheme dependency ──────────────────────
     AkdMyPlayer* Player = Cast<AkdMyPlayer>(GetOwner());
     if (Player)
     {
@@ -108,22 +79,16 @@ void UkdWorldColorDriver::BeginPlay()
                 EGameplayTagEventType::NewOrRemoved)
                 .AddUObject(this, &UkdWorldColorDriver::OnCrushModeTagChanged);
 
-            // Sync immediately in case the player starts in CrushMode
-            const bool bAlreadyCrushing =
-                ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode);
-
-            BlendAlpha = bAlreadyCrushing ? 1.f : 0.f;
+            BlendAlpha = ASC->HasMatchingGameplayTag(
+                FkdGameplayTags::Get().State_CrushMode) ? 1.f : 0.f;
         }
     }
 
-    // Apply the starting profile with no animation
+    // Apply starting state
+    if (CachedShadowVolume) CachedShadowVolume->BlendWeight = BlendAlpha;
+    if (CachedLightVolume)  CachedLightVolume->BlendWeight = 1.f - BlendAlpha;
     ApplyProfileToPostProcess(BlendAlpha);
     UpdateMPC(BlendAlpha);
-
-#if !UE_BUILD_SHIPPING
-    UE_LOG(LogTemp, Log,
-        TEXT("WorldColorDriver: Initialized — starting alpha = %.2f."), BlendAlpha);
-#endif
 }
 
 void UkdWorldColorDriver::TickComponent(float DeltaTime, ELevelTick TickType,
@@ -131,42 +96,38 @@ void UkdWorldColorDriver::TickComponent(float DeltaTime, ELevelTick TickType,
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-    if (!bBlending || !ColorTheme) return;
+    if (!bBlending) return;
 
-    const float BlendSpeed = (ColorTheme->BlendDuration > KINDA_SMALL_NUMBER)
+    const float BlendSpeed = (ColorTheme && ColorTheme->BlendDuration > KINDA_SMALL_NUMBER)
         ? (1.f / ColorTheme->BlendDuration)
-        : 100.f;
+        : (1.f / 0.35f);   // fallback: 0.35s blend
 
     BlendAlpha = FMath::Clamp(
         BlendAlpha + BlendDirection * BlendSpeed * DeltaTime, 0.f, 1.f);
 
-    ApplyProfileToPostProcess(BlendAlpha);
+    // ── Drive PPVs — always, regardless of ColorTheme ─────────────────────────
     if (CachedShadowVolume) CachedShadowVolume->BlendWeight = BlendAlpha;
     if (CachedLightVolume)  CachedLightVolume->BlendWeight = 1.f - BlendAlpha;
+
+    // ── Drive PostProcessComp — only if ColorTheme is assigned ────────────────
+    ApplyProfileToPostProcess(BlendAlpha);
     UpdateMPC(BlendAlpha);
 
-    // ── Check whether we have reached the destination ─────────────────────────
     const bool bReachedDest =
         (BlendDirection > 0.f && BlendAlpha >= 1.f) ||
         (BlendDirection < 0.f && BlendAlpha <= 0.f);
 
     if (bReachedDest)
     {
-        // Snap to exact destination to eliminate float drift
         BlendAlpha = (BlendDirection > 0.f) ? 1.f : 0.f;
-
+        if (CachedShadowVolume) CachedShadowVolume->BlendWeight = BlendAlpha;
+        if (CachedLightVolume)  CachedLightVolume->BlendWeight = 1.f - BlendAlpha;
         ApplyProfileToPostProcess(BlendAlpha);
         UpdateMPC(BlendAlpha);
 
         bBlending = false;
         SetComponentTickEnabled(false);
-
         BP_OnBlendFinished(BlendAlpha > 0.5f);
-
-#if !UE_BUILD_SHIPPING
-        UE_LOG(LogTemp, Log,
-            TEXT("WorldColorDriver: Blend finished — final alpha = %.2f."), BlendAlpha);
-#endif
     }
 }
 
