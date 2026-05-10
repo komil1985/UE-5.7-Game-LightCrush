@@ -5,36 +5,14 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "GameplayTagContainer.h"
+#include "Engine/PostProcessVolume.h"
 #include "kdWorldColorDriver.generated.h"
 
 class UkdColorTheme;
 class UPostProcessComponent;
 class UMaterialParameterCollectionInstance;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// UkdWorldColorDriver
-//
-// HOW TO USE (one-time setup):
-//   1. Add this component to your BP_MyPlayer Blueprint.
-//   2. Assign DA_LiminalDusk to the ColorTheme property.
-//   3. That's it — no other changes needed.
-//
-// WHAT IT DOES:
-//   • On BeginPlay, creates a high-priority UPostProcessComponent on the
-//     player and applies the LightWorldProfile immediately.
-//   • Registers for State.CrushMode tag events on the player's ASC using the
-//     same pattern as AkdShadowPortal.
-//   • When the tag fires it starts a tick-based lerp between LightWorldProfile
-//     and ShadowWorldProfile over BlendDuration seconds.
-//   • Tick is disabled when no blend is running — zero overhead at rest.
-//   • Also keeps the MPC_WorldColor Material Parameter Collection in sync so
-//     every material in the project can react to world state automatically.
-//
-// MPC PARAMETER NAMES (must match your MPC asset):
-//   WorldBlendAlpha   (Scalar)  — 0 = light world, 1 = shadow world
-//   CrushModeColor    (Vector)  — lerped shadow tint (use in portal materials)
-//   LightWorldColor   (Vector)  — lerped light tint
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 UCLASS(ClassGroup = "ASKD", meta = (BlueprintSpawnableComponent))
 class THEPERSPVIEW_API UkdWorldColorDriver : public UActorComponent
@@ -81,6 +59,11 @@ public:
     float GetBlendAlpha() const { return BlendAlpha; }
 
 private:
+    UPROPERTY()
+    TObjectPtr<APostProcessVolume> CachedShadowVolume;
+
+    UPROPERTY()
+    TObjectPtr<APostProcessVolume> CachedLightVolume;
     // ── Tag Callback (same registration pattern as AkdShadowPortal) ──────────
 
     UFUNCTION()

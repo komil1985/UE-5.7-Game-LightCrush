@@ -35,6 +35,7 @@ class UkdLowStaminaWidget;
 class UkdPlayerHoverComponent;
 class UkdLightHealthComponent;
 class UkdLightHealthWidget;
+class UkdWorldColorDriver;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
@@ -80,6 +81,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UkdLightHealthComponent> LightHealthComponent;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Components")
+	TObjectPtr<UkdWorldColorDriver> WorldColorDriver;
 	/*--------------------------------------------------------------------------*/
 
 	// -- User Interface -- //

@@ -28,6 +28,7 @@
 #include "Components/kdPlayerHoverComponent.h"
 #include "Components/kdLightHealthComponent.h"
 #include "UI/Widget/kdLightHealthWidget.h"
+#include "Components/kdWorldColorDriver.h"
 
 
 
@@ -72,6 +73,7 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	GameFeedbackComponent = CreateDefaultSubobject<UkdGameFeedbackComponent>(TEXT("GameFeedbackComponent"));
 	HoverComponent = CreateDefaultSubobject<UkdPlayerHoverComponent>(TEXT("HoverComponent"));
 	LightHealthComponent = CreateDefaultSubobject<UkdLightHealthComponent>(TEXT("LightHealthComponent"));
+	WorldColorDriver = CreateDefaultSubobject<UkdWorldColorDriver>(TEXT("WorldColorDriver"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 	/*	--	Default Values	--	*/

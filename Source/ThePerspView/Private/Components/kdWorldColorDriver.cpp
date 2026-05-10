@@ -7,6 +7,8 @@
 #include "GameplayTags/kdGameplayTags.h"
 #include "Components/PostProcessComponent.h"
 #include "Materials/MaterialParameterCollectionInstance.h"
+#include "Kismet/GameplayStatics.h"
+
 
 // ── MPC parameter name constants ─────────────────────────────────────────────
 // These must match the parameter names you create inside your MPC asset.
@@ -65,6 +67,34 @@ void UkdWorldColorDriver::BeginPlay()
         MPCInstance = GetWorld()->GetParameterCollectionInstance(ColorTheme->WorldColorMPC);
     }
 
+    TArray<AActor*> Found;
+    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("LightPPV"), Found);
+    if (Found.Num() > 0)
+    {
+        CachedLightVolume = Cast<APostProcessVolume>(Found[0]);
+        if (CachedLightVolume)
+        {
+            CachedLightVolume->BlendWeight = 1.f;
+#if !UE_BUILD_SHIPPING
+            UE_LOG(LogTemp, Log, TEXT("WorldColorDriver: Found LightPPV — %s"), *CachedLightVolume->GetName());
+#endif
+        }
+    }
+
+    Found.Reset();
+    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("ShadowPPV"), Found);
+    if (Found.Num() > 0)
+    {
+        CachedShadowVolume = Cast<APostProcessVolume>(Found[0]);
+        if (CachedShadowVolume)
+        {
+            CachedShadowVolume->BlendWeight = 0.f;  // starts off
+#if !UE_BUILD_SHIPPING
+            UE_LOG(LogTemp, Log, TEXT("WorldColorDriver: Found ShadowPPV — %s"), *CachedShadowVolume->GetName());
+#endif
+        }
+    }
+
     // ── Register for State.CrushMode tag changes ──────────────────────────────
     // Same pattern used by AkdShadowPortal::BeginPlay.
     AkdMyPlayer* Player = Cast<AkdMyPlayer>(GetOwner());
@@ -111,6 +141,8 @@ void UkdWorldColorDriver::TickComponent(float DeltaTime, ELevelTick TickType,
         BlendAlpha + BlendDirection * BlendSpeed * DeltaTime, 0.f, 1.f);
 
     ApplyProfileToPostProcess(BlendAlpha);
+    if (CachedShadowVolume) CachedShadowVolume->BlendWeight = BlendAlpha;
+    if (CachedLightVolume)  CachedLightVolume->BlendWeight = 1.f - BlendAlpha;
     UpdateMPC(BlendAlpha);
 
     // ── Check whether we have reached the destination ─────────────────────────
