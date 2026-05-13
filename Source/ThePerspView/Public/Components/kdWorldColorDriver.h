@@ -75,7 +75,7 @@ private:
     void ApplyProfileToPostProcess(float Alpha) const;
     void UpdateMPC(float Alpha) const;
 
-    float BlendAlpha = 0.f;     // 0 = light world, 1 = shadow world
+    float BlendAlpha = 0.f;         // 0 = light world, 1 = shadow world
     float BlendDirection = 0.f;     // +1 towards shadow | -1 towards light
     bool  bBlending = false;
 
@@ -93,4 +93,5 @@ private:
     static const FName ParamName_WorldBlendAlpha;
     static const FName ParamName_CrushModeColor;
     static const FName ParamName_LightWorldColor;
+    static const FName ParamName_CrushModeAlpha;
 };

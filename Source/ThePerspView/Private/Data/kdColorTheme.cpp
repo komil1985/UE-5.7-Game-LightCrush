@@ -52,7 +52,7 @@ UkdColorTheme::UkdColorTheme()
     LightWorldProfile.SceneColorTint = FLinearColor(1.05f, 0.98f, 0.88f);
     LightWorldProfile.WhiteTemp = 5500.f;
     LightWorldProfile.WhiteTint = 0.05f;
-    LightWorldProfile.ColorSaturation = 1.10f;
+    LightWorldProfile.ColorSaturation = 1.0f;
     LightWorldProfile.VignetteIntensity = 0.25f;
     LightWorldProfile.BloomIntensity = 0.50f;
 
@@ -62,7 +62,7 @@ UkdColorTheme::UkdColorTheme()
     ShadowWorldProfile.SceneColorTint = FLinearColor(0.82f, 0.78f, 1.05f);
     ShadowWorldProfile.WhiteTemp = 9000.f;
     ShadowWorldProfile.WhiteTint = -0.05f;
-    ShadowWorldProfile.ColorSaturation = 0.75f;
+    ShadowWorldProfile.ColorSaturation = 1.00f;
     ShadowWorldProfile.VignetteIntensity = 0.55f;
     ShadowWorldProfile.BloomIntensity = 1.20f;
 

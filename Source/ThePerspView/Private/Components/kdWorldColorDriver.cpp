@@ -16,6 +16,7 @@
 const FName UkdWorldColorDriver::ParamName_WorldBlendAlpha = TEXT("WorldBlendAlpha");
 const FName UkdWorldColorDriver::ParamName_CrushModeColor = TEXT("CrushModeColor");
 const FName UkdWorldColorDriver::ParamName_LightWorldColor = TEXT("LightWorldColor");
+const FName UkdWorldColorDriver::ParamName_CrushModeAlpha = TEXT("CrushModeAlpha");
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -188,9 +189,9 @@ void UkdWorldColorDriver::ApplyProfileToPostProcess(float Alpha) const
     // ── Saturation ───────────────────────────────────────────────────────────
     // UE5 stores saturation as FVector4 (R, G, B, Luma) where each channel
     // can be independently tuned.  We store a single float and expand uniformly.
-    PostProcSettings.bOverride_ColorSaturation = true;
-    const float LerpedSaturation = FMath::Lerp(LightProf.ColorSaturation, ShadowProf.ColorSaturation, Alpha);
-    PostProcSettings.ColorSaturation = FVector4(LerpedSaturation, LerpedSaturation, LerpedSaturation, LerpedSaturation);
+    //PostProcSettings.bOverride_ColorSaturation = true;
+    //const float LerpedSaturation = FMath::Lerp(LightProf.ColorSaturation, ShadowProf.ColorSaturation, Alpha);
+    //PostProcSettings.ColorSaturation = FVector4(LerpedSaturation, LerpedSaturation, LerpedSaturation, LerpedSaturation);
 
     // ── Vignette ─────────────────────────────────────────────────────────────
     PostProcSettings.bOverride_VignetteIntensity = true;
@@ -209,6 +210,7 @@ void UkdWorldColorDriver::UpdateMPC(float Alpha) const
 
     // WorldBlendAlpha — drives any material logic that reacts to world state
     MPCInstance->SetScalarParameterValue(ParamName_WorldBlendAlpha, Alpha);
+    MPCInstance->SetScalarParameterValue(ParamName_CrushModeAlpha, Alpha);
 
     // Lerped tints for portals, pickup glows, shadow wall materials, etc.
     const FLinearColor CurrentCrush =
