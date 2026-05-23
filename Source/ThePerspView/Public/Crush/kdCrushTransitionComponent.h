@@ -100,40 +100,40 @@ public:
         meta = (ClampMin = "0.0", ClampMax = "10.0"))
     float TransitionRollDegrees = 3.f;
 
-    // ── Camera — 2D Depth of Field (diorama look) ─────────────────────────────
+    //// ── Camera — 2D Depth of Field (diorama look) ─────────────────────────────
 
-    /** Enable cinematic DOF while in Crush mode.
-     *  Player stays sharp, far geometry softens — the diorama effect. */
-    UPROPERTY(EditDefaultsOnly, Category = "Crush | Camera | DOF")
-    bool bEnableCrushDOF = true;
+    ///** Enable cinematic DOF while in Crush mode.
+    // *  Player stays sharp, far geometry softens — the diorama effect. */
+    //UPROPERTY(EditDefaultsOnly, Category = "Crush | Camera | DOF")
+    //bool bEnableCrushDOF = true;
 
-    /** Camera f-stop in Crush mode (lower = more blur, 1.4–2.8 for diorama). */
-    UPROPERTY(EditDefaultsOnly, Category = "Crush | Camera | DOF",
-        meta = (ClampMin = "0.5", ClampMax = "22.0"))
-    float Crush2DFStop = 2.0f;
+    ///** Camera f-stop in Crush mode (lower = more blur, 1.4–2.8 for diorama). */
+    //UPROPERTY(EditDefaultsOnly, Category = "Crush | Camera | DOF",
+    //    meta = (ClampMin = "0.5", ClampMax = "22.0"))
+    //float Crush2DFStop = 2.0f;
 
-    /** Simulated sensor width (mm) used with Crush f-stop for blur calculation. */
-    UPROPERTY(EditDefaultsOnly, Category = "Crush | Camera | DOF",
-        meta = (ClampMin = "1.0"))
-    float Crush2DSensorWidth = 150.f;
+    ///** Simulated sensor width (mm) used with Crush f-stop for blur calculation. */
+    //UPROPERTY(EditDefaultsOnly, Category = "Crush | Camera | DOF",
+    //    meta = (ClampMin = "1.0"))
+    //float Crush2DSensorWidth = 150.f;
 
-    // ── Camera — 2D Color grading ─────────────────────────────────────────────
+    //// ── Camera — 2D Color grading ─────────────────────────────────────────────
 
-    /** Saturation multiplier in Crush (2D) mode.
-     *  0.80–0.88 makes the world look slightly flat and graphic. */
-    UPROPERTY(EditDefaultsOnly, Category = "Crush | Camera | Color",
-        meta = (ClampMin = "0.0", ClampMax = "1.0"))
-    float Crush2DSaturation = 0.82f;
+    ///** Saturation multiplier in Crush (2D) mode.
+    // *  0.80–0.88 makes the world look slightly flat and graphic. */
+    //UPROPERTY(EditDefaultsOnly, Category = "Crush | Camera | Color",
+    //    meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    //float Crush2DSaturation = 0.82f;
 
-    /** Contrast multiplier in Crush (2D) mode.  1.05–1.12 crispens shadows. */
-    UPROPERTY(EditDefaultsOnly, Category = "Crush | Camera | Color",
-        meta = (ClampMin = "0.5", ClampMax = "2.0"))
-    float Crush2DContrast = 1.08f;
+    ///** Contrast multiplier in Crush (2D) mode.  1.05–1.12 crispens shadows. */
+    //UPROPERTY(EditDefaultsOnly, Category = "Crush | Camera | Color",
+    //    meta = (ClampMin = "0.5", ClampMax = "2.0"))
+    //float Crush2DContrast = 1.08f;
 
-    /** Speed at which DOF and color grading lerp in / out. */
-    UPROPERTY(EditDefaultsOnly, Category = "Crush | Camera | Color",
-        meta = (ClampMin = "0.5"))
-    float CameraGradeLerpSpeed = 5.f;
+    ///** Speed at which DOF and color grading lerp in / out. */
+    //UPROPERTY(EditDefaultsOnly, Category = "Crush | Camera | Color",
+    //    meta = (ClampMin = "0.5"))
+    //float CameraGradeLerpSpeed = 5.f;
 
     // ── Z Squash-Stretch — Entering Crush ─────────────────────────────────────
 

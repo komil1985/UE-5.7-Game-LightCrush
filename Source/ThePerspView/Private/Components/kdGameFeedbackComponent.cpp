@@ -1,22 +1,30 @@
 // Copyright ASKD Games
 
 #include "Components/kdGameFeedbackComponent.h"
+#include "Components/kdWorldColorDriver.h"
+#include "Data/kdColorTheme.h"
 #include "Player/kdMyPlayer.h"
 #include "AbilitySystem/kdAbilitySystemComponent.h"
 #include "AbilitySystem/kdAttributeSet.h"
 #include "GameplayTags/kdGameplayTags.h"
+#include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
 #include "Camera/CameraComponent.h"
-#include "Materials/MaterialInstanceDynamic.h"
-#include "GameFramework/Character.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraSystem.h"
 #include "NiagaraFunctionLibrary.h"
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PP-material scalar param names — only what's still needed after Heliograph.
+//
+// Note: chromatic aberration is NOT driven through this custom PP material
+// anymore.  It's now a built-in engine PP setting (SceneFringeIntensity)
+// written by UkdWorldColorDriver — the only writer.  This material handles
+// the vignette pulse layer only.
+// ─────────────────────────────────────────────────────────────────────────────
 
-
-static const FName PP_Chroma = TEXT("ChromaticAberration");
 static const FName PP_Vignette = TEXT("VignetteIntensity");
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,46 +47,51 @@ void UkdGameFeedbackComponent::BeginPlay()
     if (!Player)
     {
         UE_LOG(LogTemp, Error,
-            TEXT("GameFeedbackComponent: Owner is not AkdMyPlayer! Disabled."));
+            TEXT("GameFeedbackComponent: Owner is not AkdMyPlayer — disabled."));
         return;
     }
 
     CachedCamera = Player->Camera;
     CachedASC = Cast<UkdAbilitySystemComponent>(Player->GetAbilitySystemComponent());
+    CachedWorldColorDriver = Player->FindComponentByClass<UkdWorldColorDriver>();
 
     if (!CachedASC)
+    {
         UE_LOG(LogTemp, Error,
             TEXT("GameFeedbackComponent: No AbilitySystemComponent."));
+    }
 
-    // ── CharMeshDMI ───────────────────────────────────────────────────────────
-    if (ACharacter* Char = Cast<ACharacter>(GetOwner()))
+    // ── Character mesh DMI (rim + smear writes target this) ──────────────────
+    if (USkeletalMeshComponent* Mesh = Player->GetMesh())
     {
-        if (USkeletalMeshComponent* Mesh = Char->GetMesh())
+        if (UMaterialInterface* SrcMat = Mesh->GetMaterial(RimMaterialSlotIndex))
         {
-            if (UMaterialInterface* Mat = Mesh->GetMaterial(RimMaterialSlotIndex))
-            {
-                CharMeshDMI = UMaterialInstanceDynamic::Create(Mat, this);
-                Mesh->SetMaterial(RimMaterialSlotIndex, CharMeshDMI);
-                CharMeshDMI->SetScalarParameterValue(RimIntensityParamName, 0.f);
-            }
+            CharMeshDMI = UMaterialInstanceDynamic::Create(SrcMat, this);
+            Mesh->SetMaterial(RimMaterialSlotIndex, CharMeshDMI);
+            CharMeshDMI->SetScalarParameterValue(RimIntensityParamName, 0.f);
+            // Default rim colour is Lumen — pulled from the color theme via
+            // the driver if it exists, otherwise sensible warm-white fallback.
+            WriteMesh_RimColor(FLinearColor(0.93f, 0.84f, 0.61f, 1.f));
         }
     }
 
-    // ── PP material ───────────────────────────────────────────────────────────
-    if (TryGetPPInstance())
+    // ── Custom PP material instance (vignette layer only) ────────────────────
+    if (CrushPostProcessMaterial && CachedCamera)
     {
-        WritePP_Chromatic(0.f);
-        WritePP_Vignette(0.f);
-        WritePP_BlendWeight(0.f);
+        PPInstance = UMaterialInstanceDynamic::Create(CrushPostProcessMaterial, this);
+        if (PPInstance)
+        {
+            FWeightedBlendable Blendable;
+            Blendable.Weight = 0.f;
+            Blendable.Object = PPInstance;
+            CachedCamera->PostProcessSettings.WeightedBlendables.Array.Add(Blendable);
+
+            WritePP_Vignette(0.f);
+            WritePP_BlendWeight(0.f);
+        }
     }
 
-    // ── Initialise 3D camera grade (DOF off, full saturation) ─────────────────
-    CurrentFStop = TargetFStop = 0.f;
-    CurrentSensorWidth = TargetSensorWidth = 0.f;
-    CurrentSaturation = TargetSaturation = 1.f;
-    CurrentContrast = TargetContrast = 1.f;
-
-    // ── GAS subscriptions ─────────────────────────────────────────────────────
+    // ── GAS subscriptions ────────────────────────────────────────────────────
     if (CachedASC)
     {
         const FkdGameplayTags& Tags = FkdGameplayTags::Get();
@@ -86,167 +99,59 @@ void UkdGameFeedbackComponent::BeginPlay()
         CachedASC->RegisterGameplayTagEvent(
             Tags.State_CrushMode, EGameplayTagEventType::NewOrRemoved)
             .AddUObject(this, &UkdGameFeedbackComponent::OnCrushModeTagChanged);
+
         CachedASC->RegisterGameplayTagEvent(
             Tags.State_InShadow, EGameplayTagEventType::NewOrRemoved)
             .AddUObject(this, &UkdGameFeedbackComponent::OnInShadowTagChanged);
+
         CachedASC->RegisterGameplayTagEvent(
             Tags.State_Exhausted, EGameplayTagEventType::NewOrRemoved)
             .AddUObject(this, &UkdGameFeedbackComponent::OnExhaustedTagChanged);
+
         CachedASC->GetGameplayAttributeValueChangeDelegate(
             UkdAttributeSet::GetShadowStaminaAttribute())
             .AddUObject(this, &UkdGameFeedbackComponent::OnStaminaChanged);
 
-        const float Max = CachedASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
-        const float Cur = CachedASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
-        CurrentStaminaFrac = (Max > 0.f) ? FMath::Clamp(Cur / Max, 0.f, 1.f) : 1.f;
+        // Seed CurrentStaminaFrac so the first frame is correct.
+        CurrentStaminaFrac = ReadStaminaFraction();
     }
 }
 
 // =============================================================================
-// TickComponent
+// TickComponent — gated; only on while transient effects are decaying.
 // =============================================================================
 
-void UkdGameFeedbackComponent::TickComponent(
-    float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+void UkdGameFeedbackComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-    // ── Time-dilation freeze ──────────────────────────────────────────────────
-    // Use real time so duration is independent of the dilation we applied.
+    // ── Time-dilation freeze (uses real time) ────────────────────────────────
     if (FreezeStartRealTime >= 0.f)
     {
-        const float RealElapsed = GetWorld()->GetRealTimeSeconds() - FreezeStartRealTime;
-        if (RealElapsed >= FreezeDuration)
+        const float Elapsed = GetWorld()->GetRealTimeSeconds() - FreezeStartRealTime;
+        if (Elapsed >= FreezeDuration)
         {
             UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.f);
             FreezeStartRealTime = -1.f;
         }
-        // While frozen everything is near-still — still run the camera grade
-        // lerp (uses DeltaTime × dilation which is tiny, but that's fine;
-        // the grade transition looks smooth when time resumes).
     }
 
-    // ── Chromatic decay ───────────────────────────────────────────────────────
-    if (CurrentChromatic > KINDA_SMALL_NUMBER)
-    {
-        CurrentChromatic = FMath::Max(0.f, CurrentChromatic - ChromaticDecaySpeed * DeltaTime);
-        WritePP_Chromatic(CurrentChromatic);
-    }
-
-    // ── Smear decay ───────────────────────────────────────────────────────────
-    if (CurrentSmear > KINDA_SMALL_NUMBER)
-    {
-        CurrentSmear = FMath::FInterpTo(CurrentSmear, 0.f, DeltaTime, SmearDecaySpeed);
-
-        // Clamp to zero so the param is cleanly off, not floating near 0
-        if (CurrentSmear < 0.005f)
-        {
-            CurrentSmear = 0.f;
-            WriteMesh_Smear(0.f, FVector::ZeroVector);
-        }
-        else
-        {
-            // Keep direction live from cached snapshot — velocity may be zero
-            // mid-dash-frame when braking starts, but direction is still valid.
-            WriteMesh_Smear(CurrentSmear, LastDashDirection);
-        }
-    }
-
-    // ── Stamina vignette ──────────────────────────────────────────────────────
-    if (bInCrushMode && CurrentStaminaFrac < LowStaminaThreshold)
-    {
-        const float Severity = 1.f - (CurrentStaminaFrac / LowStaminaThreshold);
-        VignettePhase += VignettePulseFrequency * 2.f * PI * DeltaTime;
-        TargetVignette = MaxVignetteIntensity * Severity * (0.5f + 0.5f * FMath::Sin(VignettePhase));
-    }
-    else
-    {
-        TargetVignette = 0.f;
-        if (!bInCrushMode) VignettePhase = 0.f;
-    }
-
-    CurrentShadowVignette = FMath::FInterpTo(CurrentShadowVignette, TargetShadowVignette, DeltaTime, ShadowVignetteLerpSpeed);
-    CurrentVignette = FMath::FInterpTo(CurrentVignette, TargetVignette, DeltaTime, VignetteLerpSpeed);
-    WritePP_Vignette(FMath::Clamp(CurrentVignette + CurrentShadowVignette, 0.f, 1.f));
-
-    // ── Rim glow ──────────────────────────────────────────────────────────────
-    if (FMath::Abs(CurrentRimIntensity - TargetRimIntensity) > KINDA_SMALL_NUMBER)
-    {
-        CurrentRimIntensity = FMath::FInterpTo(CurrentRimIntensity, TargetRimIntensity, DeltaTime, RimLerpSpeed);
-        WritePP_Rim(CurrentRimIntensity);
-    }
-
-    // ── Camera grade: DOF + saturation + contrast ─────────────────────────────
-    // These lerp in Tick toward target values set by OnCrushModeTagChanged.
-    // They write directly to Camera->PostProcessSettings — zero extra materials.
-    {
-        bool bGradeChanged = false;
-
-        const float NewFStop = FMath::FInterpTo(CurrentFStop, TargetFStop, DeltaTime, CameraGradeLerpSpeed);
-        const float NewSensor = FMath::FInterpTo(CurrentSensorWidth, TargetSensorWidth, DeltaTime, CameraGradeLerpSpeed);
-        const float NewSat = FMath::FInterpTo(CurrentSaturation, TargetSaturation, DeltaTime, CameraGradeLerpSpeed);
-        const float NewCon = FMath::FInterpTo(CurrentContrast, TargetContrast, DeltaTime, CameraGradeLerpSpeed);
-
-        bGradeChanged = !FMath::IsNearlyEqual(NewFStop, CurrentFStop, 0.001f)
-            || !FMath::IsNearlyEqual(NewSensor, CurrentSensorWidth, 0.1f)
-            || !FMath::IsNearlyEqual(NewSat, CurrentSaturation, 0.001f)
-            || !FMath::IsNearlyEqual(NewCon, CurrentContrast, 0.001f);
-
-        CurrentFStop = NewFStop;
-        CurrentSensorWidth = NewSensor;
-        CurrentSaturation = NewSat;
-        CurrentContrast = NewCon;
-
-        if (bGradeChanged)
-            WriteCameraGrade();
-    }
+    UpdateVignettePulse(DeltaTime);
+    UpdateRim(DeltaTime);
+    UpdateSmear(DeltaTime);
 
     if (!NeedsTick())
-        SetTickActive(false);
-}
-
-// =============================================================================
-// WriteCameraGrade — single site for all direct camera PP writes
-// =============================================================================
-
-void UkdGameFeedbackComponent::WriteCameraGrade()
-{
-    if (!CachedCamera) return;
-
-    // ── Depth of field ────────────────────────────────────────────────────────
-    // We use Cinematic DOF (bOverride_DepthOfFieldFstop).
-    // f-stop = 0 effectively disables DOF in UE without having to toggle overrides.
-    if (bManageCrushDOF)
     {
-        const bool bUseDOF = (CurrentFStop > 0.01f);
+        SetTickActive(false);
 
-        CachedCamera->PostProcessSettings.bOverride_DepthOfFieldFstop = bUseDOF;
-        CachedCamera->PostProcessSettings.bOverride_DepthOfFieldSensorWidth = bUseDOF;
-        CachedCamera->PostProcessSettings.bOverride_DepthOfFieldFocalDistance = bUseDOF;
-
-        if (bUseDOF)
+        // If the PP material is still showing zero values, hide its blend
+        // weight entirely so it stops contributing GPU work.
+        if (CurrentVignette < KINDA_SMALL_NUMBER
+            && CurrentShadowVignette < KINDA_SMALL_NUMBER)
         {
-            CachedCamera->PostProcessSettings.DepthOfFieldFstop = FMath::Max(CurrentFStop, 0.5f);
-            CachedCamera->PostProcessSettings.DepthOfFieldSensorWidth = CurrentSensorWidth;
-            // Focus on the player: distance = spring arm length (player is at focus plane)
-            // We store arm length indirectly by using CachedCamera's parent hierarchy,
-            // but the simplest safe value is a fixed typical crush arm length.
-            // If the user has a different arm length they can override via BP.
-            CachedCamera->PostProcessSettings.DepthOfFieldFocalDistance = 2200.f;
+            WritePP_BlendWeight(0.f);
         }
     }
-
-    // ── Color grading — Saturation ────────────────────────────────────────────
-    // FVector4 (R, G, B, A) where A is the global multiplier.
-    // We write only to A and leave RGB at 1 so no hue shift occurs.
-    CachedCamera->PostProcessSettings.bOverride_ColorSaturation = true;
-    CachedCamera->PostProcessSettings.ColorSaturation =
-        FVector4(1.f, 1.f, 1.f, CurrentSaturation);
-
-    // ── Color grading — Contrast ──────────────────────────────────────────────
-    CachedCamera->PostProcessSettings.bOverride_ColorContrast = true;
-    CachedCamera->PostProcessSettings.ColorContrast =
-        FVector4(1.f, 1.f, 1.f, CurrentContrast);
 }
 
 // =============================================================================
@@ -256,288 +161,311 @@ void UkdGameFeedbackComponent::WriteCameraGrade()
 void UkdGameFeedbackComponent::OnDashPerformed(FVector DashDirection)
 {
     PlayShake(DashShakeClass);
-    CurrentChromatic = DashChromaticPeak;
-    WritePP_Chromatic(CurrentChromatic);
-    SetTickActive(true);
-
+    PulseEdge(DashEdgePulseStrength);
+    PulseChromatic(DashChromaticBurst);
 
     if (!DashDirection.IsNearlyZero())
     {
         LastDashDirection = DashDirection;
         CurrentSmear = DashSmearPeak;
         WriteMesh_Smear(CurrentSmear, LastDashDirection);
+    }
+
+    SetTickActive(true);
 
 #if !UE_BUILD_SHIPPING
-        UE_LOG(LogTemp, Log,
-            TEXT("GameFeedback: Smear fired. Peak=%.2f Dir=(0, %.2f, %.2f)  DMI=%s"),
-            DashSmearPeak, LastDashDirection.Y, LastDashDirection.Z,
-            CharMeshDMI ? TEXT("VALID") : TEXT("NULL <<< THIS IS YOUR BUG IF NULL"));
+    UE_LOG(LogTemp, Log,
+        TEXT("GameFeedback: Dash performed.  Smear=%.2f  Dir=(0, %.2f, %.2f)  DMI=%s"),
+        DashSmearPeak, LastDashDirection.Y, LastDashDirection.Z,
+        CharMeshDMI ? TEXT("VALID") : TEXT("NULL"));
 #endif
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning,
-            TEXT("GameFeedback: OnDashPerformed called with zero direction — smear skipped. "
-                "ApplyShadowDashImpulse returned early (no input direction found)."));
-    }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// OnCrushTransitionStarted
-// ─────────────────────────────────────────────────────────────────────────────
 
 void UkdGameFeedbackComponent::OnCrushTransitionStarted(bool bToCrushMode)
 {
-#if !UE_BUILD_SHIPPING
-    UE_LOG(LogTemp, Log, TEXT("GFC: CrushTransitionStarted (enter=%d)"), bToCrushMode);
-#endif
-
-    if (GetWorld())
-        GetWorld()->GetTimerManager().ClearTimer(PPHideTimerHandle);
-
-    // ── Time-dilation freeze ──────────────────────────────────────────────────
-    if (FreezeDilation < 1.f - KINDA_SMALL_NUMBER && FreezeDuration > KINDA_SMALL_NUMBER)
-    {
-        FreezeStartRealTime = GetWorld()->GetRealTimeSeconds();
-        UGameplayStatics::SetGlobalTimeDilation(GetWorld(), FreezeDilation);
-    }
-
-    WritePP_BlendWeight(1.f);
-    CurrentChromatic = bToCrushMode ? CrushEnterChromaticPeak : CrushExitChromaticPeak;
-    WritePP_Chromatic(CurrentChromatic);
+    StartTimeFreeze();
     PlayShake(bToCrushMode ? CrushEnterShakeClass : CrushExitShakeClass);
-    SetTickActive(true);
-}
+    PulseEdge(bToCrushMode ? CrushEnterEdgePulseStrength : CrushExitEdgePulseStrength);
+    PulseChromatic(bToCrushMode ? CrushEnterChromaticBurst : CrushExitChromaticBurst);
 
-// ─────────────────────────────────────────────────────────────────────────────
-// OnCrushTransitionFinished
-// ─────────────────────────────────────────────────────────────────────────────
+    SetTickActive(true);
+
+#if !UE_BUILD_SHIPPING
+    UE_LOG(LogTemp, Log,
+        TEXT("GameFeedback: CrushTransitionStarted  enter=%d"), bToCrushMode);
+#endif
+}
 
 void UkdGameFeedbackComponent::OnCrushTransitionFinished(bool bNewCrushMode)
 {
-#if !UE_BUILD_SHIPPING
-    UE_LOG(LogTemp, Log, TEXT("GFC: CrushTransitionFinished (nowCrush=%d)"), bNewCrushMode);
-#endif
-
-    CurrentChromatic = FMath::Max(CurrentChromatic, CrushLandChromaticPeak);
-    WritePP_Chromatic(CurrentChromatic);
     PlayShake(CrushLandShakeClass);
+    PulseEdge(CrushLandEdgePulseStrength);
+    PulseChromatic(CrushLandChromaticBurst);
     SetTickActive(true);
 
-    if (!bNewCrushMode)
-        SchedulePPHide();
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SchedulePPHide / HidePP
-// ─────────────────────────────────────────────────────────────────────────────
-
-void UkdGameFeedbackComponent::SchedulePPHide()
-{
-    if (!GetWorld()) return;
-
-    const float HideDelay = (ChromaticDecaySpeed > KINDA_SMALL_NUMBER)
-        ? (CrushLandChromaticPeak / ChromaticDecaySpeed) + 0.05f
-        : 0.5f;
-
-    GetWorld()->GetTimerManager().SetTimer(
-        PPHideTimerHandle, this,
-        &UkdGameFeedbackComponent::HidePP,
-        HideDelay, false);
-}
-
-void UkdGameFeedbackComponent::HidePP()
-{
-    CurrentChromatic = CurrentVignette = TargetVignette = 0.f;
-    CurrentShadowVignette = TargetShadowVignette = 0.f;
-    CurrentRimIntensity = TargetRimIntensity = 0.f;
-    VignettePhase = 0.f;
-
-    WritePP_Chromatic(0.f);
-    WritePP_Vignette(0.f);
-    WritePP_Rim(0.f);
-    WritePP_BlendWeight(0.f);
+#if !UE_BUILD_SHIPPING
+    UE_LOG(LogTemp, Log,
+        TEXT("GameFeedback: CrushTransitionFinished  nowCrush=%d"), bNewCrushMode);
+#endif
 }
 
 // =============================================================================
 // Tag callbacks
 // =============================================================================
 
-void UkdGameFeedbackComponent::OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCount)
+void UkdGameFeedbackComponent::OnCrushModeTagChanged(const FGameplayTag /*Tag*/, int32 NewCount)
 {
     bInCrushMode = (NewCount > 0);
 
-    if (bInCrushMode)
+    if (!bInCrushMode)
     {
-        // PP layer visible; start camera grade lerp toward 2D targets.
-        WritePP_BlendWeight(1.f);
-
-        if (bManageCrushDOF)
-        {
-            TargetFStop = Crush2DFStop;
-            TargetSensorWidth = Crush2DSensorWidth;
-        }
-        TargetSaturation = Crush2DSaturation;
-        TargetContrast = Crush2DContrast;
-    }
-    else
-    {
-        // Exiting crush: lerp grade back to 3D defaults.
-        TargetFStop = 0.f;
-        TargetSensorWidth = 0.f;
-        TargetSaturation = 1.f;
-        TargetContrast = 1.f;
-
-        // Do NOT kill PP blend weight here — SchedulePPHide handles that
-        // after the landing chromatic echo decays.
-        TargetVignette = TargetShadowVignette = TargetRimIntensity = 0.f;
+        // Leaving crush mode — tear down any state owned by this component.
+        TargetVignette = 0.f;
+        TargetShadowVignette = 0.f;
+        TargetRimIntensity = 0.f;
         VignettePhase = 0.f;
     }
 
     SetTickActive(true);
 }
 
-void UkdGameFeedbackComponent::OnInShadowTagChanged(const FGameplayTag Tag, int32 NewCount)
+void UkdGameFeedbackComponent::OnInShadowTagChanged(const FGameplayTag /*Tag*/, int32 NewCount)
 {
-    if (NewCount > 0)
+    const bool bInShadow = (NewCount > 0);
+
+    PlayShake(bInShadow ? ShadowEntryShakeClass : ShadowExitShakeClass);
+
+    if (bInShadow)
     {
-        PlayShake(ShadowEntryShakeClass);
-        CurrentChromatic = ShadowEntryChromaticPeak;
-        WritePP_Chromatic(CurrentChromatic);
-    }
-    else
-    {
-        PlayShake(ShadowExitShakeClass);
+        PulseEdge(ShadowEntryEdgePulseStrength);
+        PulseChromatic(ShadowEntryChromaticBurst);
+        SpawnShadowEntryNiagara();
     }
 
-    TargetRimIntensity = (NewCount > 0) ? RimPeakIntensity : 0.f;
-    TargetShadowVignette = (NewCount > 0) ? InShadowVignetteStrength : 0.f;
+    // Rim flicks on entering shadow, fades out on leaving.
+    TargetRimIntensity = bInShadow ? RimPeakIntensity : 0.f;
+    TargetShadowVignette = bInShadow ? InShadowVignetteStrength : 0.f;
+
+    if (bInShadow)
+    {
+        WritePP_BlendWeight(1.f);
+    }
+
     SetTickActive(true);
-
-    // ── NEW: Shadow-entry smoke burst ─────────────────────────────────────────
-    if (NewCount > 0)
-    {
-        SpawnShadowEntrySmoke();
-    }
 }
 
-void UkdGameFeedbackComponent::OnExhaustedTagChanged(const FGameplayTag Tag, int32 NewCount)
+void UkdGameFeedbackComponent::OnExhaustedTagChanged(const FGameplayTag /*Tag*/, int32 /*NewCount*/)
 {
-    if (NewCount > 0)
-    {
-        PlayShake(StaminaEmptyShakeClass);
-        SetTickActive(true);
-    }
+    // Tag-level signal is informational; the actual pulse amplitude is driven
+    // by CurrentStaminaFrac in UpdateVignettePulse, fed by OnStaminaChanged.
+    SetTickActive(true);
 }
-
-// =============================================================================
-// Attribute callback
-// =============================================================================
 
 void UkdGameFeedbackComponent::OnStaminaChanged(const FOnAttributeChangeData& Data)
 {
     if (!CachedASC) return;
 
-    const float Max = CachedASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
-    CurrentStaminaFrac = (Max > 0.f) ? FMath::Clamp(Data.NewValue / Max, 0.f, 1.f) : 1.f;
+    const float Max = CachedASC->GetNumericAttribute(
+        UkdAttributeSet::GetMaxShadowStaminaAttribute());
+
+    CurrentStaminaFrac = (Max > 0.f)
+        ? FMath::Clamp(Data.NewValue / Max, 0.f, 1.f)
+        : 1.f;
 
     if (bInCrushMode && CurrentStaminaFrac < LowStaminaThreshold)
+    {
         SetTickActive(true);
+    }
+}
+
+// =============================================================================
+// Per-tick updates
+// =============================================================================
+
+void UkdGameFeedbackComponent::UpdateVignettePulse(float DeltaTime)
+{
+    // ── Low-stamina danger pulse (only while in crush mode) ──────────────────
+    if (bInCrushMode && CurrentStaminaFrac < LowStaminaThreshold)
+    {
+        WritePP_BlendWeight(1.f);
+
+        // Pulse intensity ramps from 0 at threshold to MaxVignetteIntensity at 0.
+        const float Danger = 1.f - (CurrentStaminaFrac / LowStaminaThreshold);
+        VignettePhase += DeltaTime * VignettePulseFrequency * TWO_PI;
+        if (VignettePhase > TWO_PI) VignettePhase -= TWO_PI;
+
+        const float PulseWave = 0.5f + 0.5f * FMath::Sin(VignettePhase);
+        TargetVignette = Danger * MaxVignetteIntensity * PulseWave;
+    }
+
+    CurrentVignette = FMath::FInterpTo(CurrentVignette, TargetVignette, DeltaTime, VignetteLerpSpeed);
+
+    // ── Shadow-entry vignette burst (composes with the danger pulse) ─────────
+    CurrentShadowVignette = FMath::FInterpTo(
+        CurrentShadowVignette, TargetShadowVignette, DeltaTime, ShadowVignetteLerpSpeed);
+
+    WritePP_Vignette(CurrentVignette + CurrentShadowVignette);
+}
+
+void UkdGameFeedbackComponent::UpdateRim(float DeltaTime)
+{
+    if (FMath::IsNearlyEqual(CurrentRimIntensity, TargetRimIntensity, 0.001f))
+    {
+        return;
+    }
+
+    CurrentRimIntensity = FMath::FInterpTo(
+        CurrentRimIntensity, TargetRimIntensity, DeltaTime, RimLerpSpeed);
+
+    WriteMesh_Rim(CurrentRimIntensity);
+}
+
+void UkdGameFeedbackComponent::UpdateSmear(float DeltaTime)
+{
+    if (CurrentSmear <= KINDA_SMALL_NUMBER) return;
+
+    CurrentSmear = FMath::FInterpTo(CurrentSmear, 0.f, DeltaTime, SmearDecaySpeed);
+
+    if (CurrentSmear < 0.005f)
+    {
+        CurrentSmear = 0.f;
+        WriteMesh_Smear(0.f, FVector::ZeroVector);
+    }
+    else
+    {
+        WriteMesh_Smear(CurrentSmear, LastDashDirection);
+    }
 }
 
 // =============================================================================
 // Helpers
 // =============================================================================
 
-void UkdGameFeedbackComponent::PlayShake(TSubclassOf<UCameraShakeBase> ShakeClass)
+void UkdGameFeedbackComponent::PlayShake(TSubclassOf<UCameraShakeBase> ShakeClass) const
 {
     if (!ShakeClass) return;
 
-    AkdMyPlayer* Player = Cast<AkdMyPlayer>(GetOwner());
+    const AkdMyPlayer* Player = Cast<AkdMyPlayer>(GetOwner());
     if (!Player) return;
 
     if (APlayerController* PC = Cast<APlayerController>(Player->GetController()))
-        PC->ClientStartCameraShake(ShakeClass, 1.f);
-}
-
-bool UkdGameFeedbackComponent::TryGetPPInstance()
-{
-    if (PPInstance) return true;
-    if (!CrushPostProcessMaterial || !CachedCamera) return false;
-
-    PPInstance = UMaterialInstanceDynamic::Create(CrushPostProcessMaterial, this);
-    if (!PPInstance) return false;
-
-    FWeightedBlendable B;
-    B.Weight = 0.f;
-    B.Object = PPInstance;
-    CachedCamera->PostProcessSettings.WeightedBlendables.Array.Add(B);
-    return true;
-}
-
-void UkdGameFeedbackComponent::WritePP_Chromatic(float Value)
-{
-    if (!PPInstance && !TryGetPPInstance()) return;
-    PPInstance->SetScalarParameterValue(PP_Chroma, Value);
-}
-
-void UkdGameFeedbackComponent::WritePP_Vignette(float Value)
-{
-    if (!PPInstance && !TryGetPPInstance()) return;
-    PPInstance->SetScalarParameterValue(PP_Vignette, Value);
-}
-
-void UkdGameFeedbackComponent::WritePP_BlendWeight(float Weight)
-{
-    if (!CachedCamera) return;
-    for (FWeightedBlendable& B : CachedCamera->PostProcessSettings.WeightedBlendables.Array)
     {
-        if (B.Object == PPInstance) { B.Weight = Weight; return; }
+        PC->ClientStartCameraShake(ShakeClass, 1.f);
     }
 }
 
-void UkdGameFeedbackComponent::WritePP_Rim(float Value)
+void UkdGameFeedbackComponent::StartTimeFreeze()
 {
-    if (!CharMeshDMI) return;
-    CharMeshDMI->SetScalarParameterValue(RimIntensityParamName, Value);
+    if (FreezeDilation >= 1.f - KINDA_SMALL_NUMBER) return;
+    if (FreezeDuration <= KINDA_SMALL_NUMBER)        return;
+    if (!GetWorld())                                  return;
+
+    FreezeStartRealTime = GetWorld()->GetRealTimeSeconds();
+    UGameplayStatics::SetGlobalTimeDilation(GetWorld(), FreezeDilation);
 }
 
-void UkdGameFeedbackComponent::WriteMesh_Smear(float Strength, const FVector& PlanarDirection)
+void UkdGameFeedbackComponent::PulseEdge(float Strength) const
+{
+    if (!CachedWorldColorDriver || Strength <= KINDA_SMALL_NUMBER) return;
+    CachedWorldColorDriver->TriggerEdgePulse(Strength, EdgePulseDuration);
+}
+
+void UkdGameFeedbackComponent::PulseChromatic(float Intensity) const
+{
+    if (!CachedWorldColorDriver || Intensity <= KINDA_SMALL_NUMBER) return;
+    CachedWorldColorDriver->TriggerChromaticBurst(Intensity, ChromaticBurstDuration);
+}
+
+// ── PP-material writes ───────────────────────────────────────────────────────
+
+void UkdGameFeedbackComponent::WritePP_Vignette(float Value) const
+{
+    if (!PPInstance) return;
+    PPInstance->SetScalarParameterValue(PP_Vignette, Value);
+}
+
+void UkdGameFeedbackComponent::WritePP_BlendWeight(float Weight) const
+{
+    if (!CachedCamera || !PPInstance) return;
+
+    for (FWeightedBlendable& B : CachedCamera->PostProcessSettings.WeightedBlendables.Array)
+    {
+        if (B.Object == PPInstance)
+        {
+            B.Weight = Weight;
+            return;
+        }
+    }
+}
+
+// ── Character mesh writes ────────────────────────────────────────────────────
+
+void UkdGameFeedbackComponent::WriteMesh_Rim(float Intensity) const
+{
+    if (!CharMeshDMI) return;
+    CharMeshDMI->SetScalarParameterValue(RimIntensityParamName, Intensity);
+}
+
+void UkdGameFeedbackComponent::WriteMesh_RimColor(const FLinearColor& Color) const
+{
+    if (!CharMeshDMI) return;
+    CharMeshDMI->SetVectorParameterValue(RimColorParamName, Color);
+}
+
+void UkdGameFeedbackComponent::WriteMesh_Smear(float Strength, FVector PlanarDirection) const
 {
     if (!CharMeshDMI)
     {
+#if !UE_BUILD_SHIPPING
         UE_LOG(LogTemp, Warning,
             TEXT("GameFeedback: WriteMesh_Smear — CharMeshDMI is NULL. "
-                "Check RimMaterialSlotIndex (%d) matches the slot with your smear material."),
+                "Check RimMaterialSlotIndex (%d) matches the slot with the smear material."),
             RimMaterialSlotIndex);
+#endif
         return;
     }
 
     CharMeshDMI->SetScalarParameterValue(SmearStrengthParamName, Strength);
+
+    // Convert the planar (Y, Z) direction into the format the smear material
+    // expects.  X is always 0 in Shadow2D mode.
     const FLinearColor DirParam(0.f, -PlanarDirection.Y, -PlanarDirection.Z, 0.f);
     CharMeshDMI->SetVectorParameterValue(SmearDirectionParamName, DirParam);
 }
 
-void UkdGameFeedbackComponent::SpawnShadowEntrySmoke()
+// ── Niagara ──────────────────────────────────────────────────────────────────
+
+void UkdGameFeedbackComponent::SpawnShadowEntryNiagara()
 {
-    if (!ShadowSmokeSystem) return;
+    if (!ShadowEntryNiagara) return;
 
     AActor* Owner = GetOwner();
     if (!Owner || !Owner->GetWorld()) return;
 
-    // Offset spawn upward so smoke centres on the character torso
     const FVector SpawnLocation =
-        Owner->GetActorLocation() + FVector(0.f, 0.f, ShadowSmokeZOffset);
+        Owner->GetActorLocation() + FVector(0.f, 0.f, ShadowEntryNiagaraZOffset);
 
     UNiagaraFunctionLibrary::SpawnSystemAtLocation(
         Owner->GetWorld(),
-        ShadowSmokeSystem,
+        ShadowEntryNiagara,
         SpawnLocation,
         FRotator::ZeroRotator,
-        FVector(ShadowSmokeScale),
-        /*bAutoDestroy*/ true,
-        /*bAutoActivate*/ true,
+        FVector(ShadowEntryNiagaraScale),
+        /*bAutoDestroy*/   true,
+        /*bAutoActivate*/  true,
         ENCPoolMethod::AutoRelease);
+}
+
+// ── Misc ─────────────────────────────────────────────────────────────────────
+
+float UkdGameFeedbackComponent::ReadStaminaFraction() const
+{
+    if (!CachedASC) return 1.f;
+
+    const float Max = CachedASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
+    const float Cur = CachedASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
+
+    return (Max > 0.f) ? FMath::Clamp(Cur / Max, 0.f, 1.f) : 1.f;
 }
 
 void UkdGameFeedbackComponent::SetTickActive(bool bActive)
@@ -549,13 +477,8 @@ bool UkdGameFeedbackComponent::NeedsTick() const
 {
     return bInCrushMode
         || FreezeStartRealTime >= 0.f
-        || CurrentChromatic > KINDA_SMALL_NUMBER
         || CurrentSmear > KINDA_SMALL_NUMBER
-        || FMath::Abs(CurrentVignette - TargetVignette) > KINDA_SMALL_NUMBER
-        || FMath::Abs(CurrentShadowVignette - TargetShadowVignette) > KINDA_SMALL_NUMBER
-        || FMath::Abs(CurrentRimIntensity - TargetRimIntensity) > KINDA_SMALL_NUMBER
-        || FMath::Abs(CurrentFStop - TargetFStop) > 0.01f
-        || FMath::Abs(CurrentSaturation - TargetSaturation) > 0.001f
-        || FMath::Abs(CurrentContrast - TargetContrast) > 0.001f;
+        || FMath::Abs(CurrentVignette - TargetVignette) > 0.001f
+        || FMath::Abs(CurrentShadowVignette - TargetShadowVignette) > 0.001f
+        || FMath::Abs(CurrentRimIntensity - TargetRimIntensity) > 0.001f;
 }
-

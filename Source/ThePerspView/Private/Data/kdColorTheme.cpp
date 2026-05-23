@@ -3,11 +3,11 @@
 #include "Data/kdColorTheme.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Internal helper
+// HexToLinear
 //
-// Converts an sRGB hex triple (as uint8 components) to a linear FLinearColor.
-// Unreal's colour pickers and the Liminal Dusk swatches are defined in sRGB,
-// so gamma-correcting here keeps every value perceptually accurate at runtime.
+// Converts an sRGB hex triple (uint8 components) to a linear FLinearColor.
+// All Heliograph swatches below are defined in sRGB; gamma-correcting once
+// here keeps every value perceptually accurate at runtime.
 // ─────────────────────────────────────────────────────────────────────────────
 
 static FLinearColor HexToLinear(uint8 R, uint8 G, uint8 B)
@@ -20,51 +20,57 @@ static FLinearColor HexToLinear(uint8 R, uint8 G, uint8 B)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Constructor — Liminal Dusk defaults
+// Constructor — Heliograph defaults
 //
-// Every value here matches the swatches in the colour guide.  Override any of
-// them in the DA_LiminalDusk DataAsset if you want to tweak without recompiling.
+// Every value here is overridable from the DA_Heliograph DataAsset.  The C++
+// defaults are the canonical ones — tweak there for permanent changes, tweak
+// in the asset for project-local tuning.
 // ─────────────────────────────────────────────────────────────────────────────
 
 UkdColorTheme::UkdColorTheme()
 {
     // ── Light World ──────────────────────────────────────────────────────────
-    Parchment = HexToLinear(0xFA, 0xF0, 0xDC);   // #FAF0DC  warm off-white
-    Sunstone = HexToLinear(0xE8, 0xB8, 0x4B);   // #E8B84B  amber gold
-    Ember = HexToLinear(0xC4, 0x5E, 0x1A);   // #C45E1A  burnt sienna
-    DuskOak = HexToLinear(0x7A, 0x5C, 0x2E);   // #7A5C2E  warm brown
+    Atmosphere = HexToLinear(0xE8, 0xDD, 0xC8);   // #E8DDC8  soft warm cream
+    Stoneveil = HexToLinear(0xA8, 0x9F, 0x8A);   // #A89F8A  warm grey-tan
+    Sunmark = HexToLinear(0xE8, 0xB8, 0x4B);   // #E8B84B  amber gold
+    Inkbrown = HexToLinear(0x5A, 0x46, 0x32);   // #5A4632  dark warm brown
 
-    // ── Shadow World ─────────────────────────────────────────────────────────
-    Void = HexToLinear(0x12, 0x08, 0x30);   // #120830  near-black indigo
-    DeepIndigo = HexToLinear(0x4A, 0x2D, 0x8F);   // #4A2D8F  deep violet
-    Spectre = HexToLinear(0x8B, 0x5C, 0xF6);   // #8B5CF6  electric purple
-    GhostLilac = HexToLinear(0xC4, 0xA8, 0xFF);   // #C4A8FF  pale lavender
+    // ── Crush World (Heliograph) ─────────────────────────────────────────────
+    IndigoField = HexToLinear(0x0E, 0x15, 0x38);  // #0E1538  deep cobalt void
+    Lumen = HexToLinear(0xF5, 0xE7, 0xB8);  // #F5E7B8  sun-bleached white-gold
+    SolarWhite = HexToLinear(0xFC, 0xFA, 0xF0);  // #FCFAF0  exposed near-white
+    PaleIon = HexToLinear(0xA8, 0xC0, 0xFF);  // #A8C0FF  pale cyan-violet
 
     // ── Feedback ─────────────────────────────────────────────────────────────
-    CrushTeal = HexToLinear(0x00, 0xC4, 0x9A);   // #00C49A  teal (transition only)
+    EmberTrace = HexToLinear(0xFF, 0x6B, 0x47);   // #FF6B47  warm coral hazard
     ExhaustRed = HexToLinear(0xE8, 0x40, 0x40);   // #E84040  danger red
-    ScoreGold = HexToLinear(0xF0, 0xC0, 0x60);   // #F0C060  score shimmer
-    Slate = HexToLinear(0x3A, 0x3A, 0x4A);   // #3A3A4A  neutral grey-blue
+    GoldLeaf = HexToLinear(0xF0, 0xC0, 0x60);   // #F0C060  score shimmer
+    Steelgrey = HexToLinear(0x4A, 0x4F, 0x5E);   // #4A4F5E  neutral cool grey
 
-    // ── Light World Post-Process ──────────────────────────────────────────────
-    // Warm, golden-hour feel.  5500 K temperature, slight magenta push,
-    // boosted saturation, shallow vignette, normal bloom.
-    LightWorldProfile.SceneColorTint = FLinearColor(1.05f, 0.98f, 0.88f);
-    LightWorldProfile.WhiteTemp = 5500.f;
-    LightWorldProfile.WhiteTint = 0.05f;
-    LightWorldProfile.ColorSaturation = 1.0f;
-    LightWorldProfile.VignetteIntensity = 0.25f;
+    // ── Light World Post-Process ─────────────────────────────────────────────
+    // Late golden-hour daylight.  Subtle warmth without losing realism.
+    LightWorldProfile.SceneColorTint = FLinearColor(1.02f, 1.00f, 0.95f);
+    LightWorldProfile.WhiteTemp = 5800.f;
+    LightWorldProfile.WhiteTint = 0.02f;
+    LightWorldProfile.ColorSaturation = 1.00f;
+    LightWorldProfile.VignetteIntensity = 0.20f;
     LightWorldProfile.BloomIntensity = 0.50f;
+    LightWorldProfile.DepthOfFieldFstop = 5.6f;     // deep focus
+    LightWorldProfile.DepthOfFieldSensorWidth = 35.f;     // standard
+    LightWorldProfile.ChromaticAberrationIntensity = 0.f;  // clean, naturalistic
 
-    // ── Shadow World Post-Process ─────────────────────────────────────────────
-    // Cold, oppressive, slightly green-tinged dread.  9000 K temperature,
-    // heavy desaturation, deep vignette, boosted bloom for glow effects.
-    ShadowWorldProfile.SceneColorTint = FLinearColor(0.82f, 0.78f, 1.05f);
-    ShadowWorldProfile.WhiteTemp = 9000.f;
-    ShadowWorldProfile.WhiteTint = -0.05f;
-    ShadowWorldProfile.ColorSaturation = 1.00f;
-    ShadowWorldProfile.VignetteIntensity = 0.55f;
-    ShadowWorldProfile.BloomIntensity = 1.20f;
+    // ── Crush World Post-Process (Heliograph) ────────────────────────────────
+    // Deep indigo field, cool moonlight white-balance, heavy desaturation so
+    // the lumen outlines and solar-white silhouettes carry all the colour.
+    CrushWorldProfile.SceneColorTint = FLinearColor(0.55f, 0.65f, 1.10f);
+    CrushWorldProfile.WhiteTemp = 8500.f;
+    CrushWorldProfile.WhiteTint = -0.03f;
+    CrushWorldProfile.ColorSaturation = 0.55f;
+    CrushWorldProfile.VignetteIntensity = 0.45f;
+    CrushWorldProfile.BloomIntensity = 1.10f;
+    CrushWorldProfile.DepthOfFieldFstop = 2.8f;     // mild diorama softness
+    CrushWorldProfile.DepthOfFieldSensorWidth = 80.f;     // slight telephoto compression
+    CrushWorldProfile.ChromaticAberrationIntensity = 0.4f; // whisper of warm/cool fringe
 
     BlendDuration = 0.35f;
 }
@@ -75,17 +81,16 @@ UkdColorTheme::UkdColorTheme()
 
 FLinearColor UkdColorTheme::GetStaminaBarColor(float FillFraction) const
 {
-    // Below 30 % the bar transitions from Spectre toward ExhaustRed
     constexpr float DangerThreshold = 0.30f;
 
     if (FillFraction >= DangerThreshold)
     {
-        return Spectre;
+        return PaleIon;
     }
 
-    // T = 0 at empty → full ExhaustRed; T = 1 at threshold → full Spectre
+    // Empty (T=0) → ExhaustRed; reaches threshold (T=1) → full PaleIon
     const float T = FillFraction / DangerThreshold;
-    return FLinearColor::LerpUsingHSV(ExhaustRed, Spectre, T);
+    return FLinearColor::LerpUsingHSV(ExhaustRed, PaleIon, T);
 }
 
 FLinearColor UkdColorTheme::GetHealthBarColor(float FillFraction) const
@@ -94,27 +99,33 @@ FLinearColor UkdColorTheme::GetHealthBarColor(float FillFraction) const
 
     if (FillFraction >= DangerThreshold)
     {
-        return Sunstone;
+        return Sunmark;
     }
 
     const float T = FillFraction / DangerThreshold;
-    return FLinearColor::LerpUsingHSV(Ember, Sunstone, T);
+    return FLinearColor::LerpUsingHSV(EmberTrace, Sunmark, T);
 }
 
 FLinearColor UkdColorTheme::GetWorldTextColor(bool bInCrushMode) const
 {
-    return bInCrushMode ? GhostLilac : DuskOak;
+    return bInCrushMode ? Lumen : Inkbrown;
 }
 
 FLinearColor UkdColorTheme::GetHUDPanelColor(bool bInCrushMode) const
 {
     if (!bInCrushMode)
     {
-        return Parchment;
+        return Atmosphere;
     }
 
-    // Semi-transparent Void — dark enough to be distinct but readable in shadow
-    FLinearColor CrushPanel = Void;
+    // Semi-transparent IndigoField so the world's traced silhouettes
+    // remain partially visible behind HUD panels in crush mode.
+    FLinearColor CrushPanel = IndigoField;
     CrushPanel.A = 0.85f;
     return CrushPanel;
+}
+
+FLinearColor UkdColorTheme::GetOutlineGlowColor(bool bIsHazard) const
+{
+    return bIsHazard ? EmberTrace : Lumen;
 }
