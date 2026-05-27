@@ -7,7 +7,10 @@
 #include "Engine/EngineTypes.h"
 #include "kdCrushStateComponent.generated.h"
 
+
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDrainStateChanged, bool, bIsDraining);
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EkdLightSourceType — disambiguates how each registered light's shadow
@@ -16,11 +19,12 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDrainStateChanged, bool, bIsDrain
 UENUM(BlueprintType)
 enum class EkdLightSourceType : uint8
 {
-	Directional UMETA(DisplayName = "Directional"),  // infinite range, constant direction
+	Directional UMETA(DisplayName = "Directional"),   // infinite range, constant direction
 	Point       UMETA(DisplayName = "Point"),         // local, radial
 	Spot        UMETA(DisplayName = "Spot"),          // local, cone-limited
 	Rect        UMETA(DisplayName = "Rect"),          // local, radial (treated like Point)
 };
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FkdRegisteredLight — lightweight runtime entry for each discovered light.
@@ -42,6 +46,7 @@ struct FkdRegisteredLight
 	/** Cached outer half-cone angle (degrees). Spot lights only. */
 	float OuterConeAngleDeg = 0.f;
 };
+
 
 //class ADirectionalLight;
 class UCharacterMovementComponent;
@@ -134,17 +139,27 @@ public:
 	float RegenTickInterval = 0.1f;
 	//////////////////////////////////////////////////////////////////////////
 
+	/*
+	* Read-only access for systems that need to mirror IsStandingInShadow logic
+	* (e.g. the shadow plane's light-mask bake). 
+	*/
+	const TArray<FkdRegisteredLight>& GetRegisteredLights() const { return RegisteredLights; }
+
+	/*
+	 * Computes the world-space direction from PlayerLocation toward the given
+	 * registered light. Returns FVector::ZeroVector when the light does not
+	 * affect the player (outside attenuation radius or spot cone).
+	 * ZeroVector is used as the "skip this light" sentinel in IsStandingInShadow.
+	 */
+	FVector GetLightDirectionForPlayer(const FkdRegisteredLight& Light, const FVector& Point) const;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-	void FindDirectionalLight();
 	void ResetPhysicsTo3D();
 	void DiscoverAndRegisterLights();
 
 private:
-	//UPROPERTY(EditDefaultsOnly, Category = "Crush | Lights")
-	//TObjectPtr<ADirectionalLight> DirectionalLightActor;
-
 	// ── Runtime light registry ────────────────────────────────────────────────
 
 	UPROPERTY()
@@ -157,15 +172,6 @@ private:
 	 * because USpotLightComponent inherits UPointLightComponent in UE5).
 	 */
 	bool TryBuildLightEntry(AActor* Actor, FkdRegisteredLight& OutEntry) const;
-
-	/**
-	 * Computes the world-space direction from PlayerLocation toward the given
-	 * registered light. Returns FVector::ZeroVector when the light does not
-	 * affect the player (outside attenuation radius or spot cone).
-	 * ZeroVector is used as the "skip this light" sentinel in IsStandingInShadow.
-	 */
-	FVector GetLightDirectionForPlayer(const FkdRegisteredLight& Light,
-		const FVector& PlayerLocation) const;
 
 	// ── Internals ─────────────────────────────────────────────────────────────
 

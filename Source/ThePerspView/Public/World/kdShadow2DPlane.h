@@ -50,6 +50,42 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Shadow")
 	void BP_OnShadowFadeOutComplete();
 
+	UPROPERTY(EditDefaultsOnly, Category = "Shadow|LightMask",
+		meta = (ClampMin = "8", ClampMax = "512"))
+	int32 LightMaskResolution = 64;
+
+	/** How dark a fully-shadowed cell becomes.  1.0 = pure black under BLEND_Modulate. */
+	UPROPERTY(EditAnywhere, Category = "Shadow|LightMask",
+		meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float ShadowDarkness = 0.92f;
+
+	/** Extra darkening applied to fully-lit cells.  0.0 = no darkening (clean light). */
+	UPROPERTY(EditAnywhere, Category = "Shadow|LightMask",
+		meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float LightDarkening = 0.0f;
+
+	// Material parameter names — keep in sync with M_ShadowPlane.
+	UPROPERTY(EditDefaultsOnly, Category = "Shadow|LightMask|Params")
+	FName LightMaskParamName = FName("LightMask");
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shadow|LightMask|Params")
+	FName ShadowDarknessParamName = FName("ShadowDarkness");
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shadow|LightMask|Params")
+	FName LightDarkeningParamName = FName("LightDarkening");
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shadow|LightMask|Params")
+	FName PlaneOriginParamName = FName("PlaneOriginYZ");
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shadow|LightMask|Params")
+	FName PlaneSizeParamName = FName("PlaneSizeYZ");
+
+	/** Rebake the mask.  Called automatically on crush-mode entry; expose
+	 *  this if any gameplay event needs to invalidate it mid-game (e.g. a
+	 *  light being toggled, a movable occluder shifting). */
+	UFUNCTION(BlueprintCallable, Category = "Shadow")
+	void RebakeLightMask();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
@@ -65,6 +101,13 @@ private:
 
     UPROPERTY()
     TObjectPtr<UMaterialInstanceDynamic> DynMaterial;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> LightMaskTex;
+
+	void EnsureLightMaskTexture();
+	void UploadLightMaskPixels(const TArray<uint8>& Pixels);
+	void PushLightMaskMaterialParameters() const;
 
     float FadeAlpha = 0.f;   // Normalised fade progress [0,1]
     float FadeDirection = 0.f;   // +1 fading in  |  -1 fading out  |  0 idle

@@ -10,6 +10,9 @@
 #include "AbilitySystemComponent.h"
 #include "GameplayTags/kdGameplayTags.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/Texture2D.h"
+#include "RHI.h"
+#include "Crush/kdCrushStateComponent.h"
 
 AkdShadow2DPlane::AkdShadow2DPlane()
 {
@@ -54,9 +57,9 @@ void AkdShadow2DPlane::BeginPlay()
     // then scale Width and Height axes to cover the full playfield.
     ShadowPlaneMesh->SetRelativeRotation(FRotator(90.f, 0.f, 0.f));
     ShadowPlaneMesh->SetRelativeScale3D(
-        FVector(1.f,                        // X — stays thin (1 × 100 cm = 1 m depth)
-            PlaneWidth / 100.f,        // Y → world Y covers full level width
-            PlaneHeight / 100.f));      // Z → world Z covers floor-to-ceiling
+        FVector(PlaneHeight / 100.f,    // X — stays thin (1 × 100 cm = 1 m depth)
+            PlaneWidth / 100.f,         // Y → world Y covers full level width
+            1.0f));                     // Z → world Z covers floor-to-ceiling
 
     // ── Size the stencil detection volume ─────────────────────────────────────
     ShadowVolumeBox->SetBoxExtent(
@@ -114,6 +117,19 @@ void AkdShadow2DPlane::BeginPlay()
         SetVolumeOverlapEventsActive(true);
         SetStencilOnOverlappingActors(true);
     }
+
+#if !UE_BUILD_SHIPPING
+    {
+        const FVector MeshBounds = ShadowPlaneMesh->Bounds.BoxExtent * 2.f;  // full extents
+        const FVector BoxBounds = ShadowVolumeBox->GetScaledBoxExtent() * 2.f;
+        // Compare world Y and Z; X is intentionally different (plane is flat, box is thick).
+        ensureMsgf(FMath::IsNearlyEqual(MeshBounds.Y, BoxBounds.Y, 1.f) &&
+            FMath::IsNearlyEqual(MeshBounds.Z, BoxBounds.Z, 1.f),
+            TEXT("Shadow2DPlane [%s]: mesh/volume mismatch — "
+                "mesh=(%.0f, %.0f), box=(%.0f, %.0f)"),
+            *GetName(), MeshBounds.Y, MeshBounds.Z, BoxBounds.Y, BoxBounds.Z);
+    }
+#endif
 }
 
 void AkdShadow2DPlane::Tick(float DeltaTime)
@@ -158,6 +174,149 @@ void AkdShadow2DPlane::Tick(float DeltaTime)
     }
 }
 
+void AkdShadow2DPlane::EnsureLightMaskTexture()
+{
+    if (LightMaskTex && LightMaskTex->GetSizeX() == LightMaskResolution) return;
+
+    LightMaskTex = UTexture2D::CreateTransient(LightMaskResolution, LightMaskResolution, PF_G8);
+
+    LightMaskTex->Filter = TF_Bilinear;     // smooth between cells
+    LightMaskTex->AddressX = TA_Clamp;
+    LightMaskTex->AddressY = TA_Clamp;
+    LightMaskTex->SRGB = false;           // linear data, not colour
+    LightMaskTex->CompressionSettings = TC_Grayscale;
+    LightMaskTex->NeverStream = true;
+    LightMaskTex->UpdateResource();
+}
+
+void AkdShadow2DPlane::UploadLightMaskPixels(const TArray<uint8>& Pixels)
+{
+    if (!LightMaskTex) return;
+
+    const int32 N = LightMaskResolution;
+
+    // FUpdateTextureRegion2D is consumed on the render thread — heap-allocate
+    // and delete in the cleanup lambda so we don't free it before the GPU reads.
+    FUpdateTextureRegion2D* Region = new FUpdateTextureRegion2D(0, 0, 0, 0, N, N);
+
+    // We copy the pixel buffer because Pixels is a stack-local TArray.
+    uint8* PixelCopy = static_cast<uint8*>(FMemory::Malloc(Pixels.Num()));
+    FMemory::Memcpy(PixelCopy, Pixels.GetData(), Pixels.Num());
+
+    LightMaskTex->UpdateTextureRegions(
+        /*MipIndex*/ 0,
+        /*NumRegions*/ 1, Region,
+        /*SrcPitch*/ N,
+        /*SrcBpp*/ 1,
+        PixelCopy,
+        /*DataCleanupFunc*/ [](uint8* Data, const FUpdateTextureRegion2D* R)
+        {
+            FMemory::Free(Data);
+            delete R;
+        });
+}
+
+void AkdShadow2DPlane::RebakeLightMask()
+{
+    UWorld* World = GetWorld();
+    if (!World) return;
+
+    AkdMyPlayer* Player = Cast<AkdMyPlayer>(UGameplayStatics::GetPlayerPawn(World, 0));
+    if (!Player) return;
+
+    UkdCrushStateComponent* CrushState = Player->FindComponentByClass<UkdCrushStateComponent>();
+    if (!CrushState) return;
+
+    const TArray<FkdRegisteredLight>& Lights = CrushState->GetRegisteredLights();
+
+    EnsureLightMaskTexture();
+
+    const int32 N = LightMaskResolution;
+    TArray<uint8> Pixels;
+    Pixels.SetNumUninitialized(N * N);
+
+    // Plane footprint in world space.  Actor pivot is the plane centre;
+    // mesh spans PlaneWidth on Y and PlaneHeight on Z at the actor's X.
+    const FVector ActorLoc = GetActorLocation();
+    const float   YMin = ActorLoc.Y - PlaneWidth * 0.5f;
+    const float   ZMin = ActorLoc.Z - PlaneHeight * 0.5f;
+    const float   PlaneX = ActorLoc.X;
+
+    // Empty light set → entire plane reads as shadow.  Fill black and bail
+    // before the per-texel loop so we don't pay for N² no-op raycasts.
+    if (Lights.IsEmpty())
+    {
+        FMemory::Memzero(Pixels.GetData(), Pixels.Num());
+        UploadLightMaskPixels(Pixels);
+        PushLightMaskMaterialParameters();
+        return;
+    }
+
+    FCollisionQueryParams Params(SCENE_QUERY_STAT(ShadowMaskBake), /*bTraceComplex*/ false);
+    Params.AddIgnoredActor(this);  // never let the plane occlude its own bake
+
+    for (int32 v = 0; v < N; ++v)
+    {
+        // Image V grows downward; world Z grows upward.  Flip for upright reads.
+        const float ZWorld = ZMin + ((N - 1 - v) + 0.5f) / static_cast<float>(N) * PlaneHeight;
+
+        for (int32 u = 0; u < N; ++u)
+        {
+            const float YWorld = YMin + (u + 0.5f) / static_cast<float>(N) * PlaneWidth;
+            const FVector SamplePoint(PlaneX, YWorld, ZWorld);
+
+            int32 Relevant = 0;
+            int32 Reached = 0;
+
+            for (const FkdRegisteredLight& Light : Lights)
+            {
+                const FVector LightDir = CrushState->GetLightDirectionForPlayer(Light, SamplePoint);
+
+                // Same convention as IsStandingInShadow — zero-vector means the
+                // light doesn't influence this point (out of range / out of cone).
+                if (LightDir.IsNearlyZero()) continue;
+                ++Relevant;
+
+                const FVector TraceEnd = (Light.Type == EkdLightSourceType::Directional)
+                    ? SamplePoint + LightDir * 10000.f
+                    : Light.LightActor->GetActorLocation();
+
+                FHitResult Hit;
+                const bool bBlocked = World->LineTraceSingleByChannel(
+                    Hit, SamplePoint, TraceEnd, ECC_Visibility, Params);
+
+                if (!bBlocked) ++Reached;
+            }
+
+            // 0 = full shadow, 255 = fully lit.  No relevant lights → shadow.
+            const float Lit = (Relevant > 0)
+                ? static_cast<float>(Reached) / static_cast<float>(Relevant)
+                : 0.f;
+
+            Pixels[v * N + u] = static_cast<uint8>(FMath::Clamp(Lit * 255.f, 0.f, 255.f));
+        }
+    }
+
+    UploadLightMaskPixels(Pixels);
+    PushLightMaskMaterialParameters();
+}
+
+void AkdShadow2DPlane::PushLightMaskMaterialParameters() const
+{
+    if (!DynMaterial || !LightMaskTex) return;
+
+    DynMaterial->SetTextureParameterValue(LightMaskParamName, LightMaskTex);
+    DynMaterial->SetScalarParameterValue(ShadowDarknessParamName, ShadowDarkness);
+    DynMaterial->SetScalarParameterValue(LightDarkeningParamName, LightDarkening);
+
+    const FVector ActorLoc = GetActorLocation();
+    DynMaterial->SetVectorParameterValue(PlaneOriginParamName,
+        FLinearColor(ActorLoc.Y - PlaneWidth * 0.5f,
+            ActorLoc.Z - PlaneHeight * 0.5f, 0.f, 0.f));
+    DynMaterial->SetVectorParameterValue(PlaneSizeParamName,
+        FLinearColor(PlaneWidth, PlaneHeight, 0.f, 0.f));
+}
+
 void AkdShadow2DPlane::OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCount)
 {
     const bool bEntering = NewCount > 0;
@@ -169,6 +328,8 @@ void AkdShadow2DPlane::OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCo
         ShadowPlaneMesh->SetVisibility(true);
         SetVolumeOverlapEventsActive(true);
         SetActorTickEnabled(true);
+
+        RebakeLightMask();
 
 #if !UE_BUILD_SHIPPING
         UE_LOG(LogTemp, Log, TEXT("Shadow2DPlane [%s]: Fading IN"), *GetName());
