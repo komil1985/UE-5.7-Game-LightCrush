@@ -80,6 +80,13 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Shadow|LightMask|Params")
 	FName PlaneSizeParamName = FName("PlaneSizeYZ");
 
+	UPROPERTY(EditDefaultsOnly, Category = "Shadow|Material|Params")
+	FName EdgeFadeWidthParamName = FName("EdgeFadeWidth");
+
+	UPROPERTY(EditAnywhere, Category = "Shadow|Material",
+		meta = (ClampMin = "0.0", ClampMax = "2000.0"))
+	float EdgeFadeWidth = 250.f;
+
 	/** Rebake the mask.  Called automatically on crush-mode entry; expose
 	 *  this if any gameplay event needs to invalidate it mid-game (e.g. a
 	 *  light being toggled, a movable occluder shifting). */
@@ -89,6 +96,8 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
+
+	virtual void OnConstruction(const FTransform& Transform) override;
 
 private:
     UPROPERTY(VisibleAnywhere, Category = "Components")
@@ -128,4 +137,5 @@ private:
     void SetStencilOnOverlappingActors(bool bEnable);
     void SetActorShadowStencil(AActor* TargetActor, bool bEnable) const;
     void PushMaterialParameters(float EvaluatedAlpha) const;
+	void ApplyGeometryToComponents();
 };

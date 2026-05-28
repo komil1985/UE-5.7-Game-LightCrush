@@ -49,23 +49,22 @@ AkdShadow2DPlane::AkdShadow2DPlane()
 
 void AkdShadow2DPlane::BeginPlay()
 {
-	Super::BeginPlay();
+	Super::BeginPlay();   
 	
     // ── Size the plane mesh ───────────────────────────────────────────────────
     // The engine Plane mesh is 100 × 100 cm and lies flat (XY).
     // We rotate it 90° around Y so it faces along X (stands vertically),
     // then scale Width and Height axes to cover the full playfield.
+    // X — stays thin (1 × 100 cm = 1 m depth)
+    // Y → world Y covers full level width
+    // Z → world Z covers floor-to-ceiling
     ShadowPlaneMesh->SetRelativeRotation(FRotator(90.f, 0.f, 0.f));
-    ShadowPlaneMesh->SetRelativeScale3D(
-        FVector(PlaneHeight / 100.f,    // X — stays thin (1 × 100 cm = 1 m depth)
-            PlaneWidth / 100.f,         // Y → world Y covers full level width
-            1.0f));                     // Z → world Z covers floor-to-ceiling
+    ShadowPlaneMesh->SetRelativeScale3D(FVector(PlaneHeight / 100.f, PlaneWidth / 100.f, 1.0f));                    
 
     // ── Size the stencil detection volume ─────────────────────────────────────
-    ShadowVolumeBox->SetBoxExtent(
-        FVector(VolumeThickness * 0.5f,
-            PlaneWidth * 0.5f,
-            PlaneHeight * 0.5f));
+    ShadowVolumeBox->SetBoxExtent(FVector(VolumeThickness * 0.5f, PlaneWidth * 0.5f, PlaneHeight * 0.5f));
+
+    ApplyGeometryToComponents();
 
     // ── Create dynamic material instance ─────────────────────────────────────
     // Slot 0 must contain a BLEND_Modulate Unlit material with scalar parameter
@@ -87,8 +86,7 @@ void AkdShadow2DPlane::BeginPlay()
     // ── Register for CrushMode tag events on the local player ─────────────────
     // This mirrors the pattern used by AkdShadowPortal — tag-event registration
     // means zero per-frame polling and perfectly synchronised state transitions.
-    AkdMyPlayer* Player = Cast<AkdMyPlayer>(
-        UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
+    AkdMyPlayer* Player = Cast<AkdMyPlayer>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
 
     if (!Player)
     {
@@ -172,6 +170,12 @@ void AkdShadow2DPlane::Tick(float DeltaTime)
         SetVolumeOverlapEventsActive(false);
         BP_OnShadowFadeOutComplete();
     }
+}
+
+void AkdShadow2DPlane::OnConstruction(const FTransform& Transform)
+{
+    Super::OnConstruction(Transform);
+    ApplyGeometryToComponents();
 }
 
 void AkdShadow2DPlane::EnsureLightMaskTexture()
@@ -310,11 +314,15 @@ void AkdShadow2DPlane::PushLightMaskMaterialParameters() const
     DynMaterial->SetScalarParameterValue(LightDarkeningParamName, LightDarkening);
 
     const FVector ActorLoc = GetActorLocation();
+
     DynMaterial->SetVectorParameterValue(PlaneOriginParamName,
         FLinearColor(ActorLoc.Y - PlaneWidth * 0.5f,
             ActorLoc.Z - PlaneHeight * 0.5f, 0.f, 0.f));
+    
     DynMaterial->SetVectorParameterValue(PlaneSizeParamName,
         FLinearColor(PlaneWidth, PlaneHeight, 0.f, 0.f));
+
+    DynMaterial->SetScalarParameterValue(EdgeFadeWidthParamName, EdgeFadeWidth);
 }
 
 void AkdShadow2DPlane::OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCount)
@@ -432,4 +440,26 @@ void AkdShadow2DPlane::PushMaterialParameters(float EvaluatedAlpha) const
     // darken it; the hue of ShadowColor imparts the cool blue shadow tint.
     DynMaterial->SetScalarParameterValue(TEXT("ShadowOpacity"), EvaluatedAlpha * PeakOpacity);
     DynMaterial->SetVectorParameterValue(TEXT("ShadowColor"), ShadowColor);
+}
+
+void AkdShadow2DPlane::ApplyGeometryToComponents()
+{
+    if (!ShadowVolumeBox || !ShadowPlaneMesh) return;
+
+    // ── Volume box ────────────────────────────────────────────────────────────
+    // Half-extents on world axes.  bUpdateOverlaps=false because we don't want
+    // to fire begin/end overlap deltas during construction.
+    ShadowVolumeBox->SetBoxExtent(
+        FVector(VolumeThickness * 0.5f, PlaneWidth * 0.5f, PlaneHeight * 0.5f),
+        /*bUpdateOverlaps*/ false);
+
+    // ── Plane mesh ────────────────────────────────────────────────────────────
+    // The engine Plane is 100 × 100 cm in its local XY.  After Pitch=90,
+    // local X becomes world Z, local Y stays world Y.  Scale accordingly so
+    // the visible mesh matches the box footprint exactly.
+    ShadowPlaneMesh->SetRelativeRotation(FRotator(90.f, 0.f, 0.f));
+    ShadowPlaneMesh->SetRelativeScale3D(
+        FVector(PlaneHeight / 100.f,    // local X → world Z
+            PlaneWidth / 100.f,         // local Y → world Y
+            1.f));                      // local Z → world -X (flat)
 }
