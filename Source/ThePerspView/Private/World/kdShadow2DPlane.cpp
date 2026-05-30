@@ -19,11 +19,14 @@ AkdShadow2DPlane::AkdShadow2DPlane()
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = false;
 
+    SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
+    SetRootComponent(SceneRoot);
+
     // ── Plane mesh ────────────────────────────────────────────────────────────
     // The engine's built-in 1 m × 1 m plane.  Scaled to PlaneWidth × PlaneHeight
     // in BeginPlay once we know the designer values.
     ShadowPlaneMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ShadowPlaneMesh"));
-    SetRootComponent(ShadowPlaneMesh);
+    SetRootComponent(SceneRoot);
 
     ShadowPlaneMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     ShadowPlaneMesh->SetCastShadow(false);          // shadow plane must not cast real shadows
@@ -41,7 +44,7 @@ AkdShadow2DPlane::AkdShadow2DPlane()
     // with a shallow X depth (VolumeThickness) so only actors truly on the shadow
     // plane receive the stencil, preventing false positives in the 3D world.
     ShadowVolumeBox = CreateDefaultSubobject<UBoxComponent>(TEXT("ShadowVolumeBox"));
-    ShadowVolumeBox->SetupAttachment(RootComponent);
+    ShadowVolumeBox->SetupAttachment(SceneRoot);
     ShadowVolumeBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     ShadowVolumeBox->SetCollisionResponseToAllChannels(ECR_Overlap);
     ShadowVolumeBox->SetGenerateOverlapEvents(true);

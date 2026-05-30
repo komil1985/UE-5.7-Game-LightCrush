@@ -100,6 +100,9 @@ protected:
 	virtual void OnConstruction(const FTransform& Transform) override;
 
 private:
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<USceneComponent> SceneRoot;
+
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TObjectPtr<UStaticMeshComponent> ShadowPlaneMesh;
 

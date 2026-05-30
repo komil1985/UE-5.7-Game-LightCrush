@@ -35,7 +35,7 @@ public:
     float HealthTickInterval = 0.1f;
 
     /** Fraction of MaxLightHealth below which the "critical" state is entered. */
-    UPROPERTY(EditDefaultsOnly, Category = "Light Health", meta = (ClampMin = "0.0", ClampMax = "0.5"))
+    UPROPERTY(EditDefaultsOnly, Category = "Light Health", meta = (ClampMin = "0.0", ClampMax = "1.0"))
     float CriticalHealthThreshold = 0.25f;
 
     // ── State Query ───────────────────────────────────────────────────────────
