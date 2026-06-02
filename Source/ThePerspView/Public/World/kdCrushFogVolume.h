@@ -64,30 +64,30 @@ protected:
 
     /** Root component.  Actor scale shapes this sphere into the fog slab.
      *  Base sphere radius is immutable at 500 cm (GetBaseVolumeSize()). */
-    UPROPERTY(VisibleAnywhere, Category = "Components")
+    UPROPERTY(EditDefaultsOnly, Category = "Components")
     TObjectPtr<ULocalFogVolumeComponent> FogVolume;
 
     /** Editor-only box visualizing slab bounds.  BoxExtent=(500,500,500)
      *  inherits actor scale → matches the fog ellipsoid exactly. */
-    UPROPERTY(VisibleAnywhere, Category = "Components")
+    UPROPERTY(EditDefaultsOnly, Category = "Components")
     TObjectPtr<UBoxComponent> BoundsViz;
 
     // ── Shape ─────────────────────────────────────────────────────────────────
 
     /** Half-depth of the fog slab along X (into the 3D world, cm).
      *  80 cm reads as a tight shadow wall.  Increase for a wider blur zone. */
-    UPROPERTY(EditAnywhere, Category = "Crush | Fog | Shape",
+    UPROPERTY(EditDefaultsOnly, Category = "Crush | Fog | Shape",
         meta = (ClampMin = "1.0"))
     float VolumeHalfExtentX = 80.f;
 
     /** Half-width along Y (level playfield width).
      *  Size this to cover the widest part of the level. */
-    UPROPERTY(EditAnywhere, Category = "Crush | Fog | Shape",
+    UPROPERTY(EditDefaultsOnly, Category = "Crush | Fog | Shape",
         meta = (ClampMin = "1.0"))
     float VolumeHalfExtentY = 3000.f;
 
     /** Half-height along Z (floor-to-ceiling + headroom). */
-    UPROPERTY(EditAnywhere, Category = "Crush | Fog | Shape",
+    UPROPERTY(EditDefaultsOnly, Category = "Crush | Fog | Shape",
         meta = (ClampMin = "1.0"))
     float VolumeHalfExtentZ = 2000.f;
 
@@ -97,31 +97,31 @@ protected:
      *  Maps to ULocalFogVolumeComponent::RadialFogExtinction.
      *  0.08 = soft atmospheric haze, 0.12 = default shadow, 0.20+ = near-opaque.
      *  This is the ONLY property that changes per-tick during the fade. */
-    UPROPERTY(EditAnywhere, Category = "Crush | Fog | Appearance",
+    UPROPERTY(EditDefaultsOnly, Category = "Crush | Fog | Appearance",
         meta = (ClampMin = "0.0", ClampMax = "2.0"))
     float PeakRadialExtinction = 0.12f;
 
     /** Scattering colour.  Near-black with a faint indigo tint for the
      *  Limbo / Liminal Dusk aesthetic.  Clamped to [0,1] by the component. */
-    UPROPERTY(EditAnywhere, Category = "Crush | Fog | Appearance")
+    UPROPERTY(EditDefaultsOnly, Category = "Crush | Fog | Appearance")
     FLinearColor FogAlbedoColor = FLinearColor(0.025f, 0.012f, 0.050f, 1.f);
 
     /** Faint self-illumination — gives the slab a ghost-like inner glow.
      *  Set to FLinearColor::Black to disable.  Clamped to [0,1] by the component. */
-    UPROPERTY(EditAnywhere, Category = "Crush | Fog | Appearance")
+    UPROPERTY(EditDefaultsOnly, Category = "Crush | Fog | Appearance")
     FLinearColor FogEmissiveColor = FLinearColor(0.004f, 0.002f, 0.012f, 1.f);
 
     /** Phase G parameter for directional scattering.
      *  0 = isotropic (uniform shadow), >0 = forward-scattering.
      *  Keep at 0 for a clean shadow slab with no directional bias. */
-    UPROPERTY(EditAnywhere, Category = "Crush | Fog | Appearance",
+    UPROPERTY(EditDefaultsOnly, Category = "Crush | Fog | Appearance",
         meta = (ClampMin = "0.0", ClampMax = "0.999"))
     float ScatteringPhaseG = 0.f;
 
     // ── Transition ────────────────────────────────────────────────────────────
 
     /** Seconds to fade fully in or out when the CrushMode tag changes. */
-    UPROPERTY(EditAnywhere, Category = "Crush | Fog | Transition",
+    UPROPERTY(EditDefaultsOnly, Category = "Crush | Fog | Transition",
         meta = (ClampMin = "0.05"))
     float FadeDuration = 0.4f;
 
@@ -129,7 +129,7 @@ protected:
      *  Null = linear.  The curve is evaluated in Tick before calling
      *  ApplyFogExtinction — do NOT call GetFloatValue again inside that function
      *  or the curve will be double-applied. */
-    UPROPERTY(EditAnywhere, Category = "Crush | Fog | Transition")
+    UPROPERTY(EditDefaultsOnly, Category = "Crush | Fog | Transition")
     TObjectPtr<UCurveFloat> FadeCurve;
 
     // ── Blueprint events ──────────────────────────────────────────────────────

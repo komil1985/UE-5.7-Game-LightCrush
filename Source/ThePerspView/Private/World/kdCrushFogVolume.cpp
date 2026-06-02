@@ -198,10 +198,7 @@ void AkdCrushFogVolume::SizeVolumeFromExtents()
     // BoundsViz (BoxExtent=500) inherits actor scale automatically —
     // no extra sizing needed; it will outline the slab precisely in editor.
     const float Base = ULocalFogVolumeComponent::GetBaseVolumeSize();
-    SetActorScale3D(FVector(
-        VolumeHalfExtentX / Base,
-        VolumeHalfExtentY / Base,
-        VolumeHalfExtentZ / Base));
+    SetActorScale3D(FVector(VolumeHalfExtentX / Base, VolumeHalfExtentY / Base, VolumeHalfExtentZ / Base));
 }
 
 void AkdCrushFogVolume::ApplyFogExtinction(float EvaluatedAlpha)
@@ -231,6 +228,7 @@ void AkdCrushFogVolume::OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewC
         }
 
         bCrushActive = true;
+        FogVolume->HeightFogExtinction = 2.0f;
         FadeDirection = 1.f;
         SetActorTickEnabled(true);
 
@@ -244,6 +242,7 @@ void AkdCrushFogVolume::OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewC
     {
         bCrushActive = false;
         FadeDirection = -1.f;
+        FogVolume->HeightFogExtinction = 0.0f;
         SetActorTickEnabled(true);
 
 #if !UE_BUILD_SHIPPING
