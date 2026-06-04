@@ -1,4 +1,5 @@
 // Copyright ASKD Games
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -9,8 +10,6 @@
 class UStaticMeshComponent;
 class UAbilitySystemComponent;
 class AkdMyPlayer;
-
-
 UCLASS()
 class THEPERSPVIEW_API AkdCrushShadowVolume : public AActor
 {
