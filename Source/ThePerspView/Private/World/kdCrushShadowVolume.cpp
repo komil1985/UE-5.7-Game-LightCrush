@@ -49,7 +49,14 @@ void AkdCrushShadowVolume::BeginPlay()
 {
     Super::BeginPlay();
 
+    UE_LOG(LogTemp, Warning, TEXT("ShadowVolume BeginPlay"));
+
     ApplyZoneScale();
+
+    VolumeMesh->SetRenderInMainPass(false);              // invisible in colour
+    VolumeMesh->SetCastShadow(false);                    // <-- THE FIX: no shadow from the box
+    VolumeMesh->bCastHiddenShadow = false;               // belt-and-suspenders for hidden-mesh shadows
+    VolumeMesh->SetRenderCustomDepth(true);              // still writes the stencil tag
     VolumeMesh->SetCustomDepthStencilValue(ShadowStencilValue);
 
     CachedPlayer = Cast<AkdMyPlayer>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
@@ -108,4 +115,5 @@ void AkdCrushShadowVolume::SetVolumeActive(bool bActive)
     }
 
     VolumeMesh->SetRenderCustomDepth(bActive);
+    VolumeMesh->SetVisibility(bActive);
 }
