@@ -8,6 +8,7 @@
 
 class UAbilitySystemComponent;
 class UProgressBar;
+class UkdColorTheme;
 struct FOnAttributeChangeData;
 /**
  * 
@@ -31,7 +32,7 @@ protected:
 	 void OnMaxStaminaChanged(const FOnAttributeChangeData& Data);
 
 private:
-
+	void UpdateBarColor();
 	void UpdateVisibility();
 
 	float CurrentStamina;

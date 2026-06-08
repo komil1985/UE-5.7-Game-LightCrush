@@ -5,6 +5,9 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/kdAttributeSet.h"
 #include "Components/ProgressBar.h"
+#include "Data/kdColorTheme.h"
+#include "UI/ColorLibrary/kdHUDColorLibrary.h"
+#include "UI/ColorLibrary/kdThemeAccess.h"
 
 
 void UkdStaminaWidget::InitializeWithAbilitySystemComponent(UAbilitySystemComponent* ASC)
@@ -40,6 +43,7 @@ void UkdStaminaWidget::OnStaminaChanged(const FOnAttributeChangeData& Data)
         StaminaBar->SetPercent(CurrentStamina / MaxStamina);
     }
     UpdateVisibility();
+    UpdateBarColor();
 }
 
 void UkdStaminaWidget::OnMaxStaminaChanged(const FOnAttributeChangeData& Data)
@@ -51,6 +55,19 @@ void UkdStaminaWidget::OnMaxStaminaChanged(const FOnAttributeChangeData& Data)
         StaminaBar->SetPercent(CurrentStamina / MaxStamina);
     }
     UpdateVisibility();
+    UpdateBarColor();
+}
+
+void UkdStaminaWidget::UpdateBarColor()
+{
+    if (!StaminaBar || MaxStamina <= 0.f) return;
+
+    UkdColorTheme* Theme = UkdThemeAccess::GetColorTheme(this);
+    if (!Theme) return;  // Driver not ready yet; we'll get it on the next change.
+
+    const float Fraction = FMath::Clamp(CurrentStamina / MaxStamina, 0.f, 1.f);
+    const FLinearColor BarColor = UkdHUDColorLibrary::GetStaminaBarColor(Theme, Fraction);
+    StaminaBar->SetFillColorAndOpacity(BarColor);
 }
 
 void UkdStaminaWidget::UpdateVisibility()

@@ -14,6 +14,7 @@ class UProgressBar;
 class UTextBlock;
 class UOverlay;
 class UkdLightHealthComponent;
+class UkdColorTheme;
 struct FGameplayTag;
 UCLASS()
 class THEPERSPVIEW_API UkdLightHealthWidget : public UUserWidget
@@ -142,4 +143,7 @@ private:
     void TickDangerBlink(float DeltaTime);
 
     void UpdateBar(float CurrentHealth, float MaxHealth);
+
+    /** Resolves target bar colour from theme + current state. */
+    FLinearColor ResolveTargetBarColor() const;
 };

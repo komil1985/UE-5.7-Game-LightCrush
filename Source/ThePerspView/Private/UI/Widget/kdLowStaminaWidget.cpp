@@ -3,6 +3,8 @@
 
 #include "UI/Widget/kdLowStaminaWidget.h"
 #include "Components/TextBlock.h"
+#include "Data/kdColorTheme.h"
+#include "UI/ColorLibrary/kdThemeAccess.h"
 
 
 void UkdLowStaminaWidget::FlashWarning()
@@ -11,7 +13,15 @@ void UkdLowStaminaWidget::FlashWarning()
     {
         Txt_LowStamina->SetText(FText::FromString(TEXT("LOW STAMINA!")));
         // Vivid red — readable at a glance, consistent with the exhaustion palette
-        Txt_LowStamina->SetColorAndOpacity(FLinearColor(0.65f, 0.05f, 0.05f, 1.f));
+        //Txt_LowStamina->SetColorAndOpacity(FLinearColor(0.65f, 0.05f, 0.05f, 1.f));
+        if (UkdColorTheme* Theme = UkdThemeAccess::GetColorTheme(this))
+        {
+            Txt_LowStamina->SetColorAndOpacity(Theme->ExhaustRed);
+        }
+        else
+        {
+            Txt_LowStamina->SetColorAndOpacity(FLinearColor(0.91f, 0.25f, 0.25f, 1.f));
+        }
     }
 
     // Reveal widget — HitTestInvisible so it never accidentally absorbs input

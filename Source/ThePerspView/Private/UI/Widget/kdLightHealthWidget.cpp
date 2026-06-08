@@ -7,6 +7,9 @@
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
 #include "Components/Overlay.h"
+#include "Data/kdColorTheme.h"
+#include "UI/ColorLibrary/kdHUDColorLibrary.h"
+#include "UI/ColorLibrary/kdThemeAccess.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NativeConstruct / Destruct
@@ -150,6 +153,7 @@ void UkdLightHealthWidget::OnLightHealthChanged(const FOnAttributeChangeData& Da
     const float Max = CachedASC->GetNumericAttribute(UkdAttributeSet::GetMaxLightHealthAttribute());
 
     UpdateBar(Data.NewValue, Max);
+    TargetBarColor = ResolveTargetBarColor();
 
 #if !UE_BUILD_SHIPPING
     UE_LOG(LogTemp, Log, TEXT("LightHealthWidget: Health changed to %.1f / %.1f (%.0f%%)"),
@@ -172,7 +176,8 @@ void UkdLightHealthWidget::OnMaxLightHealthChanged(const FOnAttributeChangeData&
 void UkdLightHealthWidget::OnShadowStateChanged(bool bNewInShadow)
 {
     bInShadow = bNewInShadow;
-    TargetBarColor = bInShadow ? ShadowHealColor : LightDamageColor;
+    //TargetBarColor = bInShadow ? ShadowHealColor : LightDamageColor;
+    TargetBarColor = ResolveTargetBarColor();
 }
 
 void UkdLightHealthWidget::OnCriticalChanged(bool bNewCritical)
@@ -202,6 +207,27 @@ void UkdLightHealthWidget::UpdateBar(float CurrentHealth, float MaxHealth)
     {
         Bar_LightHealth->SetPercent(DisplayHealth);
     }
+}
+
+FLinearColor UkdLightHealthWidget::ResolveTargetBarColor() const
+{
+    UkdColorTheme* Theme = UkdThemeAccess::GetColorTheme(this);
+    if (!Theme)
+    {
+        // Driver not ready — fall back to the EditDefaults values so the bar
+        // is never invisible. These get overwritten on the next state change.
+        return bInShadow ? ShadowHealColor : LightDamageColor;
+    }
+
+    // Two-state mapping:
+    //   In shadow (healing)   → PaleIon  — calm, restorative cool blue
+    //   In light (damaging)   → EmberTrace via GetHealthBarColor at low fill,
+    //                           Sunmark at high fill (drain reads as warmth lost)
+    if (bInShadow)
+    {
+        return Theme->PaleIon;
+    }
+    return UkdHUDColorLibrary::GetHealthBarColor(Theme, DisplayHealth);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
