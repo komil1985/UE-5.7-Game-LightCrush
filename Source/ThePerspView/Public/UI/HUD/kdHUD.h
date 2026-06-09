@@ -15,6 +15,7 @@ class UkdDeathWidget;
 class UkdGameOverWidget;
 class UkdStaminaWidget;
 class UUserWidget;
+class UkdTransitionFlashWidget;
 /**
  * 
  */
@@ -115,6 +116,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "UI")
     void SetUIInputMode();     // shows cursor, UI only
 
+    UPROPERTY(EditDefaultsOnly, Category = "UI | Classes")
+    TSubclassOf<UkdTransitionFlashWidget> TransitionFlashWidgetClass;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -150,6 +154,9 @@ private:
 
     UFUNCTION()
     APlayerController* GetOwnerPC() const;
+
+    UPROPERTY()
+    TObjectPtr<UkdTransitionFlashWidget> TransitionFlashWidget;
 };
 
 

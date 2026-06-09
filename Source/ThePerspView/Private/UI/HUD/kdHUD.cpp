@@ -11,11 +11,27 @@
 #include "UI/Widget/kdLoadingScreenWidget.h"
 #include "UI/Widget/kdDeathWidget.h"
 #include "UI/Widget/kdGameOverWidget.h"
+#include "UI/Widget/kdTransitionFlashWidget.h"
 
 
 void AkdHUD::BeginPlay()
 {
 	Super::BeginPlay();
+
+    // Transition flash is permanent in the viewport — alpha drives visibility.
+    if (TransitionFlashWidgetClass)
+    {
+        if (APlayerController* PC = GetOwnerPC())
+        {
+            TransitionFlashWidget = CreateWidget<UkdTransitionFlashWidget>(
+                PC, TransitionFlashWidgetClass);
+            if (TransitionFlashWidget)
+            {
+                // ZOrder 50 — above gameplay HUD (5), below menus (20+).
+                TransitionFlashWidget->AddToViewport(50);
+            }
+        }
+    }
 }
 
 void AkdHUD::SetGameInputMode()
