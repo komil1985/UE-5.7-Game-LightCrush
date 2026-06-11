@@ -6,13 +6,15 @@
 #include "AbilitySystemComponent.h"
 #include "GameplayTags/kdGameplayTags.h"
 #include "Kismet/GameplayStatics.h"
+#include "Components/StaticMeshComponent.h"
+#include "Camera/PlayerCameraManager.h"
 
 
 
 UkdGeometryTransitionComponent::UkdGeometryTransitionComponent()
 {
-	PrimaryComponentTick.bCanEverTick = true;
-	PrimaryComponentTick.bStartWithTickEnabled = false;
+    PrimaryComponentTick.bCanEverTick = true;
+    PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
 void UkdGeometryTransitionComponent::BeginPlay()
@@ -41,18 +43,22 @@ void UkdGeometryTransitionComponent::BeginPlay()
     MeshRelScaleX_Original = OriginalMeshRelativeScale.X;
     MeshRelScaleX_Crush = OriginalMeshRelativeScale.X * CrushXScaleMultiplier;
 
-    // ── Compute the relative X offset that places the mesh at CrushWorldX ─────
+    // Remember the designer's shadow settings so we can restore them on Crush exit.
+    bOrigCastShadow = (CachedMesh->CastShadow != 0);
+    bOrigCastHiddenShadow = (CachedMesh->bCastHiddenShadow != 0);
+
+    // ── Compute the relative X offset that places the mesh at the crush plane ──
     //
     // mesh world X ≈ actorWorldX + relativeX (assuming no actor rotation on X)
-    // We want mesh world X = CrushWorldX
-    // → relativeX_crush = CrushWorldX - actorWorldX
+    // We want mesh world X = CrushWorldX + behind-offset
+    // → relativeX_crush = (CrushWorldX + offset) - actorWorldX
     //
     // This is an approximation valid for unrotated actors (standard for geometry).
     // For rotated actors the math extends to a full inverse-transform, but that
     // case is uncommon enough that we document it as "not supported with rotation".
     const float ActorWorldX = Owner->GetActorLocation().X;
     MeshRelX_Original = OriginalMeshRelativeLoc.X;
-    MeshRelX_Crush = MeshRelX_Original + (CrushWorldX - ActorWorldX);
+    MeshRelX_Crush = MeshRelX_Original + ((CrushWorldX + ResolveDepthOffset(CrushWorldX)) - ActorWorldX);
 
     // ── Register on the player's ASC ──────────────────────────────────────────
     AkdMyPlayer* Player = Cast<AkdMyPlayer>(
@@ -83,6 +89,10 @@ void UkdGeometryTransitionComponent::BeginPlay()
         SnapScale.X = MeshRelScaleX_Crush;
         CachedMesh->SetRelativeLocation(SnapLoc);
         CachedMesh->SetRelativeScale3D(SnapScale);
+
+        // Flatten the shadow too if we boot straight into Crush mode.
+        bToCrushMode = true;
+        ApplyShadowFlatten(true);
     }
 
 }
@@ -189,20 +199,67 @@ void UkdGeometryTransitionComponent::OnCrushModeTagChanged(const FGameplayTag Ta
             const float PlayerWorldX = Player->GetActorLocation().X;
             const float ActorWorldX = GetOwner()->GetActorLocation().X;
 
-            // Convert player world X into mesh-relative X delta.
+            // Convert player world X (+ behind-offset) into a mesh-relative X delta.
             // mesh world X ≈ actorWorldX + relativeX (valid for unrotated actors).
-            MeshRelX_Crush = MeshRelX_Original + (PlayerWorldX - ActorWorldX);
+            // CrushDepthOffset is 0 for floors/shadow areas and >0 for walls.
+            const float AppliedOffset = ResolveDepthOffset(PlayerWorldX);
+            MeshRelX_Crush = MeshRelX_Original + ((PlayerWorldX + AppliedOffset) - ActorWorldX);
             MeshRelScaleX_Crush = OriginalMeshRelativeScale.X * CrushXScaleMultiplier;
 
 #if !UE_BUILD_SHIPPING
             UE_LOG(LogTemp, Log,
-                TEXT("GeometryTransition [%s]: CrushTarget X = %.1f (playerWorldX=%.1f)"),
-                *GetOwner()->GetName(), PlayerWorldX, PlayerWorldX);
+                TEXT("GeometryTransition [%s]: CrushTarget X = %.1f (playerWorldX=%.1f, offset=%.1f)"),
+                *GetOwner()->GetName(), PlayerWorldX + AppliedOffset, PlayerWorldX, AppliedOffset);
 #endif
         }
     }
 
+    // Flatten the cast shadow on the way in, restore it on the way out.
+    ApplyShadowFlatten(bToCrushMode);
+
     StateElapsed = 0.f;
     State = (ShiverDuration > KINDA_SMALL_NUMBER) ? EGeoState::Shivering : EGeoState::Morphing;
     SetComponentTickEnabled(true);
+}
+
+float UkdGeometryTransitionComponent::ResolveDepthOffset(float ReferenceX) const
+{
+    // Manual mode: use the raw signed value the designer entered.
+    if (!bAutoOffsetBehindCamera)
+    {
+        return CrushDepthOffset;
+    }
+
+    // Auto mode: push away from the Crush camera so a positive magnitude is
+    // always "behind" the player, regardless of which side the camera sits on.
+    if (const APlayerCameraManager* Cam = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0))
+    {
+        const float CamX = Cam->GetCameraLocation().X;
+        const float BehindSign = (CamX >= ReferenceX) ? -1.f : 1.f;
+        return FMath::Abs(CrushDepthOffset) * BehindSign;
+    }
+
+    // Camera not ready yet (e.g. boot-into-crush) — fall back to the raw value.
+    return CrushDepthOffset;
+}
+
+void UkdGeometryTransitionComponent::ApplyShadowFlatten(bool bFlatten)
+{
+    if (!bFlattenShadowInCrush || !CachedMesh) return;
+
+    if (bFlatten)
+    {
+        // Suppress 3D shadow casting so the flattened slab doesn't read as a
+        // volumetric shadow in the side view — the flat look comes from the
+        // projected position and the stencil post-process.
+        CachedMesh->SetCastShadow(false);
+        CachedMesh->bCastHiddenShadow = false;
+    }
+    else
+    {
+        // Restore the designer's original settings (never hard-code true).
+        CachedMesh->SetCastShadow(bOrigCastShadow);
+        CachedMesh->bCastHiddenShadow = bOrigCastHiddenShadow;
+    }
+    CachedMesh->MarkRenderStateDirty();
 }
