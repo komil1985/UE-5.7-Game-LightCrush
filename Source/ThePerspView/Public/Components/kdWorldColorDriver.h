@@ -74,6 +74,17 @@ public:
     UFUNCTION(BlueprintPure, Category = "Color Driver")
     float GetBlendAlpha() const { return BlendAlpha; }
 
+    /** Seconds for the player shadow-tint to fade in/out on State.InShadow
+    *  changes.  Short — it should feel like ink soaking in, not a scene blend. */
+    UPROPERTY(EditDefaultsOnly, Category = "Color Driver|Shadow Tint",
+        meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float ShadowTintFadeDuration = 0.18f;
+
+    /** Current shadow-tint alpha (0 = lit / 3D, 1 = fully in shadow in Crush).
+     *  Materials read the matching MPC scalar; this getter is for UI/debug. */
+    UFUNCTION(BlueprintPure, Category = "Color Driver")
+    float GetShadowTintAlpha() const { return ShadowTintAlpha; }
+
     // ── BP-overridable hooks (optional polish) ───────────────────────────────
 
     UFUNCTION(BlueprintImplementableEvent, Category = "Color Driver")
@@ -101,6 +112,16 @@ private:
     void WriteEdgePulseAlpha(float Alpha) const;
     void WriteChromaticAberration() const;
     bool NeedsTick() const;
+
+    // ── Shadow tint (player-in-shadow, Crush Mode only) ──────────────────────
+
+    UFUNCTION()
+    void OnInShadowTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
+
+    void WriteShadowTintAlpha(float Alpha) const;
+
+    float ShadowTintAlpha = 0.f;   // current, written to MPC
+    float ShadowTintTarget = 0.f;   // 1 while State.InShadow is present
 
     // ── Steady-state blend ───────────────────────────────────────────────────
 
@@ -139,4 +160,5 @@ private:
     static const FName ParamName_LumenColor;
     static const FName ParamName_SolarColor;
     static const FName ParamName_IndigoFieldColor;
+    static const FName ParamName_ShadowTintAlpha;
 };

@@ -22,6 +22,7 @@
 
 const FName UkdWorldColorDriver::ParamName_WorldBlendAlpha = TEXT("WorldBlendAlpha");
 const FName UkdWorldColorDriver::ParamName_EdgePulseAlpha = TEXT("EdgePulseAlpha");
+const FName UkdWorldColorDriver::ParamName_ShadowTintAlpha = TEXT("ShadowTintAlpha");
 const FName UkdWorldColorDriver::ParamName_LumenColor = TEXT("LumenColor");
 const FName UkdWorldColorDriver::ParamName_SolarColor = TEXT("SolarColor");
 const FName UkdWorldColorDriver::ParamName_IndigoFieldColor = TEXT("IndigoFieldColor");
@@ -96,6 +97,21 @@ void UkdWorldColorDriver::BeginPlay()
                 EGameplayTagEventType::NewOrRemoved)
                 .AddUObject(this, &UkdWorldColorDriver::OnCrushModeTagChanged);
 
+            // Shadow tint follows State.InShadow — the tag only exists while
+            // the player is in shadow DURING Crush Mode, and is removed by
+            // both the toggle ability and CrushStateComponent on crush exit,
+            // so this single registration covers "revert on leaving shadow
+            // OR leaving 2D mode" with no extra bookkeeping.
+            ASC->RegisterGameplayTagEvent(
+                FkdGameplayTags::Get().State_InShadow,
+                EGameplayTagEventType::NewOrRemoved)
+                .AddUObject(this, &UkdWorldColorDriver::OnInShadowTagChanged);
+
+            // Seed from current state — covers respawn / level load mid-shadow.
+            ShadowTintTarget = ASC->HasMatchingGameplayTag(
+                FkdGameplayTags::Get().State_InShadow) ? 1.f : 0.f;
+            ShadowTintAlpha = ShadowTintTarget;
+
             // Initialise to current tag state — covers respawn / level load
             BlendAlpha = ASC->HasMatchingGameplayTag(
                 FkdGameplayTags::Get().State_CrushMode) ? 1.f : 0.f;
@@ -108,6 +124,7 @@ void UkdWorldColorDriver::BeginPlay()
     ApplyProfileToPostProcess(BlendAlpha);
     UpdateMPC(BlendAlpha);
     WriteEdgePulseAlpha(0.f);
+    WriteShadowTintAlpha(ShadowTintAlpha);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -177,6 +194,22 @@ void UkdWorldColorDriver::TickComponent(
         }
     }
 
+    // ── Shadow tint fade (player in-shadow, Crush Mode only) ─────────────────
+    if (!FMath::IsNearlyEqual(ShadowTintAlpha, ShadowTintTarget))
+    {
+        if (ShadowTintFadeDuration > KINDA_SMALL_NUMBER)
+        {
+            ShadowTintAlpha = FMath::FInterpConstantTo(
+                ShadowTintAlpha, ShadowTintTarget,
+                DeltaTime, 1.f / ShadowTintFadeDuration);
+        }
+        else
+        {
+            ShadowTintAlpha = ShadowTintTarget;   // instant snap
+        }
+        WriteShadowTintAlpha(ShadowTintAlpha);
+    }
+
     // ── Gate tick when nothing left to drive ─────────────────────────────────
     if (!NeedsTick())
     {
@@ -216,6 +249,12 @@ void UkdWorldColorDriver::TriggerChromaticBurst(float Intensity, float Duration)
 
 void UkdWorldColorDriver::OnCrushModeTagChanged(const FGameplayTag /*Tag*/, int32 NewCount)
 {
+    // Leaving Crush Mode always reverts the shadow tint, even if the
+    // State.InShadow removal event were ever missed.
+    if (NewCount <= 0)
+    {
+        ShadowTintTarget = 0.f;
+    }
     StartBlend(NewCount > 0);
 }
 
@@ -359,9 +398,22 @@ void UkdWorldColorDriver::WriteChromaticAberration() const
     PostProcessComp->Settings.SceneFringeIntensity = Baseline + ChromaticBurstCurrent;
 }
 
+void UkdWorldColorDriver::OnInShadowTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+{
+    ShadowTintTarget = (NewCount > 0) ? 1.f : 0.f;
+    SetComponentTickEnabled(true);
+}
+
+void UkdWorldColorDriver::WriteShadowTintAlpha(float Alpha) const
+{
+    if (!MPCInstance) return;
+    MPCInstance->SetScalarParameterValue(ParamName_ShadowTintAlpha, Alpha);
+}
+
 bool UkdWorldColorDriver::NeedsTick() const
 {
     return bBlending
         || (EdgePulseCurrent > KINDA_SMALL_NUMBER)
-        || (ChromaticBurstCurrent > KINDA_SMALL_NUMBER);
+        || (ChromaticBurstCurrent > KINDA_SMALL_NUMBER)
+        || !FMath::IsNearlyEqual(ShadowTintAlpha, ShadowTintTarget);
 }
