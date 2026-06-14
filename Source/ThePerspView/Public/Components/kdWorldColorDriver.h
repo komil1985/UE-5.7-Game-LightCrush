@@ -7,10 +7,39 @@
 #include "GameplayTagContainer.h"
 #include "kdWorldColorDriver.generated.h"
 
+
+USTRUCT(BlueprintType)
+struct FkdPostProcessModePreset
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, Category = "kd|PostProcess")
+    float BloomIntensity = 1.0f;
+
+    UPROPERTY(EditAnywhere, Category = "kd|PostProcess")
+    float VignetteIntensity = 0.4f;
+
+    // Baseline chromatic aberration; GameFeedbackComponent adds transient
+    // bursts on top of this, both ultimately written by the driver.
+    UPROPERTY(EditAnywhere, Category = "kd|PostProcess")
+    float SceneFringeIntensity = 0.0f;
+
+    UPROPERTY(EditAnywhere, Category = "kd|PostProcess")
+    float WhiteTemp = 6500.0f;
+
+    UPROPERTY(EditAnywhere, Category = "kd|PostProcess")
+    float FilmSlope = 0.88f;
+
+    UPROPERTY(EditAnywhere, Category = "kd|PostProcess")
+    float FilmToe = 0.55f;
+};
+
+
 class APostProcessVolume;
 class UMaterialParameterCollectionInstance;
 class UPostProcessComponent;
 class UkdColorTheme;
+class UCameraComponent;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UkdWorldColorDriver
@@ -40,6 +69,15 @@ public:
     /** Heliograph palette + PP profiles.  Required for any colour work. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Color Driver")
     TObjectPtr<UkdColorTheme> ColorTheme;
+
+    UPROPERTY(EditDefaultsOnly, Category = "kd|PostProcess")
+    FkdPostProcessModePreset LightWorldPostProcess;
+
+    UPROPERTY(EditDefaultsOnly, Category = "kd|PostProcess")
+    FkdPostProcessModePreset CrushModePostProcess;
+
+    UFUNCTION(BlueprintCallable, Category = "Color Driver")
+    void ApplyBlendedPostProcess(float WorldBlendAlpha);
 
     /**
      * Trigger a one-shot edge-trace highlight pulse on all materials reading
@@ -99,6 +137,9 @@ protected:
         FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
+    UPROPERTY(Transient)
+    TObjectPtr<UCameraComponent> CachedCameraComponent = nullptr;
+
     // ── Tag callback ─────────────────────────────────────────────────────────
 
     UFUNCTION()

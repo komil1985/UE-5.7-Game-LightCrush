@@ -98,12 +98,23 @@ void UkdLightHealthWidget::InitializeWithASC(UAbilitySystemComponent* InASC, Ukd
 
     UpdateBar(CurrentHealth, MaxHealth);
 
-    CurrentBarColor = LightDamageColor;
-    TargetBarColor = LightDamageColor;
+    //CurrentBarColor = LightDamageColor;
+    //TargetBarColor = LightDamageColor;
+
+    bInShadow = InComponent->IsInShadow();
+    TargetBarColor = ResolveTargetBarColor();
+    CurrentBarColor = TargetBarColor;
+    DangerTimer = 0.f;
 
     if (Bar_LightHealth)
     {
         Bar_LightHealth->SetFillColorAndOpacity(CurrentBarColor);
+    }
+
+    if (Txt_LightDanger)
+    {
+        Txt_LightDanger->SetVisibility(
+            bInShadow ? ESlateVisibility::Hidden : ESlateVisibility::HitTestInvisible);
     }
 
 #if !UE_BUILD_SHIPPING
@@ -176,20 +187,32 @@ void UkdLightHealthWidget::OnMaxLightHealthChanged(const FOnAttributeChangeData&
 void UkdLightHealthWidget::OnShadowStateChanged(bool bNewInShadow)
 {
     bInShadow = bNewInShadow;
-    //TargetBarColor = bInShadow ? ShadowHealColor : LightDamageColor;
     TargetBarColor = ResolveTargetBarColor();
-}
 
-void UkdLightHealthWidget::OnCriticalChanged(bool bNewCritical)
-{
-    bIsCritical = bNewCritical;
+    // ── Light Exposure Warning ─────────────────────────────────────────────
+    // Entering light  (bInShadow == false) -> sign appears, blink loop starts.
+    // Entering shadow (bInShadow == true)  -> sign hides immediately, blink loop pauses.
+    // Reset DangerTimer so the sign is visible right away on the frame the
+    // state flips, instead of possibly landing mid-cycle in its "hidden" phase.
     DangerTimer = 0.f;
 
     if (Txt_LightDanger)
     {
         Txt_LightDanger->SetVisibility(
-            bIsCritical ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
+            bInShadow ? ESlateVisibility::Hidden : ESlateVisibility::HitTestInvisible);
     }
+}
+
+void UkdLightHealthWidget::OnCriticalChanged(bool bNewCritical)
+{
+    bIsCritical = bNewCritical;
+/*    DangerTimer = 0.f;
+
+    if (Txt_LightDanger)
+    {
+        Txt_LightDanger->SetVisibility(
+            bIsCritical ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
+    }*/
 
     BP_OnCriticalStateChanged(bIsCritical);
 }
@@ -241,7 +264,7 @@ void UkdLightHealthWidget::NativeTick(const FGeometry& MyGeometry, float DeltaTi
     TickBarLerp(DeltaTime);
     TickColourLerp(DeltaTime);
 
-    if (bIsCritical)
+    if (!bInShadow)
     {
         TickDangerBlink(DeltaTime);
     }

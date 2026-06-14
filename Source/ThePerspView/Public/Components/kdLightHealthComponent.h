@@ -48,6 +48,13 @@ public:
     UFUNCTION(BlueprintPure, Category = "Light Health")
     float GetHealthPercent() const;
 
+    /** Returns true if the player is currently standing in a shadow volume
+    *  (healing). Used by UkdLightHealthWidget to seed the light-exposure
+    *  warning sign's initial visibility before the first
+    *  OnShadowStateChanged broadcast. */
+    UFUNCTION(BlueprintPure, Category = "Light Health")
+    bool IsInShadow() const { return bIsInShadow; }
+
     // ── Delegates (widget binds here) ─────────────────────────────────────────
 
     /** Fires every tick with the new current and max values. */

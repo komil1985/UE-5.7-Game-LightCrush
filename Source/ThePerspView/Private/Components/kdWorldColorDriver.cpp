@@ -9,6 +9,10 @@
 #include "Engine/PostProcessVolume.h"
 #include "Materials/MaterialParameterCollectionInstance.h"
 #include "Kismet/GameplayStatics.h"
+#include "Camera/CameraComponent.h"
+#include "Camera/PlayerCameraManager.h"
+#include "Volume/AkdGlobalPostProcessVolume.h"
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MPC parameter names — must match the asset created in editor.
@@ -43,6 +47,8 @@ UkdWorldColorDriver::UkdWorldColorDriver()
 void UkdWorldColorDriver::BeginPlay()
 {
     Super::BeginPlay();
+
+    AAkdGlobalPostProcessVolume::EnsureExists(GetWorld());
 
     // ── Find or create the unbound PostProcessComponent owned by the player ──
     if (ColorTheme)
@@ -125,6 +131,19 @@ void UkdWorldColorDriver::BeginPlay()
     UpdateMPC(BlendAlpha);
     WriteEdgePulseAlpha(0.f);
     WriteShadowTintAlpha(ShadowTintAlpha);
+
+    if (AActor* Owner = GetOwner())
+    {
+        CachedCameraComponent = Owner->FindComponentByClass<UCameraComponent>();
+
+        if (!CachedCameraComponent)
+        {
+            UE_LOG(LogTemp, Warning,
+                TEXT("UkdWorldColorDriver: no UCameraComponent found on '%s'. "
+                    "Driver-side bloom/vignette/white-balance blending will be skipped."),
+                *Owner->GetName());
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -220,6 +239,45 @@ void UkdWorldColorDriver::TickComponent(
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API
 // ─────────────────────────────────────────────────────────────────────────────
+
+void UkdWorldColorDriver::ApplyBlendedPostProcess(float WorldBlendAlpha)
+{
+    if (!CachedCameraComponent)
+    {
+        return;
+    }
+
+    FPostProcessSettings& PP = CachedCameraComponent->PostProcessSettings;
+
+    PP.bOverride_BloomIntensity = true;
+    PP.BloomIntensity = FMath::Lerp(LightWorldPostProcess.BloomIntensity,
+        CrushModePostProcess.BloomIntensity, WorldBlendAlpha);
+
+    PP.bOverride_VignetteIntensity = true;
+    PP.VignetteIntensity = FMath::Lerp(LightWorldPostProcess.VignetteIntensity,
+        CrushModePostProcess.VignetteIntensity, WorldBlendAlpha);
+
+    PP.bOverride_SceneFringeIntensity = true;
+    PP.SceneFringeIntensity = FMath::Lerp(LightWorldPostProcess.SceneFringeIntensity,
+        CrushModePostProcess.SceneFringeIntensity, WorldBlendAlpha);
+    // Fold in any transient burst from UkdGameFeedbackComponent here, e.g.:
+    // PP.SceneFringeIntensity += CurrentFeedbackBurst.ChromaticAberrationOffset;
+
+    PP.bOverride_WhiteTemp = true;
+    PP.WhiteTemp = FMath::Lerp(LightWorldPostProcess.WhiteTemp,
+        CrushModePostProcess.WhiteTemp, WorldBlendAlpha);
+
+    PP.bOverride_FilmSlope = true;
+    PP.FilmSlope = FMath::Lerp(LightWorldPostProcess.FilmSlope,
+        CrushModePostProcess.FilmSlope, WorldBlendAlpha);
+
+    PP.bOverride_FilmToe = true;
+    PP.FilmToe = FMath::Lerp(LightWorldPostProcess.FilmToe,
+        CrushModePostProcess.FilmToe, WorldBlendAlpha);
+
+    CachedCameraComponent->PostProcessBlendWeight = 1.0f;
+
+}
 
 void UkdWorldColorDriver::TriggerEdgePulse(float Strength, float Duration)
 {
