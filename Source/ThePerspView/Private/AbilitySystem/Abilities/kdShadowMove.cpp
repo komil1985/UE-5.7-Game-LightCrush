@@ -26,6 +26,7 @@ UkdShadowMove::UkdShadowMove()
 
 bool UkdShadowMove::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
+    if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags)) return false;
     if (!ActorInfo || !ActorInfo->AbilitySystemComponent.IsValid()) return false;
 
     // Require crush mode and in-shadow tag
@@ -37,7 +38,7 @@ bool UkdShadowMove::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, 
     const UkdAttributeSet* AttrSet = Cast<UkdAttributeSet>(ActorInfo->AbilitySystemComponent->GetAttributeSet(UkdAttributeSet::StaticClass()));
     if (!AttrSet) return false;
 
-    return AttrSet->GetShadowStamina() > MinStaminaToActivate;
+    return AttrSet && AttrSet->GetShadowStamina() > MinStaminaToActivate;
 
 }
 
@@ -73,7 +74,7 @@ void UkdShadowMove::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
     }
 
     // end the ability immediately
-	EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+	EndAbility(Handle, ActorInfo, ActivationInfo, true, /*bWasCancelled=*/false);
 }
 
 void UkdShadowMove::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)

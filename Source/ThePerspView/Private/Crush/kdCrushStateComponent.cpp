@@ -32,7 +32,12 @@ UkdCrushStateComponent::UkdCrushStateComponent()
 void UkdCrushStateComponent::BeginPlay()
 {
 	Super::BeginPlay();
+	
 	CachedOwner = Cast<AkdMyPlayer>(GetOwner());
+	if (!CachedOwner) return;
+	auto* MoveComp = CachedOwner->GetCharacterMovement();
+	if (!MoveComp) return;
+	
 	if (UAbilitySystemComponent* ASC = CachedOwner->GetAbilitySystemComponent())
 	{
 		ASC->RegisterGameplayTagEvent(FkdGameplayTags::Get().State_CrushMode,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &UkdCrushStateComponent::OnCrushModeTagChanged_Regen);

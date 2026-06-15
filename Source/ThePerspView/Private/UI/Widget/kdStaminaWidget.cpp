@@ -40,7 +40,8 @@ void UkdStaminaWidget::OnStaminaChanged(const FOnAttributeChangeData& Data)
 
     if (StaminaBar)
     {
-        StaminaBar->SetPercent(CurrentStamina / MaxStamina);
+        //StaminaBar->SetPercent(CurrentStamina / MaxStamina);
+        StaminaBar->SetPercent(MaxStamina > 0.f ? CurrentStamina / MaxStamina : 0.f);
     }
     UpdateVisibility();
     UpdateBarColor();
@@ -52,7 +53,8 @@ void UkdStaminaWidget::OnMaxStaminaChanged(const FOnAttributeChangeData& Data)
 
     if (StaminaBar)
     {
-        StaminaBar->SetPercent(CurrentStamina / MaxStamina);
+        //StaminaBar->SetPercent(CurrentStamina / MaxStamina);
+        StaminaBar->SetPercent(MaxStamina > 0.f ? CurrentStamina / MaxStamina : 0.f);
     }
     UpdateVisibility();
     UpdateBarColor();

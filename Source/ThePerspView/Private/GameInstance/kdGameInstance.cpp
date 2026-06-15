@@ -56,6 +56,9 @@ UkdGameInstance* UkdGameInstance::Get(const UObject* WorldContext)
 
 void UkdGameInstance::LoadLevel(FName LevelName)
 {
+    const int32 Found = LevelOrder.IndexOfByKey(LevelName);
+    if (Found != INDEX_NONE) CurrentLevelIndex = Found;
+
     // Reset session data every time we load a new level
     LevelStartTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
     SessionScore = 0;
