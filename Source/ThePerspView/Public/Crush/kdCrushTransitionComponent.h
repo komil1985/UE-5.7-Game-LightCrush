@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Crush/kdCrushDirection.h"
 #include "kdCrushTransitionComponent.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCrushTransitionComplete, bool, bIsCrushMode);
@@ -22,7 +23,7 @@ public:
     UkdCrushTransitionComponent();
 
     UFUNCTION(BlueprintCallable, Category = "Crush | Transition")
-    void StartTransition(bool bToCrushMode);
+    void StartTransition(bool bToCrushMode, EkdCrushDirection Direction = EkdCrushDirection::PosX);
 
     /** Called by CrushStateComponent after floor trace places the player safely.
     *  Removes the X plane constraint that prevents falling during transition. */
@@ -259,4 +260,6 @@ private:
     // ── Plane constraint ──────────────────────────────────────────────────────
     void ApplyPlaneConstraint();
     void RemovePlaneConstraintInternal();
+
+    EkdCrushDirection ActiveCrushDirection = EkdCrushDirection::PosX;
 };

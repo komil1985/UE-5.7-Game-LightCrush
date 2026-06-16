@@ -8,7 +8,7 @@
 #include "Crush/kdCrushTransitionComponent.h"
 #include "Crush/kdCrushStateComponent.h"
 #include "Components/kdGameFeedbackComponent.h"
-
+#include "Crush/kdCrushDirectionLibrary.h"
 
 
 Ukd_CrushToggle::Ukd_CrushToggle()
@@ -73,6 +73,42 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 
     const bool bTargetCrushMode = !ASC->HasMatchingGameplayTag(Tags.State_CrushMode);
 
+    /////////////////////////////////////////////Start Direction Crush//////////////////////////////////////////////////////////////////////
+    EkdCrushDirection CrushDir = EkdCrushDirection::PosX; // default — overwritten below on enter
+    if (bTargetCrushMode)
+    {
+        float ControlYaw = 0.f;
+        if (const AController* C = Player->GetController())
+        {
+            ControlYaw = C->GetControlRotation().Yaw;
+        }
+
+        float AlignmentError = 0.f;
+        CrushDir = UkdCrushDirectionLibrary::ResolveCrushDirection(ControlYaw, CrushAlignmentToleranceDegrees, AlignmentError);
+
+#if !UE_BUILD_SHIPPING
+        UE_LOG(LogTemp, Log,
+            TEXT("CrushToggle: yaw=%.1f  error=%.1f°  dir=%d  tolerance=%.1f°"),
+            ControlYaw, AlignmentError, static_cast<int32>(CrushDir),
+            CrushAlignmentToleranceDegrees);
+#endif
+
+        if (CrushDir == EkdCrushDirection::None)
+        {
+            // Off-axis — abort cleanly.  Do NOT add State_Transitioning.
+            // Route a denied cue through GFC here when you have one wired up:
+            //   GFC->OnCrushDirectionDenied(AlignmentError);
+            UE_LOG(LogTemp, Log,
+                TEXT("CrushToggle: Crush DENIED — yaw not aligned to any cardinal "
+                    "(error %.1f° > limit %.1f°)."),
+                AlignmentError, CrushAlignmentToleranceDegrees);
+
+            EndAbility(Handle, ActorInfo, ActivationInfo, /*bReplicate*/ true, /*bWasCancelled*/ true);
+            return;
+        }
+    }
+    /////////////////////////////////////////////End Direction Crush//////////////////////////////////////////////////////////////////////
+
     // ── 4. IMMEDIATE feedback — fires before anticipation delay ───────────────
     //
     // OnCrushTransitionStarted runs right now so the player gets instant
@@ -82,7 +118,6 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
     {
         GFC->OnCrushTransitionStarted(bTargetCrushMode);
     }
-
 
     // --- Apply drain effect when entering crush mode ---
     if (bTargetCrushMode && CrushDrainEffect)
@@ -101,7 +136,7 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
         CachedTransitionComp->OnTransitionComplete.AddDynamic(this, &Ukd_CrushToggle::OnTransitionFinished);
     }
   
-    CachedTransitionComp->StartTransition(bTargetCrushMode);
+    CachedTransitionComp->StartTransition(bTargetCrushMode, CrushDir);
 }
 
 void Ukd_CrushToggle::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)

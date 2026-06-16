@@ -6,6 +6,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/TimelineComponent.h"
+#include "Crush/kdCrushDirectionLibrary.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -70,7 +71,7 @@ void UkdCrushTransitionComponent::BeginPlay()
 // the camera and mesh lerp ranges are all set here before the timeline plays.
 // ─────────────────────────────────────────────────────────────────────────────
 
-void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
+void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode, EkdCrushDirection Direction)
 {
 #if !UE_BUILD_SHIPPING
     UE_LOG(LogTemp, Log, TEXT("CrushTransition [%s]: → %s"),
@@ -78,6 +79,11 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode)
 #endif
 
     if (!CachedOwner) return;
+
+    if (bToCrushMode)
+    {
+        ActiveCrushDirection = Direction;
+    }
 
     GetWorld()->GetTimerManager().ClearTimer(SettleTickHandle);
     CrushTimeline->Stop();
@@ -585,20 +591,46 @@ void UkdCrushTransitionComponent::ApplyZSquashStretch(float Alpha, USkeletalMesh
 
 void UkdCrushTransitionComponent::ApplyPlaneConstraint()
 {
+//    UCharacterMovementComponent* MC = CachedOwner ? CachedOwner->GetCharacterMovement() : nullptr;
+//    if (!MC) return;
+//
+//    // Lock to the player's CURRENT X — wherever they are standing right now.
+//    // This is the only correct plane origin; CrushWorldX is irrelevant.
+//    const float PlayerCurrentX = CachedOwner->GetActorLocation().X;
+//
+//    MC->SetPlaneConstraintEnabled(true);
+//    MC->SetPlaneConstraintNormal(FVector(1.f, 0.f, 0.f));
+//    MC->SetPlaneConstraintOrigin(FVector(PlayerCurrentX, 0.f, 0.f));
+//
+//#if !UE_BUILD_SHIPPING
+//    UE_LOG(LogTemp, Log,
+//        TEXT("CrushTransition: Plane constraint ON at player X=%.1f"), PlayerCurrentX);
+//#endif
+
     UCharacterMovementComponent* MC = CachedOwner ? CachedOwner->GetCharacterMovement() : nullptr;
     if (!MC) return;
 
-    // Lock to the player's CURRENT X — wherever they are standing right now.
-    // This is the only correct plane origin; CrushWorldX is irrelevant.
-    const float PlayerCurrentX = CachedOwner->GetActorLocation().X;
+    // Resolve the collapse axis from the stored direction.
+    // PosX/NegX → normal (1,0,0).  PosY/NegY → normal (0,1,0).
+    const FVector Normal = UkdCrushDirectionLibrary::DirectionToCollapseNormal(ActiveCrushDirection);
+
+    // Lock the player to their CURRENT position on the active axis.
+    // Capturing the live location at toggle time (not a preset value) is what
+    // prevents the constraint from fighting any sub-pixel position drift.
+    const FVector PlayerLoc = CachedOwner->GetActorLocation();
+    const FVector Origin(
+        (Normal.X > KINDA_SMALL_NUMBER) ? PlayerLoc.X : 0.f,
+        (Normal.Y > KINDA_SMALL_NUMBER) ? PlayerLoc.Y : 0.f,
+        0.f);
 
     MC->SetPlaneConstraintEnabled(true);
-    MC->SetPlaneConstraintNormal(FVector(1.f, 0.f, 0.f));
-    MC->SetPlaneConstraintOrigin(FVector(PlayerCurrentX, 0.f, 0.f));
+    MC->SetPlaneConstraintNormal(Normal);
+    MC->SetPlaneConstraintOrigin(Origin);
 
 #if !UE_BUILD_SHIPPING
     UE_LOG(LogTemp, Log,
-        TEXT("CrushTransition: Plane constraint ON at player X=%.1f"), PlayerCurrentX);
+        TEXT("CrushTransition: Plane constraint ON | axis=%s | origin=(%.1f, %.1f)"),
+        *Normal.ToString(), Origin.X, Origin.Y);
 #endif
 }
 

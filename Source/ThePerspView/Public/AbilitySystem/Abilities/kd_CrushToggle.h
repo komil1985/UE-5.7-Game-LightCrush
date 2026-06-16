@@ -41,6 +41,18 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Crush")
     TSubclassOf<UGameplayEffect> CrushDrainEffect;
 
+    /** Maximum yaw error (degrees) from a cardinal direction to permit entering
+    *  Crush.  Exiting Crush always works regardless of camera yaw.
+    *
+    *  8°  = strict — player must deliberately align the camera.
+    *  12° = default sweet spot for mouse input (recommended).
+    *  20° = lenient — two cardinals start to bleed into each other near 45°.
+    *
+    *  Tune in the Blueprint CDO; the resolver reads this at toggle time. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Crush|Direction",
+        meta = (ClampMin = "1.0", ClampMax = "44.0"))
+    float CrushAlignmentToleranceDegrees = 12.f;
+
 private:
     FActiveGameplayEffectHandle ShadowDrainEffectHandle;
 
