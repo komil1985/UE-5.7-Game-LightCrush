@@ -95,7 +95,6 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 
         if (CrushDir == EkdCrushDirection::None)
         {
-            Player->SetActiveCrushDirection(CrushDir);
             // Off-axis — abort cleanly.  Do NOT add State_Transitioning.
             // Route a denied cue through GFC here when you have one wired up:
             //   GFC->OnCrushDirectionDenied(AlignmentError);
@@ -107,6 +106,9 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
             EndAbility(Handle, ActorInfo, ActivationInfo, /*bReplicate*/ true, /*bWasCancelled*/ true);
             return;
         }
+        // Aligned — publish the resolved direction so every axis-aware system
+        // (plane constraint, movement, CMC) reads one agreed value.
+        Player->SetActiveCrushDirection(CrushDir);
     }
     /////////////////////////////////////////////End Direction Crush//////////////////////////////////////////////////////////////////////
 

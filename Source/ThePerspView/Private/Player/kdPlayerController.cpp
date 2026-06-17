@@ -99,6 +99,9 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 
 		MyPlayerCache->AddMovementInput(ForwardDirection, InputAxisVector.Y);
 		MyPlayerCache->AddMovementInput(RightDirection, InputAxisVector.X);
+#if !UE_BUILD_SHIPPING
+		GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::Yellow, FString::Printf(TEXT("Yaw: %.1f"), GetControlRotation().Yaw));
+#endif
 	}
 	else
 	{
