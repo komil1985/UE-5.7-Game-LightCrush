@@ -7,6 +7,41 @@
 #include "Crush/kdCrushDirection.h"
 #include "kdCrushDirectionLibrary.generated.h"
 
+
+
+/**
+ * FkdCrushBasis
+ *
+ * The complete set of world axes for one crush direction, resolved once so
+ * every system (movement, plane constraint, camera, geometry) reads identical
+ * values instead of deriving its own.  Vertical is always world Z.
+ */
+USTRUCT(BlueprintType)
+struct FkdCrushBasis
+{
+    GENERATED_BODY()
+
+    /** Axis that collapses (the lost depth). Unsigned unit: (1,0,0) or (0,1,0). */
+    UPROPERTY(BlueprintReadOnly, Category = "kd|Crush") 
+    FVector CollapseNormal = FVector(1.f, 0.f, 0.f);
+
+    /** Horizontal 2D walk axis (screen-right). Signed unit vector. */
+    UPROPERTY(BlueprintReadOnly, Category = "kd|Crush") 
+    FVector WalkRight = FVector(0.f, 1.f, 0.f);
+
+    /** Crush camera forward (camera → play plane). Signed unit vector. */
+    UPROPERTY(BlueprintReadOnly, Category = "kd|Crush") 
+    FVector ViewForward = FVector(1.f, 0.f, 0.f);
+
+    /** World yaw (deg) the crush camera should adopt. */
+    UPROPERTY(BlueprintReadOnly, Category = "kd|Crush") 
+    float CameraYaw = 0.f;
+
+    /** true = collapsing Y (East/West); false = collapsing X (North/South). */
+    UPROPERTY(BlueprintReadOnly, Category = "kd|Crush") 
+    bool bCollapsesY = false;
+};
+
 /**
  * UkdCrushDirectionLibrary
  *
@@ -64,4 +99,9 @@ public:
      */
     UFUNCTION(BlueprintPure, Category = "kd|Crush|Direction")
     static FVector DirectionToViewVector(EkdCrushDirection Direction);
+
+   /** Resolve the full axis basis for a crush direction. The one call every
+   *  downstream system uses instead of hardcoding X. */
+    UFUNCTION(BlueprintPure, Category = "kd|Crush|Direction")
+    static FkdCrushBasis MakeCrushBasis(EkdCrushDirection Direction);
 };

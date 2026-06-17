@@ -95,6 +95,7 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 
         if (CrushDir == EkdCrushDirection::None)
         {
+            Player->SetActiveCrushDirection(CrushDir);
             // Off-axis — abort cleanly.  Do NOT add State_Transitioning.
             // Route a denied cue through GFC here when you have one wired up:
             //   GFC->OnCrushDirectionDenied(AlignmentError);

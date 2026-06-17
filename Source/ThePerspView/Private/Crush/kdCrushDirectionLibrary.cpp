@@ -92,3 +92,31 @@ FVector UkdCrushDirectionLibrary::DirectionToViewVector(EkdCrushDirection Direct
     default:                      return FVector::ZeroVector;
     }
 }
+
+FkdCrushBasis UkdCrushDirectionLibrary::MakeCrushBasis(EkdCrushDirection Direction)
+{
+    FkdCrushBasis Basis;
+
+    // None falls back to the North/X default so callers never get a zero basis.
+    if (Direction == EkdCrushDirection::None)
+    {
+        return Basis;
+    }
+
+    Basis.ViewForward = DirectionToViewVector(Direction);         // camera forward
+    Basis.CollapseNormal = DirectionToCollapseNormal(Direction);  // unsigned axis
+
+    // Screen-right = Up × Forward.  Verified per cardinal:
+    //   North  fwd(1,0,0)  → right(0,1,0)   (matches your current 2D walk)
+    //   East   fwd(0,1,0)  → right(-1,0,0)
+    //   South  fwd(-1,0,0) → right(0,-1,0)
+    //   West   fwd(0,-1,0) → right(1,0,0)
+    Basis.WalkRight = FVector::CrossProduct(FVector::UpVector, Basis.ViewForward).GetSafeNormal();
+
+    // Yaw that makes the camera face ViewForward (0/90/180/270 for N/E/S/W).
+    Basis.CameraYaw = Basis.ViewForward.Rotation().Yaw;
+
+    Basis.bCollapsesY = (Basis.CollapseNormal.Y > 0.5f);
+
+    return Basis;
+}

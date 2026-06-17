@@ -3,6 +3,7 @@
 
 #include "Components/kdCharacterMovementComponent.h"
 #include "Player/kdMyPlayer.h"
+#include "Crush/kdCrushDirectionLibrary.h"
 
 
 UkdCharacterMovementComponent::UkdCharacterMovementComponent()
@@ -29,32 +30,53 @@ void UkdCharacterMovementComponent::PhysCustom(float DeltaTime, int32 Iterations
 
 void UkdCharacterMovementComponent::ApplyShadowDashImpulse(float Strength)
 {
-	// Prefer last steering direction; fall back to current velocity if the
-	// player pressed dash while idle
+	//// Prefer last steering direction; fall back to current velocity if the
+	//// player pressed dash while idle
+	//FVector DashDir = LastShadowInputDirection;
+
+	//if (DashDir.IsNearlyZero())
+	//{
+	//	DashDir = FVector(0.f, Acceleration.Y, Acceleration.Z);
+	//	DashDir.X = 0.f;
+	//	DashDir = DashDir.GetSafeNormal();
+	//}
+
+	//// Still no direction — player is completely stationary with no prior input
+	//if (DashDir.IsNearlyZero())
+	//{
+	//	DashDir = FVector(0.f, Velocity.Y, Velocity.Z);
+	//	DashDir.X = 0.f;
+	//	DashDir = DashDir.GetSafeNormal();
+	//}
+
+	//if (DashDir.IsNearlyZero()) return;
+
+	//bIsDashing = true;
+
+	//// Override (don't add to) velocity so the burst is always a predictable speed
+	//Velocity = DashDir * Strength;
+	//Velocity.X = 0.f;
+
+	const FVector CollapseN = GetCrushCollapseNormal();
+
+	// Prefer last steering direction; fall back to input, then velocity.
 	FVector DashDir = LastShadowInputDirection;
 
 	if (DashDir.IsNearlyZero())
 	{
-		DashDir = FVector(0.f, Acceleration.Y, Acceleration.Z);
-		DashDir.X = 0.f;
-		DashDir = DashDir.GetSafeNormal();
+		DashDir = FVector::VectorPlaneProject(Acceleration, CollapseN).GetSafeNormal();
 	}
-
-	// Still no direction — player is completely stationary with no prior input
 	if (DashDir.IsNearlyZero())
 	{
-		DashDir = FVector(0.f, Velocity.Y, Velocity.Z);
-		DashDir.X = 0.f;
-		DashDir = DashDir.GetSafeNormal();
+		DashDir = FVector::VectorPlaneProject(Velocity, CollapseN).GetSafeNormal();
 	}
-
 	if (DashDir.IsNearlyZero()) return;
 
 	bIsDashing = true;
 
-	// Override (don't add to) velocity so the burst is always a predictable speed
+	// Override velocity for a predictable burst, kept on the play plane.
 	Velocity = DashDir * Strength;
-	Velocity.X = 0.f;
+	Velocity = FVector::VectorPlaneProject(Velocity, CollapseN);
 }
 
 void UkdCharacterMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
@@ -86,16 +108,32 @@ void UkdCharacterMovementComponent::OnMovementModeChanged(EMovementMode Previous
 	}
 }
 
+FVector UkdCharacterMovementComponent::GetCrushCollapseNormal() const
+{
+	if (const AkdMyPlayer* P = Cast<AkdMyPlayer>(GetCharacterOwner()))
+	{
+		return UkdCrushDirectionLibrary::MakeCrushBasis(P->GetActiveCrushDirection()).CollapseNormal;
+	}
+	return FVector(1.f, 0.f, 0.f); // safe default — behaves exactly like the old X-lock
+}
+
 void UkdCharacterMovementComponent::PhysShadow2D(float DeltaTime, int32 Iterations)
 {
 	if (DeltaTime < MIN_TICK_TIME) return;
 
 	RestorePreAdditiveRootMotionVelocity();
 
+	// The locked axis for the current crush direction. (CHANGED: was implicit X.)
+	const FVector CollapseN = GetCrushCollapseNormal();
+
 	// Acceleration is populated by PerformMovement() from ConsumeInputVector() before
 	// any Phys* function runs — reading it here gives the full 2D shadow input (Y + Z).
 	// X is zeroed to keep the character locked to the shadow plane.
-	FVector ShadowAccel = FVector(0.f, Acceleration.Y, Acceleration.Z);
+	//FVector ShadowAccel = FVector(0.f, Acceleration.Y, Acceleration.Z);
+
+	// Project input onto the play plane — drops the collapse-axis component,
+	// keeps the in-plane walk axis + vertical Z. (CHANGED: was FVector(0, Y, Z).)
+	FVector ShadowAccel = FVector::VectorPlaneProject(Acceleration, CollapseN);
 
 	const float AccelSize = ShadowAccel.Size();
 	const bool bHasInput = AccelSize > KINDA_SMALL_NUMBER;
@@ -104,7 +142,7 @@ void UkdCharacterMovementComponent::PhysShadow2D(float DeltaTime, int32 Iteratio
 	{
 		// Cache direction for dash fallback — persists after input stops
 		LastShadowInputDirection = ShadowAccel.GetSafeNormal();
-		LastShadowInputDirection.X = 0.0f;
+		//LastShadowInputDirection.X = 0.0f;
 
 		// Normalise then re-scale by our own acceleration value so diagonal
 		// movement never exceeds the same speed as cardinal movement
@@ -171,7 +209,11 @@ void UkdCharacterMovementComponent::PhysShadow2D(float DeltaTime, int32 Iteratio
 	}
 
 	// Hard-zero X every frame — prevents drift from collisions or FP accumulation
-	Velocity.X = 0.f;
+	//Velocity.X = 0.f;
+
+	// Project velocity onto the play plane every frame — stops collapse-axis
+	// drift from collisions / FP error. (CHANGED: was Velocity.X = 0.)
+	Velocity = FVector::VectorPlaneProject(Velocity, CollapseN);
 
 	Iterations++;
 	FVector Delta = Velocity * DeltaTime;
@@ -184,8 +226,8 @@ void UkdCharacterMovementComponent::PhysShadow2D(float DeltaTime, int32 Iteratio
 		SlideAlongSurface(Delta, 1.f - Hit.Time, Hit.Normal, Hit, true);
 		Velocity = FVector::VectorPlaneProject(Velocity, Hit.Normal);
 		Velocity = Velocity.GetClampedToMaxSize(ShadowMaxSpeed);
-		Velocity.X = 0.f;
-
+		//Velocity.X = 0.f;
+		Velocity = FVector::VectorPlaneProject(Velocity, CollapseN); // (CHANGED: was Velocity.X = 0.)
 		bIsDashing = false;
 	}
 }

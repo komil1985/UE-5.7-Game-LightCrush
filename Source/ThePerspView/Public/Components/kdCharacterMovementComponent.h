@@ -44,6 +44,10 @@ public:
 	/** Cleans up dash state when leaving Shadow2D mode. */
     virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
 
+	/** Unit world axis locked by the current crush mode (X for N/S, Y for E/W).
+	*  Reads the player's active crush direction; falls back to X if unavailable. */
+	FVector GetCrushCollapseNormal() const;
+
 protected:
 	void PhysShadow2D(float DeltaTime, int32 Iterations);
 

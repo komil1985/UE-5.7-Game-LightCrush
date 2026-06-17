@@ -19,6 +19,7 @@
 #include "AbilitySystem/kdAttributeSet.h"
 #include "Components/CapsuleComponent.h"
 #include "Crush/kdCrushTransitionComponent.h"
+#include "Crush/kdCrushDirectionLibrary.h"
 
 
 
@@ -305,9 +306,13 @@ void UkdCrushStateComponent::ResetPhysicsTo3D()
 
 	// Zero X velocity — it was hard-zeroed every frame in shadow mode anyway,
 	// but sanitise before handing off to 3D physics.
-	FVector ExitVel = MoveComp->Velocity;
-	ExitVel.X = 0.f;
-	MoveComp->Velocity = ExitVel;
+	//FVector ExitVel = MoveComp->Velocity;
+	//ExitVel.X = 0.f;
+	//MoveComp->Velocity = ExitVel;
+
+
+	const FVector CollapseN = UkdCrushDirectionLibrary::MakeCrushBasis(CachedOwner->GetActiveCrushDirection()).CollapseNormal;
+	MoveComp->Velocity = FVector::VectorPlaneProject(MoveComp->Velocity, CollapseN);
 	MoveComp->SetMovementMode(MOVE_Falling);
 
 #if !UE_BUILD_SHIPPING

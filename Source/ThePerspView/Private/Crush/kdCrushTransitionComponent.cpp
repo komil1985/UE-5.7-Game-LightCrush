@@ -101,8 +101,7 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode, EkdCrushDir
 
     // Apply X plane constraint before anything moves — player cannot fall
     // even if the floor geometry hasn't slid to X = CrushWorldX yet.
-    //if (bToCrushMode)
-    //    ApplyPlaneConstraint();
+    if (bToCrushMode) ApplyPlaneConstraint();
 
     // Snap player X to shadow plane.
     //if (bToCrushMode)
@@ -607,30 +606,48 @@ void UkdCrushTransitionComponent::ApplyPlaneConstraint()
 //        TEXT("CrushTransition: Plane constraint ON at player X=%.1f"), PlayerCurrentX);
 //#endif
 
+    ///////////////////////////////////////// old //////////////////////////////////////////////////////
+//    UCharacterMovementComponent* MC = CachedOwner ? CachedOwner->GetCharacterMovement() : nullptr;
+//    if (!MC) return;
+//
+//    // Resolve the collapse axis from the stored direction.
+//    // PosX/NegX → normal (1,0,0).  PosY/NegY → normal (0,1,0).
+//    const FVector Normal = UkdCrushDirectionLibrary::DirectionToCollapseNormal(ActiveCrushDirection);
+//
+//    // Lock the player to their CURRENT position on the active axis.
+//    // Capturing the live location at toggle time (not a preset value) is what
+//    // prevents the constraint from fighting any sub-pixel position drift.
+//    const FVector PlayerLoc = CachedOwner->GetActorLocation();
+//    const FVector Origin(
+//        (Normal.X > KINDA_SMALL_NUMBER) ? PlayerLoc.X : 0.f,
+//        (Normal.Y > KINDA_SMALL_NUMBER) ? PlayerLoc.Y : 0.f,
+//        0.f);
+//
+//    MC->SetPlaneConstraintEnabled(true);
+//    MC->SetPlaneConstraintNormal(Normal);
+//    MC->SetPlaneConstraintOrigin(Origin);
+//
+//#if !UE_BUILD_SHIPPING
+//    UE_LOG(LogTemp, Log,
+//        TEXT("CrushTransition: Plane constraint ON | axis=%s | origin=(%.1f, %.1f)"),
+//        *Normal.ToString(), Origin.X, Origin.Y);
+//#endif
+
+    //////////////////////////////////////// New ////////////////////////////////////////////////////////
     UCharacterMovementComponent* MC = CachedOwner ? CachedOwner->GetCharacterMovement() : nullptr;
     if (!MC) return;
 
-    // Resolve the collapse axis from the stored direction.
-    // PosX/NegX → normal (1,0,0).  PosY/NegY → normal (0,1,0).
-    const FVector Normal = UkdCrushDirectionLibrary::DirectionToCollapseNormal(ActiveCrushDirection);
-
-    // Lock the player to their CURRENT position on the active axis.
-    // Capturing the live location at toggle time (not a preset value) is what
-    // prevents the constraint from fighting any sub-pixel position drift.
-    const FVector PlayerLoc = CachedOwner->GetActorLocation();
-    const FVector Origin(
-        (Normal.X > KINDA_SMALL_NUMBER) ? PlayerLoc.X : 0.f,
-        (Normal.Y > KINDA_SMALL_NUMBER) ? PlayerLoc.Y : 0.f,
-        0.f);
+    // Lock the collapse axis for the active direction, through the player's
+    // current location — the plane passes through wherever they're standing.
+    const FVector CollapseN = UkdCrushDirectionLibrary::MakeCrushBasis(
+        CachedOwner->GetActiveCrushDirection()).CollapseNormal;
 
     MC->SetPlaneConstraintEnabled(true);
-    MC->SetPlaneConstraintNormal(Normal);
-    MC->SetPlaneConstraintOrigin(Origin);
+    MC->SetPlaneConstraintNormal(CollapseN);
+    MC->SetPlaneConstraintOrigin(CachedOwner->GetActorLocation());
 
 #if !UE_BUILD_SHIPPING
-    UE_LOG(LogTemp, Log,
-        TEXT("CrushTransition: Plane constraint ON | axis=%s | origin=(%.1f, %.1f)"),
-        *Normal.ToString(), Origin.X, Origin.Y);
+    UE_LOG(LogTemp, Log, TEXT("CrushTransition: Plane constraint ON | axis=%s"), *CollapseN.ToString());
 #endif
 }
 

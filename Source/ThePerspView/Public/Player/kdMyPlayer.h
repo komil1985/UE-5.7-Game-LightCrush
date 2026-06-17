@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "AbilitySystemInterface.h"
 #include "AbilitySystemComponent.h"
+#include "Crush/kdCrushDirection.h"
 #include "kdMyPlayer.generated.h"
 
 UENUM(BlueprintType)
@@ -138,6 +139,14 @@ public:
 
 	FORCEINLINE UMaterialInstanceDynamic* GetCrushPPInstance() const { return CrushPPInstance; }
 
+	// ADD in the public section (near RequestCrushToggle)
+	/** The crush axis resolved at the last enter. Every axis-aware system reads
+	*  this so they all agree on which way the world collapsed. */
+	UFUNCTION(BlueprintPure, Category = "Crush")
+	EkdCrushDirection GetActiveCrushDirection() const { return ActiveCrushDirection; }
+
+	void SetActiveCrushDirection(EkdCrushDirection InDirection) { ActiveCrushDirection = InDirection; }
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -187,5 +196,7 @@ private:
 
 	/** Triggers the "LOW STAMINA!" world-space flash above the player's head. */
 	void NotifyLowStaminaWarning();
+
+	EkdCrushDirection ActiveCrushDirection = EkdCrushDirection::PosX;
 
 };

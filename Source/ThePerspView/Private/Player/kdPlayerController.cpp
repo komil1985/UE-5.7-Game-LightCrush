@@ -11,6 +11,8 @@
 #include "UI/HUD/kdHUD.h"
 #include "GameMode/kdGameModeBase.h"
 #include "UI/Widget/kdPauseMenuWidget.h"
+#include "Crush/kdCrushDirectionLibrary.h"
+
 
 
 void AkdPlayerController::BeginPlay()
@@ -100,10 +102,15 @@ void AkdPlayerController::Move(const FInputActionValue& InputActionValue)
 	}
 	else
 	{
-		MyPlayerCache->AddMovementInput(FVector(0.0f, 1.0f, 0.0f), InputAxisVector.X);
-		MyPlayerCache->AddMovementInput(FVector(0.0f, 0.0f, 1.0f), InputAxisVector.Y);
+		//MyPlayerCache->AddMovementInput(FVector(0.0f, 1.0f, 0.0f), InputAxisVector.X);
+		//MyPlayerCache->AddMovementInput(FVector(0.0f, 0.0f, 1.0f), InputAxisVector.Y);
+
+		// 2D movement on the crush play plane. WalkRight is the screen-right axis
+		// for the active direction; vertical is always world Z.
+		const FkdCrushBasis Basis = UkdCrushDirectionLibrary::MakeCrushBasis(MyPlayerCache->GetActiveCrushDirection());
+		MyPlayerCache->AddMovementInput(Basis.WalkRight, InputAxisVector.X);
+		MyPlayerCache->AddMovementInput(FVector::UpVector, InputAxisVector.Y);
 	}
-	
 }
 
 void AkdPlayerController::Look(const FInputActionValue& Value)
