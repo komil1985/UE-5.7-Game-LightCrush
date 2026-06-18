@@ -28,7 +28,7 @@
 #include "Components/kdPlayerHoverComponent.h"
 #include "Components/kdLightHealthComponent.h"
 #include "UI/Widget/kdLightHealthWidget.h"
-//#include "Components/kdWorldColorDriver.h"
+#include "Crush/kdCrushDirectionLibrary.h"
 
 
 
@@ -325,11 +325,13 @@ void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 	if (bNewCrushState)
 	{
 		// ── Entering 2D ───────────────────────────────────────────────────────
-		// Lock the plane at the player's CURRENT X — no position snap at all.
-		// The player stays exactly where they are; only Y/Z movement is allowed.
+		// Lock the COLLAPSE axis for the active direction (X for N/S, Y for E/W),
+		// through the player's current position. The other two axes stay free.
 		UCharacterMovementComponent* MoveComp = GetCharacterMovement();
-		MoveComp->SetPlaneConstraintNormal(PlaneConstraintNormal);
-		MoveComp->SetPlaneConstraintOrigin(GetActorLocation()); // ← the key line
+
+		const FVector CollapseN = UkdCrushDirectionLibrary::MakeCrushBasis(GetActiveCrushDirection()).CollapseNormal;
+		MoveComp->SetPlaneConstraintNormal(CollapseN);
+		MoveComp->SetPlaneConstraintOrigin(GetActorLocation());
 		MoveComp->SetPlaneConstraintEnabled(true);
 	}
 	else

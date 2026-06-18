@@ -101,7 +101,7 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode, EkdCrushDir
 
     // Apply X plane constraint before anything moves — player cannot fall
     // even if the floor geometry hasn't slid to X = CrushWorldX yet.
-    if (bToCrushMode) ApplyPlaneConstraint();
+    //if (bToCrushMode) ApplyPlaneConstraint();
 
     // Snap player X to shadow plane.
     //if (bToCrushMode)

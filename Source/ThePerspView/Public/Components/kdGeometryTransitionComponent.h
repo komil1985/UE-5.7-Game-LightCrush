@@ -122,10 +122,14 @@ private:
     void OnCrushModeTagChanged(const FGameplayTag Tag, int32 NewCount);
 
     /** Resolve the signed X offset to apply behind ReferenceX (the plane/player X). */
-    float ResolveDepthOffset(float ReferenceX) const;
+    float ResolveDepthOffset(const FVector& CollapseNormal, float ReferenceOnAxis) const;
 
     /** Toggle 3D shadow casting on the cached mesh (no-op if bFlattenShadowInCrush is false). */
     void ApplyShadowFlatten(bool bFlatten);
+
+    /** Recompute the crush-target transform from the player's active crush
+    *  direction. Called on every Crush entry (and on boot-into-crush). */
+    void RecomputeCrushTarget();
 
     // ── Cached mesh (first UStaticMeshComponent on the owner) ─────────────────
     UPROPERTY()
@@ -143,16 +147,19 @@ private:
     FVector OriginalMeshRelativeLoc;
     FVector OriginalMeshRelativeScale;
 
+    FVector MeshRelLocCrush = FVector::ZeroVector;  // mesh-relative location at full crush
+    FVector MeshRelScaleCrush = FVector::OneVector;   // mesh-relative scale at full crush
+
     // Designer shadow settings, restored when leaving Crush.
     bool bOrigCastShadow = true;
     bool bOrigCastHiddenShadow = false;
 
     // ── Morph FROM / TO (in mesh-local relative space) ────────────────────────
     // X position: we convert CrushWorldX into a mesh-relative delta at BeginPlay.
-    float MeshRelX_Original = 0.f;    // original mesh relative X
-    float MeshRelX_Crush = 0.f;    // relative X that maps mesh to CrushWorldX
+    //float MeshRelX_Original = 0.f;    // original mesh relative X
+    //float MeshRelX_Crush = 0.f;    // relative X that maps mesh to CrushWorldX
 
     // X scale: relative scale values to lerp between
-    float MeshRelScaleX_Original = 1.f;
-    float MeshRelScaleX_Crush = 0.04f;
+    //float MeshRelScaleX_Original = 1.f;
+    //float MeshRelScaleX_Crush = 0.04f;
 };
