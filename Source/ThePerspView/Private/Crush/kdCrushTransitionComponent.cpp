@@ -138,14 +138,38 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode, EkdCrushDir
         FOVTo = bToCrushMode ? Crush2DFOV : Original3DFOV;
     }
 
+    //if (CachedOwner->SpringArm)
+    //{
+    //    ArmLengthFrom = CachedOwner->SpringArm->TargetArmLength;
+    //    ArmLengthTo = bToCrushMode ? Crush2DArmLength : Original3DArmLength;
+    //    ArmRotFromQ = CachedOwner->SpringArm->GetRelativeRotation().Quaternion();
+    //    ArmRotToQ = (bToCrushMode
+    //        ? Crush2DArmRotation
+    //        : Original3DArmRotQ.Rotator()).Quaternion();
+    //}
+
     if (CachedOwner->SpringArm)
     {
         ArmLengthFrom = CachedOwner->SpringArm->TargetArmLength;
         ArmLengthTo = bToCrushMode ? Crush2DArmLength : Original3DArmLength;
         ArmRotFromQ = CachedOwner->SpringArm->GetRelativeRotation().Quaternion();
-        ArmRotToQ = (bToCrushMode
-            ? Crush2DArmRotation
-            : Original3DArmRotQ.Rotator()).Quaternion();
+
+        if (bToCrushMode)
+        {
+            // Aim the crush camera along the active collapse axis so it always
+            // frames a true 2D side-view — and so WalkRight lines up with the
+            // camera's right vector, keeping controls consistent on every axis.
+            // Keep the tuned telephoto pitch; only the yaw is direction-driven.
+            const FkdCrushBasis Basis = UkdCrushDirectionLibrary::MakeCrushBasis(
+                CachedOwner->GetActiveCrushDirection());
+
+            const FRotator CrushArmRot(Crush2DArmRotation.Pitch, Basis.CameraYaw, 0.f);
+            ArmRotToQ = CrushArmRot.Quaternion();
+        }
+        else
+        {
+            ArmRotToQ = Original3DArmRotQ; // already a quat
+        }
     }
 
     CrushTimeline->PlayFromStart();
