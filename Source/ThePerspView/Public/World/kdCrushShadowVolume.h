@@ -62,8 +62,9 @@ private:
     TObjectPtr<UAbilitySystemComponent> CachedASC;
 
     FDelegateHandle CrushTagHandle;
+    FVector OriginalPlacedLocation = FVector::ZeroVector;
 
-    void ApplyZoneScale();
+    void ApplyZoneScale(bool bCollapsesY);
     void SetVolumeActive(bool bActive);
 
     void OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
