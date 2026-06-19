@@ -112,49 +112,6 @@ void AkdCrushShadowVolume::OnCrushModeTagChanged(const FGameplayTag /*Tag*/, int
 
 void AkdCrushShadowVolume::SetVolumeActive(bool bActive)
 {
-    //if (bActive && bTrackPlayerDepth && CachedPlayer)
-    //{
-    //    // Camera looks down +X from a long negative-X spring arm, so a larger X
-    //    // is "further from camera". Keeping the slab's NEAR face just behind the
-    //    // player guarantees the player's stencil-1 wins → player stays lit.
-    //    const float PlayerX = CachedPlayer->GetActorLocation().X;
-    //    FVector Loc = GetActorLocation();
-    //    Loc.X = PlayerX + DepthBehindPlayer + (ZoneDepthX * 0.5f);
-    //    SetActorLocation(Loc);
-    //}
-
-    //VolumeMesh->SetRenderCustomDepth(bActive);
-    //VolumeMesh->SetVisibility(bActive);
-
-    //if (bActive && CachedPlayer)
-    //{
-    //    const FkdCrushBasis Basis = UkdCrushDirectionLibrary::MakeCrushBasis(
-    //        CachedPlayer->GetActiveCrushDirection());
-
-    //    // Orient the slab for this crush direction.
-    //    ApplyZoneScale(Basis.bCollapsesY);
-
-    //    if (bTrackPlayerDepth)
-    //    {
-    //        const FVector PlayerLoc = CachedPlayer->GetActorLocation();
-    //        const float   Behind = DepthBehindPlayer + (ZoneDepthX * 0.5f);
-
-    //        // Rebuild from the authored placement, NOT the current (possibly
-    //        // drifted) location. Only the depth axis follows the player's plane.
-    //        FVector Loc = OriginalPlacedLocation;   // ← was GetActorLocation()
-
-    //        if (Basis.bCollapsesY)
-    //            Loc.Y = PlayerLoc.Y + Basis.ViewForward.Y * Behind;
-    //        else
-    //            Loc.X = PlayerLoc.X + Basis.ViewForward.X * Behind;
-
-    //        SetActorLocation(Loc);
-    //    }
-    //}
-
-    //VolumeMesh->SetRenderCustomDepth(bActive);
-    //VolumeMesh->SetVisibility(bActive);
-
     if (bActive && CachedPlayer)
     {
         const FkdCrushBasis Basis = UkdCrushDirectionLibrary::MakeCrushBasis(
