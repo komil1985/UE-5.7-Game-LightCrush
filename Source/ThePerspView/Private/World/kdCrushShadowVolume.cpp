@@ -126,29 +126,68 @@ void AkdCrushShadowVolume::SetVolumeActive(bool bActive)
     //VolumeMesh->SetRenderCustomDepth(bActive);
     //VolumeMesh->SetVisibility(bActive);
 
+    //if (bActive && CachedPlayer)
+    //{
+    //    const FkdCrushBasis Basis = UkdCrushDirectionLibrary::MakeCrushBasis(
+    //        CachedPlayer->GetActiveCrushDirection());
+
+    //    // Orient the slab for this crush direction.
+    //    ApplyZoneScale(Basis.bCollapsesY);
+
+    //    if (bTrackPlayerDepth)
+    //    {
+    //        const FVector PlayerLoc = CachedPlayer->GetActorLocation();
+    //        const float   Behind = DepthBehindPlayer + (ZoneDepthX * 0.5f);
+
+    //        // Rebuild from the authored placement, NOT the current (possibly
+    //        // drifted) location. Only the depth axis follows the player's plane.
+    //        FVector Loc = OriginalPlacedLocation;   // ← was GetActorLocation()
+
+    //        if (Basis.bCollapsesY)
+    //            Loc.Y = PlayerLoc.Y + Basis.ViewForward.Y * Behind;
+    //        else
+    //            Loc.X = PlayerLoc.X + Basis.ViewForward.X * Behind;
+
+    //        SetActorLocation(Loc);
+    //    }
+    //}
+
+    //VolumeMesh->SetRenderCustomDepth(bActive);
+    //VolumeMesh->SetVisibility(bActive);
+
     if (bActive && CachedPlayer)
     {
         const FkdCrushBasis Basis = UkdCrushDirectionLibrary::MakeCrushBasis(
             CachedPlayer->GetActiveCrushDirection());
 
-        // Orient the slab for this crush direction.
-        ApplyZoneScale(Basis.bCollapsesY);
+        // Per-volume axis filter: a volume may opt to appear only on X-crush,
+        // only on Y-crush, or on both.
+        const bool bAxisAllowed =
+            (ActivationAxisFilter == EkdCrushAxisFilter::AnyAxis) ||
+            (ActivationAxisFilter == EkdCrushAxisFilter::YAxisOnly && Basis.bCollapsesY) ||
+            (ActivationAxisFilter == EkdCrushAxisFilter::XAxisOnly && !Basis.bCollapsesY);
 
-        if (bTrackPlayerDepth)
+        if (!bAxisAllowed)
         {
-            const FVector PlayerLoc = CachedPlayer->GetActorLocation();
-            const float   Behind = DepthBehindPlayer + (ZoneDepthX * 0.5f);
+            bActive = false;   // this volume sits out the current crush direction
+        }
+        else
+        {
+            ApplyZoneScale(Basis.bCollapsesY);
 
-            // Rebuild from the authored placement, NOT the current (possibly
-            // drifted) location. Only the depth axis follows the player's plane.
-            FVector Loc = OriginalPlacedLocation;   // ← was GetActorLocation()
+            if (bTrackPlayerDepth)
+            {
+                const FVector PlayerLoc = CachedPlayer->GetActorLocation();
+                const float   Behind = DepthBehindPlayer + (ZoneDepthX * 0.5f);
+                FVector       Loc = OriginalPlacedLocation;
 
-            if (Basis.bCollapsesY)
-                Loc.Y = PlayerLoc.Y + Basis.ViewForward.Y * Behind;
-            else
-                Loc.X = PlayerLoc.X + Basis.ViewForward.X * Behind;
+                if (Basis.bCollapsesY)
+                    Loc.Y = PlayerLoc.Y + Basis.ViewForward.Y * Behind;
+                else
+                    Loc.X = PlayerLoc.X + Basis.ViewForward.X * Behind;
 
-            SetActorLocation(Loc);
+                SetActorLocation(Loc);
+            }
         }
     }
 

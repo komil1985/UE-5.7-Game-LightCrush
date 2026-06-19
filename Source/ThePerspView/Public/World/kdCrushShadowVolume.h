@@ -7,6 +7,17 @@
 #include "GameplayTagContainer.h"
 #include "kdCrushShadowVolume.generated.h"
 
+
+/** Which crush axis a shadow volume responds to. */
+UENUM(BlueprintType)
+enum class EkdCrushAxisFilter : uint8
+{
+    AnyAxis   UMETA(DisplayName = "Any Axis"),
+    XAxisOnly UMETA(DisplayName = "X Only (North / South)"),
+    YAxisOnly UMETA(DisplayName = "Y Only (East / West)"),
+};
+
+
 class UStaticMeshComponent;
 class UAbilitySystemComponent;
 class AkdMyPlayer;
@@ -46,6 +57,11 @@ public:
      *  test and stays lit inside the shadow. */
     UPROPERTY(EditAnywhere, Category = "Crush Shadow|Depth", meta = (ClampMin = "0.0"))
     float DepthBehindPlayer = 50.f;
+
+    /** Restrict this volume to one collapse axis. Default Any keeps it active on
+    *  every crush; set Y-only to make it appear solely on East/West crushes. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Shadow Volume")
+    EkdCrushAxisFilter ActivationAxisFilter = EkdCrushAxisFilter::AnyAxis;
 
 protected:
     virtual void BeginPlay() override;
