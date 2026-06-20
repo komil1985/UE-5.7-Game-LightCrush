@@ -39,12 +39,6 @@ AkdCrushShadowVolume::AkdCrushShadowVolume()
 
 void AkdCrushShadowVolume::ApplyZoneScale(bool bCollapsesY)
 {
-    // Engine cube is 100 cm; scale each axis to the requested world size.
-    //VolumeMesh->SetWorldScale3D(FVector(
-    //    ZoneDepthX / 100.f,
-    //    ZoneWidthY / 100.f,
-    //    ZoneHeightZ / 100.f));
-
     // Thin depth on the collapse axis; wide on the in-plane horizontal axis.
     const FVector Scale = bCollapsesY
         ? FVector(ZoneWidthY / 100.f, ZoneDepthX / 100.f, ZoneHeightZ / 100.f)  // Y-crush: thin on Y

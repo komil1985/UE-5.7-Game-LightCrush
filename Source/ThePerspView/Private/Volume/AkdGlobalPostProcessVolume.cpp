@@ -17,10 +17,10 @@ AAkdGlobalPostProcessVolume::AAkdGlobalPostProcessVolume()
 
 	// Adjust these two paths to match your actual material locations.
 	CrushShadowStencilMaterial = TSoftObjectPtr<UMaterialInterface>(
-		FSoftObjectPath(TEXT("/Game/PostProcess/Materials/PP_CrushShadowStencil.PP_CrushShadowStencil")));
+		FSoftObjectPath(TEXT("/Game/Blueprints/Material/M_CrushPostProcess.M_CrushPostProcess")));
 
 	NeonPreservationMaterial = TSoftObjectPtr<UMaterialInterface>(
-		FSoftObjectPath(TEXT("/Game/PostProcess/Materials/PP_NeonPreservation.PP_NeonPreservation")));
+		FSoftObjectPath(TEXT("/Game/Blueprints/Material/M_MasterNeonOutline.M_MasterNeonOutline")));
 
 	ConfigureBaselineSettings();
 	ConfigureBlendables();
