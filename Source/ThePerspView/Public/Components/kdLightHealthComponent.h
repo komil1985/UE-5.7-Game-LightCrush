@@ -74,6 +74,11 @@ public:
     /** Fully restores LightHealth. Called automatically on respawn via delegate. */
     void RestoreLightHealth();
 
+    /** Permanently halts the drain/heal loop and the danger-sign flash for the
+    *  rest of the level (e.g. on level complete). Idempotent. */
+    UFUNCTION(BlueprintCallable, Category = "Light Health")
+    void Freeze();
+
 protected:	
 	virtual void BeginPlay() override;	
 
@@ -88,6 +93,7 @@ private:
     FTimerHandle HealthTickHandle;
     bool bIsInShadow = false;
     bool bWasCritical = false;
+    bool bFrozen = false;
 
     void StartHealthTick();
     void StopHealthTick();

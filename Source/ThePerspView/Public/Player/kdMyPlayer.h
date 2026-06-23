@@ -147,6 +147,10 @@ public:
 
 	void SetActiveCrushDirection(EkdCrushDirection InDirection) { ActiveCrushDirection = InDirection; }
 
+	/** GameMode calls this on level clear. Freezes all survival systems so they
+	*  stop running behind the results screen. */
+	void HandleLevelComplete();
+
 protected:
 	virtual void BeginPlay() override;
 

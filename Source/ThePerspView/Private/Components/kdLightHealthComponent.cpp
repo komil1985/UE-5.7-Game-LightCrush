@@ -90,6 +90,7 @@ void UkdLightHealthComponent::OnCrushModeTagChanged(const FGameplayTag Tag, int3
 
 void UkdLightHealthComponent::OnInShadowTagChanged(const FGameplayTag Tag, int32 NewCount)
 {
+    if (bFrozen) return;
     const bool bNewShadow = (NewCount > 0);
     if (bNewShadow == bIsInShadow) return;
 
@@ -108,6 +109,7 @@ void UkdLightHealthComponent::OnInShadowTagChanged(const FGameplayTag Tag, int32
 
 void UkdLightHealthComponent::StartHealthTick()
 {
+    if (bFrozen) return;
     UWorld* World = GetWorld();
     if (!World) return;
     if (World->GetTimerManager().IsTimerActive(HealthTickHandle)) return;
@@ -130,6 +132,7 @@ void UkdLightHealthComponent::StopHealthTick()
 
 void UkdLightHealthComponent::HealthTick()
 {
+    if (bFrozen) return;
     if (!CachedPlayer) return;
 
     const float Delta = bIsInShadow
@@ -263,4 +266,18 @@ void UkdLightHealthComponent::TriggerLightDeath()
     {
         GM->HandlePlayerDeath();
     }
+}
+
+
+void UkdLightHealthComponent::Freeze()
+{
+    if (bFrozen) return;
+    bFrozen = true;
+
+    StopHealthTick();   // stop draining/healing
+
+    // Broadcast a "safe" shadow state once so the widget hides the danger sign
+    // and its blink loop pauses (TickDangerBlink is gated on !bInShadow).
+    bIsInShadow = true;
+    OnShadowStateChanged.Broadcast(true);
 }

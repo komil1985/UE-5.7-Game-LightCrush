@@ -97,6 +97,7 @@ void AkdGameModeBase::TriggerLevelComplete()
     if (PC && Player)
     {
         Player->DisableInput(PC);
+        Player->HandleLevelComplete();   // freeze light-health, stamina, and warnings
     }
 
     // Freeze the game timer but keep rendering

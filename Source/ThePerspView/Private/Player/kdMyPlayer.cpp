@@ -29,6 +29,7 @@
 #include "Components/kdLightHealthComponent.h"
 #include "UI/Widget/kdLightHealthWidget.h"
 #include "Crush/kdCrushDirectionLibrary.h"
+#include "Crush/kdCrushStateComponent.h"
 
 
 
@@ -117,6 +118,19 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 UAbilitySystemComponent* AkdMyPlayer::GetAbilitySystemComponent() const
 {
 	return AbilitySystemComponent;
+}
+
+void AkdMyPlayer::HandleLevelComplete()
+{
+	// Light health: stop the drain/heal tick + danger flash, then hide the widget.
+	if (LightHealthComponent) LightHealthComponent->Freeze();
+	if (LightHealthWidget)    LightHealthWidget->HideWidget();
+
+	// Stamina: stop the Crush-Mode drain tick and any pending/active regen.
+	if (UkdCrushStateComponent* Crush = FindComponentByClass<UkdCrushStateComponent>())
+	{
+		Crush->Freeze();
+	}
 }
 
 void AkdMyPlayer::BeginPlay()

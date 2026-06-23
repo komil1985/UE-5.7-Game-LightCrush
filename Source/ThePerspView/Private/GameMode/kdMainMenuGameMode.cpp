@@ -3,6 +3,7 @@
 
 #include "GameMode/kdMainMenuGameMode.h"
 #include "UI/HUD/kdHUD.h"
+#include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerController.h"
 

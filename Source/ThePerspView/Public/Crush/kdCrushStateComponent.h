@@ -153,6 +153,9 @@ public:
 	 */
 	FVector GetLightDirectionForPlayer(const FkdRegisteredLight& Light, const FVector& Point) const;
 
+	UFUNCTION(BlueprintCallable, Category = "Stamina")
+	void Freeze();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;

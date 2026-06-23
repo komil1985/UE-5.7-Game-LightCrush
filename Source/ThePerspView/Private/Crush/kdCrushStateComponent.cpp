@@ -491,6 +491,12 @@ FVector UkdCrushStateComponent::GetLightDirectionForPlayer(const FkdRegisteredLi
 	}
 }
 
+void UkdCrushStateComponent::Freeze()
+{
+	StopRegen();                     // clears RegenDelayHandle + RegenTickHandle
+	SetComponentTickEnabled(false);  // stops the per-frame drain
+}
+
 void UkdCrushStateComponent::ApplyStaminaDelta(float Delta)
 {
 	if (!CachedOwner || !StaminaModEffectClass)
