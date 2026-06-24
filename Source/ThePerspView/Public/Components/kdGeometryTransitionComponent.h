@@ -94,7 +94,6 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Geometry | Shadow")
     bool bFlattenShadowInCrush = true;
 
-
     // ── Shiver ────────────────────────────────────────────────────────────────
 
     /** Duration of the shiver phase before the main slide (seconds).
@@ -153,13 +152,4 @@ private:
     // Designer shadow settings, restored when leaving Crush.
     bool bOrigCastShadow = true;
     bool bOrigCastHiddenShadow = false;
-
-    // ── Morph FROM / TO (in mesh-local relative space) ────────────────────────
-    // X position: we convert CrushWorldX into a mesh-relative delta at BeginPlay.
-    //float MeshRelX_Original = 0.f;    // original mesh relative X
-    //float MeshRelX_Crush = 0.f;    // relative X that maps mesh to CrushWorldX
-
-    // X scale: relative scale values to lerp between
-    //float MeshRelScaleX_Original = 1.f;
-    //float MeshRelScaleX_Crush = 0.04f;
 };

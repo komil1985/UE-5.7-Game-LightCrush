@@ -43,7 +43,6 @@ void UkdCrushStateComponent::BeginPlay()
 	{
 		ASC->RegisterGameplayTagEvent(FkdGameplayTags::Get().State_CrushMode,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &UkdCrushStateComponent::OnCrushModeTagChanged_Regen);
 	}
-	//FindDirectionalLight();
 
 	DiscoverAndRegisterLights();
 
@@ -107,15 +106,6 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	else
 	{
 		// ── 3D mode ──────────────────────────────────────────────────
-		// Always regenerate (moving or idle), as long as stamina isn’t already full.
-		//const float CurrentStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
-		//const float MaxStamina = ASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
-
-		//if (CurrentStamina < MaxStamina)
-		//{
-		//	const float DesiredDelta = StaminaRegenRate * DeltaTime;
-		//	StaminaDelta = FMath::Min(DesiredDelta, MaxStamina - CurrentStamina);
-		//}
 	}
 	/*-----------------------------------------------------------------------------*/
 
@@ -218,12 +208,6 @@ void UkdCrushStateComponent::ToggleShadowTracking(bool bEnable)
 void UkdCrushStateComponent::HandleVerticalInput(float Value)
 {
 	if (FMath::IsNearlyZero(Value)) return;
-
-	// Allow upward movement only if in a shadow
-	//if (CachedOwner && CachedOwner->GetAbilitySystemComponent()->HasMatchingGameplayTag(FkdGameplayTags::Get().State_InShadow))
-	//{		
-	//	CachedOwner->LaunchCharacter(FVector(0, 0, Value * ShadowJumpPower), false, true);
-	//}
 }
 
 bool UkdCrushStateComponent::IsStandingInShadow() const
@@ -303,13 +287,6 @@ void UkdCrushStateComponent::ResetPhysicsTo3D()
 	MoveComp->GravityScale = 1.0f;
 	MoveComp->MaxWalkSpeed = 600.0f;
 	MoveComp->SetPlaneConstraintEnabled(false);
-
-	// Zero X velocity — it was hard-zeroed every frame in shadow mode anyway,
-	// but sanitise before handing off to 3D physics.
-	//FVector ExitVel = MoveComp->Velocity;
-	//ExitVel.X = 0.f;
-	//MoveComp->Velocity = ExitVel;
-
 
 	const FVector CollapseN = UkdCrushDirectionLibrary::MakeCrushBasis(CachedOwner->GetActiveCrushDirection()).CollapseNormal;
 	MoveComp->Velocity = FVector::VectorPlaneProject(MoveComp->Velocity, CollapseN);
