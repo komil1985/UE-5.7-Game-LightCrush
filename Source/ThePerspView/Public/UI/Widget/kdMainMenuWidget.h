@@ -19,6 +19,8 @@ public:
     virtual void NativeConstruct() override;
 
 protected:
+    UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> LightWordButton;
+    UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> CrushWordButton;
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_NewGame;
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_Continue;
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_Settings;
@@ -31,6 +33,8 @@ protected:
     UFUNCTION() void OnSettingsClicked();
     UFUNCTION() void OnQuitClicked();
     UFUNCTION() void RefreshContinueButton();
+    UFUNCTION() void HandleLightWordClicked();
+    UFUNCTION() void HandleCrushWordClicked();
 
 private:
     /** Helper: determines the highest level the player has unlocked. */

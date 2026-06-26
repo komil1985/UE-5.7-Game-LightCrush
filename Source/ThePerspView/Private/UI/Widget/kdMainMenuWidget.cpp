@@ -10,6 +10,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "GameFramework/PlayerController.h"
 #include "Misc/App.h"
+#include "Menu/kdMenuPresentationSubsystem.h"
 
 
 void UkdMainMenuWidget::NativeOnInitialized()
@@ -25,6 +26,9 @@ void UkdMainMenuWidget::NativeOnInitialized()
 void UkdMainMenuWidget::NativeConstruct()
 {
     Super::NativeConstruct();
+
+    if (LightWordButton) LightWordButton->OnClicked.AddDynamic(this, &UkdMainMenuWidget::HandleLightWordClicked);
+    if (CrushWordButton) CrushWordButton->OnClicked.AddDynamic(this, &UkdMainMenuWidget::HandleCrushWordClicked);
 
      //Populate version label from project version string in DefaultGame.ini
     if (Txt_Version)
@@ -133,6 +137,20 @@ void UkdMainMenuWidget::RefreshContinueButton()
 
     Btn_Continue->SetIsEnabled(bHasProgress);
     Btn_Continue->SetVisibility(bHasProgress ? ESlateVisibility::Visible : ESlateVisibility::Hidden);
+}
+
+void UkdMainMenuWidget::HandleLightWordClicked()
+{
+    if (UWorld* W = GetWorld())
+    if (UkdMenuPresentationSubsystem* Sub = W->GetSubsystem<UkdMenuPresentationSubsystem>())
+       Sub->RequestCrush(false);
+}
+
+void UkdMainMenuWidget::HandleCrushWordClicked()
+{
+    if (UWorld* W = GetWorld())
+    if (UkdMenuPresentationSubsystem* Sub = W->GetSubsystem<UkdMenuPresentationSubsystem>())
+       Sub->RequestCrush(true);
 }
 
 int32 UkdMainMenuWidget::GetHighestUnlockedLevelIndex() const
