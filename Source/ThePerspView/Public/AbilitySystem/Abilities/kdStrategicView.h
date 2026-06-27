@@ -1,5 +1,4 @@
-// Copyright ASKD Games. All Rights Reserved.
-
+// Copyright ASKD Games
 #pragma once
 
 #include "CoreMinimal.h"

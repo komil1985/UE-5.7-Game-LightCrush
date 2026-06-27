@@ -1,4 +1,4 @@
-// Copyright ASKD Games. All Rights Reserved.
+// Copyright ASKD Games
 
 #include "Components/kdStrategicCameraComponent.h"
 #include "Camera/CameraComponent.h"
