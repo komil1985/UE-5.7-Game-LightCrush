@@ -60,6 +60,11 @@ void AkdPlayerController::SetupInputComponent()
 		{
 			EnhancedInputComponent->BindAction(PauseAction, ETriggerEvent::Started, this, &AkdPlayerController::TogglePause);
 		}
+		if (StrategicViewAction)
+		{
+			EnhancedInputComponent->BindAction(StrategicViewAction, ETriggerEvent::Started, this, &AkdPlayerController::StrategicViewStart);
+			EnhancedInputComponent->BindAction(StrategicViewAction, ETriggerEvent::Completed, this, &AkdPlayerController::StrategicViewStop);
+		}
 	}
 }
 
@@ -189,6 +194,16 @@ void AkdPlayerController::TogglePause()
 		}
 		HUD->ShowPauseMenu();
 	}
+}
+
+void AkdPlayerController::StrategicViewStart()
+{
+	if (MyPlayerCache) MyPlayerCache->RequestStrategicViewStart();
+}
+
+void AkdPlayerController::StrategicViewStop()
+{
+	if (MyPlayerCache) MyPlayerCache->RequestStrategicViewStop();
 }
 
 void AkdPlayerController::EnhancedSubSystem()

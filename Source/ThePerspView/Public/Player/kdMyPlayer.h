@@ -36,7 +36,7 @@ class UkdLowStaminaWidget;
 class UkdPlayerHoverComponent;
 class UkdLightHealthComponent;
 class UkdLightHealthWidget;
-//class UkdWorldColorDriver;
+class UkdStrategicCameraComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
@@ -83,8 +83,8 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UkdLightHealthComponent> LightHealthComponent;
 
-	//UPROPERTY(EditDefaultsOnly, Category = "Components")
-	//TObjectPtr<UkdWorldColorDriver> WorldColorDriver;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UkdStrategicCameraComponent> StrategicCameraComponent;
 	/*--------------------------------------------------------------------------*/
 
 	// -- User Interface -- //
@@ -136,6 +136,13 @@ public:
 	/** Called by the controller on Dash input. Finds and activates UkdShadowDash. */
 	UFUNCTION()
 	void RequestShadowDash();
+
+	/** Controller calls these on Strategic-View input press / release. */
+	UFUNCTION()
+	void RequestStrategicViewStart();
+
+	UFUNCTION()
+	void RequestStrategicViewStop();
 
 	FORCEINLINE UMaterialInstanceDynamic* GetCrushPPInstance() const { return CrushPPInstance; }
 

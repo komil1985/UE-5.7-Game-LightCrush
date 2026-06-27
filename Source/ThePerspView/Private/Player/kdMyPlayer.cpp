@@ -30,7 +30,8 @@
 #include "UI/Widget/kdLightHealthWidget.h"
 #include "Crush/kdCrushDirectionLibrary.h"
 #include "Crush/kdCrushStateComponent.h"
-
+#include "AbilitySystem/Abilities/kdStrategicView.h"
+#include "Components/kdStrategicCameraComponent.h"
 
 
 
@@ -106,11 +107,8 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	LowStaminaWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 150.0f));  // above StaminaWidgetComponent
 	LowStaminaWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);	
 
-	// ── Light Health Widget Component ─────────────────────────────────────────
-	//LightHealthWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("LightHealthWidgetComponent"));
-	//LightHealthWidgetComponent->SetupAttachment(GetMesh());
-	//LightHealthWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 60.0f));
-	//LightHealthWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
+	/* -- Strategic Camera Component -- */
+	StrategicCameraComponent = CreateDefaultSubobject<UkdStrategicCameraComponent>(TEXT("StrategicCameraComponent"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 }
@@ -182,22 +180,6 @@ void AkdMyPlayer::BeginPlay()
 	{
 		HoverComponent->SetMeshComponents(GetMesh(), { EyeLeft, EyeRight });  // Pass both eye meshes
 	}
-
-	// ── Light Health Widget ───────────────────────────────────────────────────
-	//if (LightHealthWidgetComponent && LightHealthWidgetClass)
-	//{
-	//	LightHealthWidgetComponent->SetWidgetClass(LightHealthWidgetClass);
-	//	LightHealthWidgetComponent->InitWidget();
-	//
-	//	if (LightHealthWidget = Cast<UkdLightHealthWidget>(LightHealthWidgetComponent->GetUserWidgetObject()))
-	//	{
-	//		// Wire the component to the widget — subscribes all delegates
-	//		LightHealthWidget->InitializeWithComponent(LightHealthComponent);
-	//
-	//		// Hidden by default; the widget shows itself when CrushMode activates
-	//		LightHealthWidget->SetVisibility(ESlateVisibility::Hidden);
-	//	}
-	//}
 
 	// ── Light Health Widget — created as a screen-space viewport widget ───────
     if (LightHealthWidgetClass)
@@ -326,6 +308,40 @@ void AkdMyPlayer::RequestShadowDash()
 			if (Spec)
 			{
 				AbilitySystemComponent->TryActivateAbility(Spec->Handle);
+			}
+			return;
+		}
+	}
+}
+
+void AkdMyPlayer::RequestStrategicViewStart()
+{
+	if (!AbilitySystemComponent) return;
+
+	for (TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
+	{
+		if (AbilityClass && AbilityClass->IsChildOf(UkdStrategicView::StaticClass()))
+		{
+			if (FGameplayAbilitySpec* Spec = AbilitySystemComponent->FindAbilitySpecFromClass(AbilityClass))
+			{
+				AbilitySystemComponent->TryActivateAbility(Spec->Handle);
+			}
+			return;
+		}
+	}
+}
+
+void AkdMyPlayer::RequestStrategicViewStop()
+{
+	if (!AbilitySystemComponent) return;
+
+	for (TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
+	{
+		if (AbilityClass && AbilityClass->IsChildOf(UkdStrategicView::StaticClass()))
+		{
+			if (FGameplayAbilitySpec* Spec = AbilitySystemComponent->FindAbilitySpecFromClass(AbilityClass))
+			{
+				AbilitySystemComponent->CancelAbilityHandle(Spec->Handle);
 			}
 			return;
 		}

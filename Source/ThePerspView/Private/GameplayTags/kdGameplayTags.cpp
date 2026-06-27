@@ -70,14 +70,24 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 		FName("Ability.Block.Crush"),
 		FString("Ability to block crush mode")
 	);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Ability_Block_Crush.ToString());
+#endif
 
 	GameplayTags.Ability_ShadowDash = UGameplayTagsManager::Get().AddNativeGameplayTag(
 		FName("Ability.ShadowDash"),
 		FString("Ability to dash while in shadow")
 	);
-
 #if !UE_BUILD_SHIPPING
-	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Ability_Block_Crush.ToString());
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Ability_ShadowDash.ToString());
+#endif
+
+	GameplayTags.Ability_StrategicView = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Ability.StrategicView"),
+		FString("Ability to enter strategic view")
+	);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Ability_StrategicView.ToString());
 #endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -51,6 +51,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> PauseAction;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputAction> StrategicViewAction;
 	/*-----------------------------------------------------------------*/
 
 protected:
@@ -64,6 +67,8 @@ private:
 	void Interact();
 	void ShadowDash();
 	void TogglePause();
+	void StrategicViewStart();
+	void StrategicViewStop();
 
 	void EnhancedSubSystem();
 	void CrushToggleRequest();

@@ -23,6 +23,7 @@ public:
 	FGameplayTag Ability_ShadowJump;
 	FGameplayTag Ability_Block_Crush;
 	FGameplayTag Ability_ShadowDash;
+	FGameplayTag Ability_StrategicView;
 
 	//Attributes
 	FGameplayTag Attribute_ShadowStamina;
