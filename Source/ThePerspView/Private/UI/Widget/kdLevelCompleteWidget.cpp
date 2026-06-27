@@ -44,12 +44,12 @@ void UkdLevelCompleteWidget::SetupResults(float CompletionTimeSeconds, int32 Sco
 
         Txt_BestTime->SetText(bNewBest
             ? FText::FromString(TEXT("★ NEW BEST! ★"))
-            : FText::FromString(FString::Printf(TEXT("Best: %s"), *FormatTime(BestTime))));
+            : FText::FromString(FString::Printf(TEXT("%s"), *FormatTime(BestTime))));
 
         // Highlight colour for new best
         Txt_BestTime->SetColorAndOpacity(bNewBest
             ? FLinearColor(1.0f, 0.85f, 0.0f)   // Gold
-            : FLinearColor(0.8f, 0.8f, 0.8f));   // Grey
+            : FLinearColor(0.004f, 0.012f, 0.061f));   // Grey
     }
 
     // ── Best Score ───────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ void UkdLevelCompleteWidget::SetupResults(float CompletionTimeSeconds, int32 Sco
 
         Txt_BestScore->SetColorAndOpacity(bNewHigh
             ? FLinearColor(1.0f, 0.85f, 0.0f)
-            : FLinearColor(0.8f, 0.8f, 0.8f));
+            : FLinearColor(0.004f, 0.012f, 0.061f));
     }
 
     // ── Next Level button ─────────────────────────────────────────────────────
