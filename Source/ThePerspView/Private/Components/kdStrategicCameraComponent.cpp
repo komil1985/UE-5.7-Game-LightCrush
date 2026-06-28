@@ -93,6 +93,8 @@ void UkdStrategicCameraComponent::ForceReturnImmediate()
 	bEngaged = false;
 	CurrentAlpha = 0.0f;
 
+	OnSurveyAlphaChanged.Broadcast(0.f);            // hard reset clears any survey blur instantly
+
 	if (bBaseCached)
 	{
 		RestoreBaseState();
@@ -190,6 +192,8 @@ void UkdStrategicCameraComponent::TickComponent(float DeltaTime, ELevelTick Tick
 		: FMath::SmoothStep(0.0f, 1.0f, CurrentAlpha);
 
 	ApplyAlpha(Eased);
+
+	OnSurveyAlphaChanged.Broadcast(CurrentAlpha);   // raw 0..1; the driver shapes its own ramp
 
 	// Settle: once we reach the resting target, stop ticking. On a full return we
 	// also restore the exact baseline and release the cache so the next engage

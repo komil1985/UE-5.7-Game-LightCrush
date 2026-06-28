@@ -123,6 +123,15 @@ public:
     UFUNCTION(BlueprintPure, Category = "Color Driver")
     float GetShadowTintAlpha() const { return ShadowTintAlpha; }
 
+    /**
+    * Survey-alpha hook. The strategic camera broadcasts its 0..1 alpha here; the
+    * driver folds it into the tilt-shift band (deeper blur + tighter focus = the
+    * "model on a surveyor's plate" look) and writes the MPC. Routing through the
+    * driver keeps it the SOLE MPC writer — the strategic camera never touches the
+    * collection itself.
+    */
+    void NotifySurveyAlpha(float Alpha);
+
     // ── BP-overridable hooks (optional polish) ───────────────────────────────
 
     UFUNCTION(BlueprintImplementableEvent, Category = "Color Driver")
@@ -133,8 +142,17 @@ public:
 
 protected:
     virtual void BeginPlay() override;
-    virtual void TickComponent(float DeltaTime, ELevelTick TickType,
-        FActorComponentTickFunction* ThisTickFunction) override;
+    virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+    
+    /** Added to TiltBlurScale at full survey. Gameplay band stays as-tuned at rest. */
+    UPROPERTY(EditDefaultsOnly, Category = "Tilt Shift|Survey",
+        meta = (ClampMin = "0.0", ClampMax = "0.8"))
+    float SurveyBlurBoost = 0.45f;
+
+    /** TiltFocusWidth multiplier at full survey (<1 narrows the band into a stripe). */
+    UPROPERTY(EditDefaultsOnly, Category = "Tilt Shift|Survey",
+        meta = (ClampMin = "0.2", ClampMax = "1.0"))
+    float SurveyWidthScale = 0.65f;
 
 private:
     UPROPERTY(Transient)
@@ -202,4 +220,15 @@ private:
     static const FName ParamName_SolarColor;
     static const FName ParamName_IndigoFieldColor;
     static const FName ParamName_ShadowTintAlpha;
+
+    static const FName ParamName_TiltFocusCenter;
+    static const FName ParamName_TiltFocusWidth;
+    static const FName ParamName_TiltBlurScale;
+    static const FName ParamName_TiltFocusFalloff;
+
+    /** Live survey alpha pushed by the strategic camera (0 at rest). */
+    float TiltSurveyAlpha = 0.f;
+
+    /** Composes profile-lerped band + survey ramp, writes all four MPC scalars. */
+    void WriteTiltShift() const;
 };

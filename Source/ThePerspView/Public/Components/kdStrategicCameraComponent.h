@@ -6,6 +6,9 @@
 #include "Components/ActorComponent.h"
 #include "kdStrategicCameraComponent.generated.h"
 
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FkdSurveyAlphaSignature, float /*Alpha 0..1*/);
+
 class USpringArmComponent;
 class UCameraComponent;
 class UCurveFloat;
@@ -90,6 +93,10 @@ public:
 	/** Normalized transition state [0 = gameplay baseline, 1 = full survey]. */
 	UFUNCTION(BlueprintPure, Category = "kd|Strategic Camera")
 	float GetSurveyAlpha() const { return CurrentAlpha; }
+
+	/** Fires whenever the survey alpha changes (incl. settle to 0). The world-color
+	 *  driver binds to this to ramp the tilt-shift band. Cosmetic only. */
+	FkdSurveyAlphaSignature OnSurveyAlphaChanged;
 
 protected:
 	// ---- Tunables ----------------------------------------------------------

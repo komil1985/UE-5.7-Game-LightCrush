@@ -99,6 +99,36 @@ struct FkdPostProcessProfile
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Post Process",
         meta = (ClampMin = "0.0", ClampMax = "5.0"))
     float ChromaticAberrationIntensity = 0.f;
+
+    // ── Tilt-Shift Focus Band (view-camera diorama) ─────────────────────────────
+    //
+    // Drives a custom PP material (M_TiltShift) through MPC_WorldColor. The sharp
+    // band is a horizontal stripe in viewport space; everything above/below melts
+    // into miniature. The band is tuned to sit on the gameplay plane so platforms
+    // and the player never blur — that's the legibility guard.
+    //
+    // All four are viewport-normalized (0..1), resolution-independent. The driver
+    // lerps these between Light and Crush by WorldBlendAlpha, exactly like DOF.
+
+    /** Vertical screen position of the sharp band centre. 0 = top, 1 = bottom. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tilt Shift",
+        meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float TiltFocusCenter = 0.62f;
+
+    /** Height of the fully-sharp band (fraction of screen height). */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tilt Shift",
+        meta = (ClampMin = "0.05", ClampMax = "0.9"))
+    float TiltFocusWidth = 0.46f;
+
+    /** Peak blur strength outside the band. 0 = off; 1 = the material's MaxBlurRadius. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tilt Shift",
+        meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float TiltBlurScale = 0.18f;
+
+    /** Feather distance from band edge to full blur. Larger = softer transition. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tilt Shift",
+        meta = (ClampMin = "0.02", ClampMax = "0.5"))
+    float TiltFocusFalloff = 0.16f;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

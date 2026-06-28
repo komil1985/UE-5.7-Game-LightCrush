@@ -12,11 +12,12 @@
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Volume/AkdGlobalPostProcessVolume.h"
+#include "Components/kdStrategicCameraComponent.h"
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MPC parameter names — must match the asset created in editor.
-// Renamed for the Heliograph contract:
+//   MPC parameter names — must match the asset created in editor.
+//   Renamed for the Heliograph contract:
 //   WorldBlendAlpha   (scalar)  — 0 light, 1 crush
 //   EdgePulseAlpha    (scalar)  — transient 0..1 burst
 //   LumenColor        (vector)  — outline trace
@@ -30,6 +31,11 @@ const FName UkdWorldColorDriver::ParamName_ShadowTintAlpha = TEXT("ShadowTintAlp
 const FName UkdWorldColorDriver::ParamName_LumenColor = TEXT("LumenColor");
 const FName UkdWorldColorDriver::ParamName_SolarColor = TEXT("SolarColor");
 const FName UkdWorldColorDriver::ParamName_IndigoFieldColor = TEXT("IndigoFieldColor");
+
+const FName UkdWorldColorDriver::ParamName_TiltFocusCenter = TEXT("TiltFocusCenter");
+const FName UkdWorldColorDriver::ParamName_TiltFocusWidth = TEXT("TiltFocusWidth");
+const FName UkdWorldColorDriver::ParamName_TiltBlurScale = TEXT("TiltBlurScale");
+const FName UkdWorldColorDriver::ParamName_TiltFocusFalloff = TEXT("TiltFocusFalloff");
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -72,6 +78,18 @@ void UkdWorldColorDriver::BeginPlay()
         if (ColorTheme->WorldColorMPC && GetWorld())
         {
             MPCInstance = GetWorld()->GetParameterCollectionInstance(ColorTheme->WorldColorMPC);
+            // Initial band write.
+            WriteTiltShift();
+
+            // Subscribe to the strategic camera's survey alpha (same pawn). Decoupled:
+            // the strategic component knows nothing about us — it just broadcasts.
+            if (AActor* O = GetOwner())
+            {
+                if (UkdStrategicCameraComponent* Strat = O->FindComponentByClass<UkdStrategicCameraComponent>())
+                {
+                    Strat->OnSurveyAlphaChanged.AddUObject(this, &UkdWorldColorDriver::NotifySurveyAlpha);
+                }
+            }
         }
     }
 
@@ -170,6 +188,7 @@ void UkdWorldColorDriver::TickComponent(
 
         ApplyProfileToPostProcess(BlendAlpha);
         UpdateMPC(BlendAlpha);
+        WriteTiltShift();   // keep the band lerping in lockstep with the crush blend
 
         const bool bReachedDest =
             (BlendDirection > 0.f && BlendAlpha >= 1.f) ||
@@ -184,6 +203,7 @@ void UkdWorldColorDriver::TickComponent(
             if (CachedLightVolume)  CachedLightVolume->BlendWeight = 1.f - BlendAlpha;
             ApplyProfileToPostProcess(BlendAlpha);
             UpdateMPC(BlendAlpha);
+            WriteTiltShift();   // keep the band lerping in lockstep with the crush blend
 
             bBlending = false;
             BP_OnBlendFinished(BlendAlpha > 0.5f);
@@ -466,6 +486,42 @@ void UkdWorldColorDriver::WriteShadowTintAlpha(float Alpha) const
 {
     if (!MPCInstance) return;
     MPCInstance->SetScalarParameterValue(ParamName_ShadowTintAlpha, Alpha);
+}
+
+void UkdWorldColorDriver::WriteTiltShift() const
+{
+    // WriteTiltShift ////////////////////
+    // Single writer of the tilt-shift band. Steady-state values lerp between the two
+    // world profiles by the live BlendAlpha (so the band shifts smoothly across a
+    // crush transition); the survey ramp then deepens the blur and tightens the band
+    // only while the Surveyor's Plate is engaged. At rest TiltSurveyAlpha is 0, so
+    // this resolves to the pure profile-lerped gameplay band — zero survey cost.
+    if (!MPCInstance || !ColorTheme) return;
+
+    const FkdPostProcessProfile& L = ColorTheme->LightWorldProfile;
+    const FkdPostProcessProfile& C = ColorTheme->CrushWorldProfile;
+
+    const float Center = FMath::Lerp(L.TiltFocusCenter, C.TiltFocusCenter, BlendAlpha);
+    const float Falloff = FMath::Lerp(L.TiltFocusFalloff, C.TiltFocusFalloff, BlendAlpha);
+
+    const float WidthBase = FMath::Lerp(L.TiltFocusWidth, C.TiltFocusWidth, BlendAlpha);
+    const float Width = WidthBase * FMath::Lerp(1.f, SurveyWidthScale, TiltSurveyAlpha);
+
+    const float BlurBase = FMath::Lerp(L.TiltBlurScale, C.TiltBlurScale, BlendAlpha);
+    const float Blur = FMath::Clamp(BlurBase + SurveyBlurBoost * TiltSurveyAlpha, 0.f, 1.f);
+
+    MPCInstance->SetScalarParameterValue(ParamName_TiltFocusCenter, Center);
+    MPCInstance->SetScalarParameterValue(ParamName_TiltFocusWidth, Width);
+    MPCInstance->SetScalarParameterValue(ParamName_TiltBlurScale, Blur);
+    MPCInstance->SetScalarParameterValue(ParamName_TiltFocusFalloff, Falloff);
+}
+
+void UkdWorldColorDriver::NotifySurveyAlpha(float Alpha)
+{
+    Alpha = FMath::Clamp(Alpha, 0.f, 1.f);
+    if (FMath::IsNearlyEqual(Alpha, TiltSurveyAlpha)) return;   // skip redundant writes
+    TiltSurveyAlpha = Alpha;
+    WriteTiltShift();
 }
 
 bool UkdWorldColorDriver::NeedsTick() const
