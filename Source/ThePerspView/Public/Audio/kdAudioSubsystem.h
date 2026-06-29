@@ -75,6 +75,7 @@ public:
 
     /** Null-safe 2D one-shot. Use this for everything non-spatial (UI, stingers,
      *  the crush whooshes — the camera is far away in 2D so 2D SFX read cleaner). */
+     /** Fire-and-forget 2D SFX through the SFX sound class. Safe to call before any pawn exists. */
     UFUNCTION(BlueprintCallable, Category = "kd|Audio|SFX")
     void PlaySFX2D(USoundBase* Sound, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f);
 
@@ -114,15 +115,20 @@ public:
     UFUNCTION(BlueprintCallable, Category = "kd|Audio|Events")
     void OnGameOver();
 
+    void PlayCrushEnter();
+    void PlayCrushExit();
+    void PlayCrushLand();
+    void PlayCrushDenied();
+
     /** The resolved bank (may be null if Project Settings isn't configured). */
     UFUNCTION(BlueprintPure, Category = "kd|Audio")
-    const UkdAudioBank* GetBank() const { return Bank; }
+    const UkdAudioBank* GetBank() const { return BankA; }
 
 private:
     // Resolved once in Initialize from UkdAudioSettings. Loaded synchronously —
     // a single small DataAsset; fine at startup, avoids first-sound hitch.
     UPROPERTY()
-    TObjectPtr<const UkdAudioBank> Bank = nullptr;
+    TObjectPtr<const UkdAudioBank> BankA = nullptr;
 
     // Two persistent music decks for crossfading. UPROPERTY = GC-safe.
     UPROPERTY()
@@ -137,6 +143,12 @@ private:
 
     int32  ActiveDeck = 0;            // 0 = A, 1 = B
     bool   bCrushFilterActive = false;
+
+    /** Returns the active bank, force-loading it from UkdAudioSettings if the soft ref isn't resolved yet. */
+    UkdAudioBank* GetResolvedBank();
+
+    UPROPERTY(Transient)
+    TObjectPtr<UkdAudioBank> ResolvedBank = nullptr;
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     void LoadBank();

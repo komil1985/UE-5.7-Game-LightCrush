@@ -158,6 +158,8 @@ public:
 	*  stop running behind the results screen. */
 	void HandleLevelComplete();
 
+	UkdGameFeedbackComponent* GetGameFeedbackComponent() const { return GameFeedbackComponent; }
+
 protected:
 	virtual void BeginPlay() override;
 

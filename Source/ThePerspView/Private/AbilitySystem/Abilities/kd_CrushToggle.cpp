@@ -112,6 +112,12 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
     }
     /////////////////////////////////////////////End Direction Crush//////////////////////////////////////////////////////////////////////
 
+    if (UkdGameFeedbackComponent* Feedback = Player->GetGameFeedbackComponent())
+    {
+        Feedback->NotifyCrushTransitionStarted(bTargetCrushMode);  // ← plays audio + PP burst
+    }
+
+
     // ── 4. IMMEDIATE feedback — fires before anticipation delay ───────────────
     //
     // OnCrushTransitionStarted runs right now so the player gets instant

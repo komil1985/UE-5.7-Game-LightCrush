@@ -180,7 +180,6 @@ public:
         meta = (ClampMin = "0.0", ClampMax = "0.6"))
     float ExitPopStretchZ = 0.30f;
 
-
 protected:
     virtual void BeginPlay() override;
 

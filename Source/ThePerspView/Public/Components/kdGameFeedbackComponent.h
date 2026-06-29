@@ -281,11 +281,26 @@ public:
         meta = (ClampMin = "0.0"))
     float ShadowEntryNiagaraZOffset = 60.0f;
 
+    /** Called by CrushToggle ability / CrushStateComponent at transition start */
+    void NotifyCrushTransitionStarted(bool bEntering);
+
+    /** Called by CrushToggle ability / CrushStateComponent at transition finish */
+    void NotifyCrushTransitionFinished(bool bNowInCrush);
+
+    /** Called when crush is denied (stamina empty, blocked, etc.) */
+    void NotifyCrushDenied();
+
+    /** Called when player lands after exiting crush (CrushLand SFX) */
+    void NotifyCrushLand();
+
 protected:
     virtual void BeginPlay() override;
     virtual void TickComponent(float DeltaTime, ELevelTick TickType,FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
+    /** Resolves AudioSubsystem once and caches it — safe to call any frame after BeginPlay */
+    class UkdAudioSubsystem* GetAudioSubsystem() const;
+
     // ── Cached refs ──────────────────────────────────────────────────────────
 
     UPROPERTY() TObjectPtr<UkdAbilitySystemComponent>  CachedASC;

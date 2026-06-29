@@ -15,6 +15,9 @@
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraSystem.h"
 #include "NiagaraFunctionLibrary.h"
+#include "Audio/kdAudioSubsystem.h"
+#include "Engine/GameInstance.h"
+#include "Engine/World.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PP-material scalar param names — only what's still needed after Heliograph.
@@ -38,7 +41,6 @@ UkdGameFeedbackComponent::UkdGameFeedbackComponent()
 // =============================================================================
 // BeginPlay
 // =============================================================================
-
 void UkdGameFeedbackComponent::BeginPlay()
 {
     Super::BeginPlay();
@@ -151,6 +153,81 @@ void UkdGameFeedbackComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
         {
             WritePP_BlendWeight(0.f);
         }
+    }
+}
+
+UkdAudioSubsystem* UkdGameFeedbackComponent::GetAudioSubsystem() const
+{
+    const UWorld* World = GetWorld();
+    if (!IsValid(World)) return nullptr;
+
+    const UGameInstance* GI = World->GetGameInstance();
+    if (!IsValid(GI)) return nullptr;
+
+    return GI->GetSubsystem<UkdAudioSubsystem>();
+}
+
+// ---------------------------------------------------------------------------
+// Called at the START of a crush transition (ability ActivateAbility)
+// This is where enter/exit SWOOSH plays — matches your DA field names
+// ---------------------------------------------------------------------------
+void UkdGameFeedbackComponent::NotifyCrushTransitionStarted(bool bEntering)
+{
+    UE_LOG(LogTemp, Log, TEXT("GameFeedback: CrushTransitionStarted  enter=%d"), bEntering ? 1 : 0);
+
+    // ---- POST-PROCESS burst (your existing WorldColorDriver call goes here) ----
+    // e.g. WorldColorDriver->BeginCrushBlend(bEntering);
+
+    // ---- AUDIO ----
+    if (UkdAudioSubsystem* Audio = GetAudioSubsystem())
+    {
+        if (bEntering)
+        {
+            Audio->PlayCrushEnter();   // Plays DA_HeliographAudio.CrushEnterStart (Swoosh)
+        }
+        else
+        {
+            Audio->PlayCrushExit();    // Plays DA_HeliographAudio.CrushExitStart  (Swoosh)
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("GameFeedback: AudioSubsystem not available at TransitionStarted — too early?"));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Called at the END of a crush transition (ability EndAbility / timer)
+// ---------------------------------------------------------------------------
+void UkdGameFeedbackComponent::NotifyCrushTransitionFinished(bool bNowInCrush)
+{
+    UE_LOG(LogTemp, Log, TEXT("GameFeedback: CrushTransitionFinished  nowCrush=%d"), bNowInCrush ? 1 : 0);
+
+    // ---- POST-PROCESS settle (your existing call) ----
+
+    // NOTE: No audio here by default.
+    // CrushLand fires from the CMC landing callback (NotifyCrushLand), not here.
+}
+
+// ---------------------------------------------------------------------------
+// Called when crush is blocked (Block.Crush tag active, stamina zero, etc.)
+// ---------------------------------------------------------------------------
+void UkdGameFeedbackComponent::NotifyCrushDenied()
+{
+    if (UkdAudioSubsystem* Audio = GetAudioSubsystem())
+    {
+        Audio->PlayCrushDenied(); // DA field is None right now — will no-op safely
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Called from CrushStateComponent / CMC when landing after crush exit
+// ---------------------------------------------------------------------------
+void UkdGameFeedbackComponent::NotifyCrushLand()
+{
+    if (UkdAudioSubsystem* Audio = GetAudioSubsystem())
+    {
+        Audio->PlayCrushLand();   // Plays DA_HeliographAudio.CrushLand (Swoosh)
     }
 }
 

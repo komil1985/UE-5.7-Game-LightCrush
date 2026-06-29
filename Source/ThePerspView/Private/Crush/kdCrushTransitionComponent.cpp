@@ -190,80 +190,80 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode, EkdCrushDir
 
 void UkdCrushTransitionComponent::HandleTimelineUpdate(float Value)
 {
-//    if (!CachedOwner) return;
-//
-//    const float Alpha = Value;   // curve-shaped [0, 1]
-//
-//    // ── Restore movement after anticipation phase ─────────────────────────────
-//    if (!bMovementRestored && Alpha >= AnticipationRatio)
-//    {
-//        bMovementRestored = true;
-//        if (UCharacterMovementComponent* MC = CachedOwner->GetCharacterMovement())
-//            MC->SetMovementMode(MOVE_Walking);
-//    }
-//
-//    //// ── Player mesh scale (active only after anticipation) ────────────────────
-//    //if (Alpha >= AnticipationRatio)
-//    //{
-//    //    const float MeshAlpha = FMath::Clamp(
-//    //        (Alpha - AnticipationRatio) / FMath::Max(1.f - AnticipationRatio, KINDA_SMALL_NUMBER),
-//    //        0.f, 1.f);
-//
-//    //    if (USkeletalMeshComponent* Mesh = CachedOwner->GetMesh())
-//    //        Mesh->SetRelativeScale3D(FMath::Lerp(MeshScaleFrom, MeshScaleTo, MeshAlpha));
-//    //}
-//
-//    // ── Uniform mesh scale (starts after anticipation) ────────────────────────
-//    USkeletalMeshComponent* Mesh = CachedOwner->GetMesh();
-//    if (Mesh && Alpha >= AnticipationRatio)
-//    {
-//        const float MeshAlpha = FMath::Clamp((Alpha - AnticipationRatio) / FMath::Max(1.f - AnticipationRatio, KINDA_SMALL_NUMBER), 0.f, 1.f);
-//
-//        Mesh->SetRelativeScale3D(FMath::Lerp(MeshScaleFrom, MeshScaleTo, MeshAlpha));
-//    }
-//
-//    // ── Z squash-stretch (runs the entire timeline, modifies scale set above) ──
-//    // Must run AFTER the uniform scale write — it reads the current scale as
-//    // its base and applies per-axis multipliers on top.
-//    ApplyZSquashStretch(Alpha, Mesh);
-//
-//    // ── Camera — FOV + arm length + arm rotation + roll (entire timeline) ─────
-//    // Camera starts moving at t=0 so the world visually begins shifting the
-//    // instant the button is pressed, even while the player is frozen.
-//    const float CamAlpha = Alpha;
-//
-//    const float NewFOV = FMath::Lerp(FOVFrom, FOVTo, CamAlpha);
-//    const float NewArmLength = FMath::Lerp(ArmLengthFrom, ArmLengthTo, CamAlpha);
-//    const FRotator NewArmRot = FMath::Lerp(ArmRotFrom, ArmRotTo, CamAlpha);
-//
-//    // Camera roll: sine arch that peaks at mid-transition and returns to zero.
-//    // Entering crush → negative roll (world tilts one way).
-//    // Exiting  crush → positive roll (world tilts back).
-//    // The effect is subtle (default 3°) but gives the transition physical weight.
-//    const float RollPeak = bTargetCrushMode ? -TransitionRollDegrees : TransitionRollDegrees;
-//    const float CurrentRoll = RollPeak * FMath::Sin(Alpha * PI);   // arch: 0 → peak → 0
-//
-//    FVector Loc = CachedOwner->GetActorLocation();
-//    Loc.X = FMath::Lerp(PlayerXFrom, PlayerXTo, Alpha);
-//    CachedOwner->SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
-//
-//    ApplyCameraState(NewFOV, NewArmLength, NewArmRot, CurrentRoll);
-//
-//    // ── Mid-point: lock / unlock yaw (fires exactly once per transition) ──────
-//    if (!bYawLocked && Alpha >= 0.5f)
-//    {
-//        bYawLocked = true;
-//
-//        if (CachedOwner->SpringArm)
-//        {
-//            CachedOwner->SpringArm->bInheritYaw = !bTargetCrushMode;
-//
-//#if !UE_BUILD_SHIPPING
-//            UE_LOG(LogTemp, Log, TEXT("CrushTransition: YawInherit=%s at alpha=%.2f"),
-//                bTargetCrushMode ? TEXT("false") : TEXT("true"), Alpha);
-//#endif
-//        }
-//    }
+    //    if (!CachedOwner) return;
+    //
+    //    const float Alpha = Value;   // curve-shaped [0, 1]
+    //
+    //    // ── Restore movement after anticipation phase ─────────────────────────────
+    //    if (!bMovementRestored && Alpha >= AnticipationRatio)
+    //    {
+    //        bMovementRestored = true;
+    //        if (UCharacterMovementComponent* MC = CachedOwner->GetCharacterMovement())
+    //            MC->SetMovementMode(MOVE_Walking);
+    //    }
+    //
+    //    //// ── Player mesh scale (active only after anticipation) ────────────────────
+    //    //if (Alpha >= AnticipationRatio)
+    //    //{
+    //    //    const float MeshAlpha = FMath::Clamp(
+    //    //        (Alpha - AnticipationRatio) / FMath::Max(1.f - AnticipationRatio, KINDA_SMALL_NUMBER),
+    //    //        0.f, 1.f);
+    //
+    //    //    if (USkeletalMeshComponent* Mesh = CachedOwner->GetMesh())
+    //    //        Mesh->SetRelativeScale3D(FMath::Lerp(MeshScaleFrom, MeshScaleTo, MeshAlpha));
+    //    //}
+    //
+    //    // ── Uniform mesh scale (starts after anticipation) ────────────────────────
+    //    USkeletalMeshComponent* Mesh = CachedOwner->GetMesh();
+    //    if (Mesh && Alpha >= AnticipationRatio)
+    //    {
+    //        const float MeshAlpha = FMath::Clamp((Alpha - AnticipationRatio) / FMath::Max(1.f - AnticipationRatio, KINDA_SMALL_NUMBER), 0.f, 1.f);
+    //
+    //        Mesh->SetRelativeScale3D(FMath::Lerp(MeshScaleFrom, MeshScaleTo, MeshAlpha));
+    //    }
+    //
+    //    // ── Z squash-stretch (runs the entire timeline, modifies scale set above) ──
+    //    // Must run AFTER the uniform scale write — it reads the current scale as
+    //    // its base and applies per-axis multipliers on top.
+    //    ApplyZSquashStretch(Alpha, Mesh);
+    //
+    //    // ── Camera — FOV + arm length + arm rotation + roll (entire timeline) ─────
+    //    // Camera starts moving at t=0 so the world visually begins shifting the
+    //    // instant the button is pressed, even while the player is frozen.
+    //    const float CamAlpha = Alpha;
+    //
+    //    const float NewFOV = FMath::Lerp(FOVFrom, FOVTo, CamAlpha);
+    //    const float NewArmLength = FMath::Lerp(ArmLengthFrom, ArmLengthTo, CamAlpha);
+    //    const FRotator NewArmRot = FMath::Lerp(ArmRotFrom, ArmRotTo, CamAlpha);
+    //
+    //    // Camera roll: sine arch that peaks at mid-transition and returns to zero.
+    //    // Entering crush → negative roll (world tilts one way).
+    //    // Exiting  crush → positive roll (world tilts back).
+    //    // The effect is subtle (default 3°) but gives the transition physical weight.
+    //    const float RollPeak = bTargetCrushMode ? -TransitionRollDegrees : TransitionRollDegrees;
+    //    const float CurrentRoll = RollPeak * FMath::Sin(Alpha * PI);   // arch: 0 → peak → 0
+    //
+    //    FVector Loc = CachedOwner->GetActorLocation();
+    //    Loc.X = FMath::Lerp(PlayerXFrom, PlayerXTo, Alpha);
+    //    CachedOwner->SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
+    //
+    //    ApplyCameraState(NewFOV, NewArmLength, NewArmRot, CurrentRoll);
+    //
+    //    // ── Mid-point: lock / unlock yaw (fires exactly once per transition) ──────
+    //    if (!bYawLocked && Alpha >= 0.5f)
+    //    {
+    //        bYawLocked = true;
+    //
+    //        if (CachedOwner->SpringArm)
+    //        {
+    //            CachedOwner->SpringArm->bInheritYaw = !bTargetCrushMode;
+    //
+    //#if !UE_BUILD_SHIPPING
+    //            UE_LOG(LogTemp, Log, TEXT("CrushTransition: YawInherit=%s at alpha=%.2f"),
+    //                bTargetCrushMode ? TEXT("false") : TEXT("true"), Alpha);
+    //#endif
+    //        }
+    //    }
 
     if (!CachedOwner) return;
 
@@ -614,50 +614,50 @@ void UkdCrushTransitionComponent::ApplyZSquashStretch(float Alpha, USkeletalMesh
 
 void UkdCrushTransitionComponent::ApplyPlaneConstraint()
 {
-//    UCharacterMovementComponent* MC = CachedOwner ? CachedOwner->GetCharacterMovement() : nullptr;
-//    if (!MC) return;
-//
-//    // Lock to the player's CURRENT X — wherever they are standing right now.
-//    // This is the only correct plane origin; CrushWorldX is irrelevant.
-//    const float PlayerCurrentX = CachedOwner->GetActorLocation().X;
-//
-//    MC->SetPlaneConstraintEnabled(true);
-//    MC->SetPlaneConstraintNormal(FVector(1.f, 0.f, 0.f));
-//    MC->SetPlaneConstraintOrigin(FVector(PlayerCurrentX, 0.f, 0.f));
-//
-//#if !UE_BUILD_SHIPPING
-//    UE_LOG(LogTemp, Log,
-//        TEXT("CrushTransition: Plane constraint ON at player X=%.1f"), PlayerCurrentX);
-//#endif
+    //    UCharacterMovementComponent* MC = CachedOwner ? CachedOwner->GetCharacterMovement() : nullptr;
+    //    if (!MC) return;
+    //
+    //    // Lock to the player's CURRENT X — wherever they are standing right now.
+    //    // This is the only correct plane origin; CrushWorldX is irrelevant.
+    //    const float PlayerCurrentX = CachedOwner->GetActorLocation().X;
+    //
+    //    MC->SetPlaneConstraintEnabled(true);
+    //    MC->SetPlaneConstraintNormal(FVector(1.f, 0.f, 0.f));
+    //    MC->SetPlaneConstraintOrigin(FVector(PlayerCurrentX, 0.f, 0.f));
+    //
+    //#if !UE_BUILD_SHIPPING
+    //    UE_LOG(LogTemp, Log,
+    //        TEXT("CrushTransition: Plane constraint ON at player X=%.1f"), PlayerCurrentX);
+    //#endif
 
-    ///////////////////////////////////////// old //////////////////////////////////////////////////////
-//    UCharacterMovementComponent* MC = CachedOwner ? CachedOwner->GetCharacterMovement() : nullptr;
-//    if (!MC) return;
-//
-//    // Resolve the collapse axis from the stored direction.
-//    // PosX/NegX → normal (1,0,0).  PosY/NegY → normal (0,1,0).
-//    const FVector Normal = UkdCrushDirectionLibrary::DirectionToCollapseNormal(ActiveCrushDirection);
-//
-//    // Lock the player to their CURRENT position on the active axis.
-//    // Capturing the live location at toggle time (not a preset value) is what
-//    // prevents the constraint from fighting any sub-pixel position drift.
-//    const FVector PlayerLoc = CachedOwner->GetActorLocation();
-//    const FVector Origin(
-//        (Normal.X > KINDA_SMALL_NUMBER) ? PlayerLoc.X : 0.f,
-//        (Normal.Y > KINDA_SMALL_NUMBER) ? PlayerLoc.Y : 0.f,
-//        0.f);
-//
-//    MC->SetPlaneConstraintEnabled(true);
-//    MC->SetPlaneConstraintNormal(Normal);
-//    MC->SetPlaneConstraintOrigin(Origin);
-//
-//#if !UE_BUILD_SHIPPING
-//    UE_LOG(LogTemp, Log,
-//        TEXT("CrushTransition: Plane constraint ON | axis=%s | origin=(%.1f, %.1f)"),
-//        *Normal.ToString(), Origin.X, Origin.Y);
-//#endif
+        ///////////////////////////////////////// old //////////////////////////////////////////////////////
+    //    UCharacterMovementComponent* MC = CachedOwner ? CachedOwner->GetCharacterMovement() : nullptr;
+    //    if (!MC) return;
+    //
+    //    // Resolve the collapse axis from the stored direction.
+    //    // PosX/NegX → normal (1,0,0).  PosY/NegY → normal (0,1,0).
+    //    const FVector Normal = UkdCrushDirectionLibrary::DirectionToCollapseNormal(ActiveCrushDirection);
+    //
+    //    // Lock the player to their CURRENT position on the active axis.
+    //    // Capturing the live location at toggle time (not a preset value) is what
+    //    // prevents the constraint from fighting any sub-pixel position drift.
+    //    const FVector PlayerLoc = CachedOwner->GetActorLocation();
+    //    const FVector Origin(
+    //        (Normal.X > KINDA_SMALL_NUMBER) ? PlayerLoc.X : 0.f,
+    //        (Normal.Y > KINDA_SMALL_NUMBER) ? PlayerLoc.Y : 0.f,
+    //        0.f);
+    //
+    //    MC->SetPlaneConstraintEnabled(true);
+    //    MC->SetPlaneConstraintNormal(Normal);
+    //    MC->SetPlaneConstraintOrigin(Origin);
+    //
+    //#if !UE_BUILD_SHIPPING
+    //    UE_LOG(LogTemp, Log,
+    //        TEXT("CrushTransition: Plane constraint ON | axis=%s | origin=(%.1f, %.1f)"),
+    //        *Normal.ToString(), Origin.X, Origin.Y);
+    //#endif
 
-    //////////////////////////////////////// New ////////////////////////////////////////////////////////
+        //////////////////////////////////////// New ////////////////////////////////////////////////////////
     UCharacterMovementComponent* MC = CachedOwner ? CachedOwner->GetCharacterMovement() : nullptr;
     if (!MC) return;
 

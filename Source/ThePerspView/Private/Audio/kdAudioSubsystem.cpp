@@ -8,6 +8,8 @@
 #include "Sound/SoundBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/GameInstance.h"
+#include "Kismet/GameplayStatics.h"
+#include "Engine/GameInstance.h"
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
@@ -18,7 +20,10 @@ void UkdAudioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 #if !UE_BUILD_SHIPPING
     UE_LOG(LogTemp, Log, TEXT("UkdAudioSubsystem: Initialized. Bank=%s"),
-        Bank ? *Bank->GetName() : TEXT("NULL — set Project Settings → Game → Heliograph Audio"));
+        BankA ? *BankA->GetName() : TEXT("NULL — set Project Settings → Game → Heliograph Audio"));
+
+    UE_LOG(LogTemp, Warning, TEXT("[kdAudio] PlayCrushEnter | BankA=%s | Sound=%s"),
+        *GetNameSafe(BankA), *GetNameSafe(BankA ? BankA->CrushEnterStart : nullptr));
 #endif
 }
 
@@ -43,6 +48,29 @@ UkdAudioSubsystem* UkdAudioSubsystem::Get(const UObject* WorldContext)
     return GI ? GI->GetSubsystem<UkdAudioSubsystem>() : nullptr;
 }
 
+UkdAudioBank* UkdAudioSubsystem::GetResolvedBank()
+{
+    if (IsValid(ResolvedBank))
+    {
+        return ResolvedBank;
+    }
+
+    const UkdAudioSettings* Settings = GetDefault<UkdAudioSettings>();
+    if (!Settings)
+    {
+        UE_LOG(LogTemp, Error, TEXT("[kdAudio] UkdAudioSettings missing."));
+        return nullptr;
+    }
+
+    // CRITICAL: LoadSynchronous, not .Get() — a .Get() on an unloaded soft ref returns null and silently breaks all audio.
+    ResolvedBank = Settings->AudioBank.LoadSynchronous();
+    if (!IsValid(ResolvedBank))
+    {
+        UE_LOG(LogTemp, Error, TEXT("[kdAudio] AudioBank failed to resolve from Project Settings."));
+    }
+    return ResolvedBank;
+}
+
 void UkdAudioSubsystem::LoadBank()
 {
     const UkdAudioSettings* Settings = GetDefault<UkdAudioSettings>();
@@ -50,9 +78,9 @@ void UkdAudioSubsystem::LoadBank()
 
     // Synchronous load — it's one small DataAsset and we want it ready before
     // the menu's first frame so RequestMenuMusic() never misses.
-    Bank = Settings->AudioBank.LoadSynchronous();
+    BankA = Settings->AudioBank.LoadSynchronous();
 
-    if (!Bank)
+    if (!BankA)
     {
         UE_LOG(LogTemp, Warning,
             TEXT("UkdAudioSubsystem: No Audio Bank assigned (Project Settings → Game → Heliograph Audio)."));
@@ -76,10 +104,10 @@ UAudioComponent* UkdAudioSubsystem::SpawnPersistentDeck()
         /*bPersistAcrossLevelTransition*/ true,
         /*bAutoDestroy*/ false);
 
-    if (Deck && Bank && Bank->MusicClass)
+    if (Deck && BankA && BankA->MusicClass)
     {
         // Route through SC_Music so the Music slider (SoundMix) governs volume.
-        Deck->SoundClassOverride = Bank->MusicClass;
+        Deck->SoundClassOverride = BankA->MusicClass;
     }
     return Deck;
 }
@@ -119,10 +147,10 @@ void UkdAudioSubsystem::RequestMusic(USoundBase* Track, float FadeSeconds)
 
     const float Fade = (FadeSeconds >= 0.f)
         ? FadeSeconds
-        : (Bank ? Bank->MusicCrossfadeSeconds : 1.5f);
+        : (BankA ? BankA->MusicCrossfadeSeconds : 1.5f);
 
-    const float TargetVol = (bCrushFilterActive && Bank && Bank->bDuckMusicInCrush)
-        ? Bank->CrushMusicVolume
+    const float TargetVol = (bCrushFilterActive && BankA && BankA->bDuckMusicInCrush)
+        ? BankA->CrushMusicVolume
         : 1.f;
 
     UAudioComponent* Outgoing = ActiveMusic();
@@ -155,23 +183,23 @@ void UkdAudioSubsystem::RequestMusic(USoundBase* Track, float FadeSeconds)
 
 void UkdAudioSubsystem::RequestMusicForLevel(FName LevelName)
 {
-    if (!Bank) return;
+    if (!BankA) return;
 
     USoundBase* Track = nullptr;
-    if (const TObjectPtr<USoundBase>* Found = Bank->PerLevelMusic.Find(LevelName))
+    if (const TObjectPtr<USoundBase>* Found = BankA->PerLevelMusic.Find(LevelName))
     {
         Track = *Found;
     }
     if (!Track)
     {
-        Track = Bank->DefaultGameplayMusic;
+        Track = BankA->DefaultGameplayMusic;
     }
     RequestMusic(Track);
 }
 
 void UkdAudioSubsystem::RequestMenuMusic()
 {
-    if (Bank) { RequestMusic(Bank->MenuMusic); }
+    if (BankA) { RequestMusic(BankA->MenuMusic); }
 }
 
 void UkdAudioSubsystem::StopMusic(float FadeSeconds)
@@ -183,7 +211,7 @@ void UkdAudioSubsystem::StopMusic(float FadeSeconds)
 
 void UkdAudioSubsystem::SetCrushMusicFilter(bool bEnabled)
 {
-    if (!Bank || !Bank->bDuckMusicInCrush) return;
+    if (!BankA || !BankA->bDuckMusicInCrush) return;
     if (bCrushFilterActive == bEnabled) return;
     bCrushFilterActive = bEnabled;
 
@@ -192,16 +220,16 @@ void UkdAudioSubsystem::SetCrushMusicFilter(bool bEnabled)
 
 void UkdAudioSubsystem::ApplyCrushFilterToDeck(UAudioComponent* Deck, bool bEnabled, bool bInstant)
 {
-    if (!IsValid(Deck) || !Bank) return;
+    if (!IsValid(Deck) || !BankA) return;
 
-    const float Ramp = bInstant ? 0.f : Bank->CrushDuckRamp;
+    const float Ramp = bInstant ? 0.f : BankA->CrushDuckRamp;
 
     if (bEnabled)
     {
-        Deck->SetLowPassFilterFrequency(Bank->CrushMusicLowPassHz);
+        Deck->SetLowPassFilterFrequency(BankA->CrushMusicLowPassHz);
         Deck->SetLowPassFilterEnabled(true);
         // AdjustVolume ramps the multiplier without restarting the track.
-        Deck->AdjustVolume(Ramp, Bank->CrushMusicVolume);
+        Deck->AdjustVolume(Ramp, BankA->CrushMusicVolume);
     }
     else
     {
@@ -214,57 +242,105 @@ void UkdAudioSubsystem::ApplyCrushFilterToDeck(UAudioComponent* Deck, bool bEnab
 
 void UkdAudioSubsystem::PlaySFX2D(USoundBase* Sound, float VolumeMultiplier, float PitchMultiplier)
 {
-    if (!Sound) return;
-    // Fire-and-forget; engine auto-destroys the transient component.
-    UGameplayStatics::SpawnSound2D(this, Sound, VolumeMultiplier, PitchMultiplier);
+    if (!IsValid(Sound))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[kdAudio] PlaySFX2D: null Sound — DA field not assigned."));
+        return;
+    }
+
+    UWorld* World = GetGameInstance() ? GetGameInstance()->GetWorld() : nullptr;
+    if (!IsValid(World))
+    {
+        UE_LOG(LogTemp, Error, TEXT("[kdAudio] PlaySFX2D: World is null — called too early (during subsystem init?). Sound=%s"), *Sound->GetName());
+        return;  // Was silently failing before — now you'll see this in log
+    }
+
+    // Guard: don't play during loading screens or before first BeginPlay
+    if (World->GetNetMode() == NM_MAX || !World->HasBegunPlay())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[kdAudio] PlaySFX2D: World not begun play yet. Sound=%s"), *Sound->GetName());
+        return;
+    }
+
+    UkdAudioBank* Bank = GetResolvedBank();
+    USoundClass* SfxClass = Bank ? Bank->SFXClass : nullptr;
+
+    // Fire-and-forget. No retained UAudioComponent -> no GC-eats-my-sound failure mode.
+    UGameplayStatics::PlaySound2D(World, Sound, VolumeMultiplier, PitchMultiplier, 0.0f, /*ConcurrencySettings*/ nullptr, /*OwningActor*/ nullptr);
+
+    UE_LOG(LogTemp, Log, TEXT("[kdAudio] PlaySFX2D OK → %s"), *Sound->GetName());
+}
+
+void UkdAudioSubsystem::PlayCrushEnter()
+{
+    UkdAudioBank* Bank = GetResolvedBank();
+    PlaySFX2D(Bank ? Bank->CrushEnterStart : nullptr);
+}
+
+void UkdAudioSubsystem::PlayCrushExit()
+{
+    UkdAudioBank* Bank = GetResolvedBank();
+    PlaySFX2D(Bank ? Bank->CrushExitStart : nullptr);
+}
+
+void UkdAudioSubsystem::PlayCrushLand()
+{
+    UkdAudioBank* Bank = GetResolvedBank();
+    PlaySFX2D(Bank ? Bank->CrushLand : nullptr);
+}
+
+void UkdAudioSubsystem::PlayCrushDenied()
+{
+    UkdAudioBank* Bank = GetResolvedBank();
+    PlaySFX2D(Bank ? Bank->CrushDenied : nullptr); // intentionally None in your DA right now
 }
 
 // ─── Semantic event hooks ─────────────────────────────────────────────────────
 
 void UkdAudioSubsystem::OnCrushEnterStarted()
 {
-    if (!Bank) return;
-    PlaySFX2D(Bank->CrushEnterStart);
+    if (!BankA) return;
+    //PlaySFX2D(BankA->CrushEnterStart);
     SetCrushMusicFilter(true);
 }
 
 void UkdAudioSubsystem::OnCrushExitStarted()
 {
-    if (!Bank) return;
-    PlaySFX2D(Bank->CrushExitStart);
+    if (!BankA) return;
+    PlaySFX2D(BankA->CrushExitStart);
     SetCrushMusicFilter(false);
 }
 
 void UkdAudioSubsystem::OnCrushLanded(bool /*bNowCrush*/)
 {
-    if (Bank) { PlaySFX2D(Bank->CrushLand); }
+    if (BankA) { PlaySFX2D(BankA->CrushLand); }
 }
 
 void UkdAudioSubsystem::OnCrushDenied()
 {
-    if (Bank) { PlaySFX2D(Bank->CrushDenied); }
+    if (BankA) { PlaySFX2D(BankA->CrushDenied); }
 }
 
 void UkdAudioSubsystem::OnShadowChanged(bool bInShadow)
 {
-    if (!Bank) return;
-    PlaySFX2D(bInShadow ? Bank->ShadowEnter : Bank->ShadowExit);
+    if (!BankA) return;
+    PlaySFX2D(bInShadow ? BankA->ShadowEnter : BankA->ShadowExit);
 }
 
-void UkdAudioSubsystem::OnUIClick() { if (Bank) PlaySFX2D(Bank->UIClick); }
-void UkdAudioSubsystem::OnUIBack() { if (Bank) PlaySFX2D(Bank->UIBack); }
-void UkdAudioSubsystem::OnUIHover() { if (Bank) PlaySFX2D(Bank->UIHover, 0.6f); }
+void UkdAudioSubsystem::OnUIClick() { if (BankA) PlaySFX2D(BankA->UIClick); }
+void UkdAudioSubsystem::OnUIBack() { if (BankA) PlaySFX2D(BankA->UIBack); }
+void UkdAudioSubsystem::OnUIHover() { if (BankA) PlaySFX2D(BankA->UIHover, 0.6f); }
 
 void UkdAudioSubsystem::OnLevelComplete()
 {
-    if (!Bank) return;
-    PlaySFX2D(Bank->LevelComplete);
-    if (Bank->LevelCompleteSting)
+    if (!BankA) return;
+    PlaySFX2D(BankA->LevelComplete);
+    if (BankA->LevelCompleteSting)
     {
         // Layer the musical sting on top of the (now ducked) loop.
-        PlaySFX2D(Bank->LevelCompleteSting);
+        PlaySFX2D(BankA->LevelCompleteSting);
     }
 }
 
-void UkdAudioSubsystem::OnPlayerDeath() { if (Bank) PlaySFX2D(Bank->Death); }
-void UkdAudioSubsystem::OnGameOver() { if (Bank) PlaySFX2D(Bank->GameOver); }
+void UkdAudioSubsystem::OnPlayerDeath() { if (BankA) PlaySFX2D(BankA->Death); }
+void UkdAudioSubsystem::OnGameOver() { if (BankA) PlaySFX2D(BankA->GameOver); }
