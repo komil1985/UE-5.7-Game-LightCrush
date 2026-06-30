@@ -18,6 +18,7 @@
 #include "Audio/kdAudioSubsystem.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
+#include "Components/kdJumpSquashComponent.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PP-material scalar param names — only what's still needed after Heliograph.
@@ -75,6 +76,11 @@ void UkdGameFeedbackComponent::BeginPlay()
             // the driver if it exists, otherwise sensible warm-white fallback.
             WriteMesh_RimColor(FLinearColor(0.93f, 0.84f, 0.61f, 1.f));
         }
+    }
+
+    if (UkdJumpSquashComponent* JumpSquash = Player->FindComponentByClass<UkdJumpSquashComponent>())
+    {
+        JumpSquash->OnJumpLanded.AddDynamic(this, &UkdGameFeedbackComponent::OnPlayerJumpLanded);
     }
 
     // ── Custom PP material instance (vignette layer only) ────────────────────
@@ -165,6 +171,23 @@ UkdAudioSubsystem* UkdGameFeedbackComponent::GetAudioSubsystem() const
     if (!IsValid(GI)) return nullptr;
 
     return GI->GetSubsystem<UkdAudioSubsystem>();
+}
+
+void UkdGameFeedbackComponent::OnPlayerJumpLanded(float ImpactSpeed, bool bHardLand)
+{
+    if (!bHardLand) return; // soft landings stay silent/invisible — squash alone sells those
+
+    PlayShake(HardLandShakeClass);
+    PulseEdge(0.4f); // tune to taste, or add a dedicated HardLandEdgePulseStrength property
+
+    if (LandingImpactNiagara && GetOwner())
+    {
+        const FVector SpawnLoc = GetOwner()->GetActorLocation() + FVector(0.f, 0.f, LandingNiagaraZOffset);
+        UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+            GetWorld(), LandingImpactNiagara, SpawnLoc,
+            FRotator::ZeroRotator, FVector(1.f),
+            /*bAutoDestroy*/ true, /*bAutoActivate*/ true, ENCPoolMethod::AutoRelease);
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -32,6 +32,8 @@
 #include "Crush/kdCrushStateComponent.h"
 #include "AbilitySystem/Abilities/kdStrategicView.h"
 #include "Components/kdStrategicCameraComponent.h"
+#include "Components/kdJumpSquashComponent.h"
+#include "NiagaraComponent.h"
 
 
 
@@ -66,7 +68,19 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 
 	EyeRight = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RightEye"));
 	EyeRight->SetupAttachment(GetMesh());
-	EyeRight->SetRelativeLocation(FVector(150.0f, -50.0f, 50.0f));	
+	EyeRight->SetRelativeLocation(FVector(150.0f, -50.0f, 50.0f));
+
+	Tentacle_1 = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Tentale 1"));
+	Tentacle_1->SetupAttachment(GetMesh());
+
+	Tentacle_2 = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Tentale 2"));
+	Tentacle_2->SetupAttachment(GetMesh());
+
+	Tentacle_3 = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Tentale 3"));
+	Tentacle_3->SetupAttachment(GetMesh());
+
+	Tentacle_4 = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Tentale 4"));
+	Tentacle_4->SetupAttachment(GetMesh());
 
 	CrushStateComponent = CreateDefaultSubobject<UkdCrushStateComponent>(TEXT("CrushState"));
 	CrushTransitionComponent = CreateDefaultSubobject<UkdCrushTransitionComponent>(TEXT("CrushTransition"));
@@ -75,6 +89,7 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	GameFeedbackComponent = CreateDefaultSubobject<UkdGameFeedbackComponent>(TEXT("GameFeedbackComponent"));
 	HoverComponent = CreateDefaultSubobject<UkdPlayerHoverComponent>(TEXT("HoverComponent"));
 	LightHealthComponent = CreateDefaultSubobject<UkdLightHealthComponent>(TEXT("LightHealthComponent"));
+	JumpSquashComponent = CreateDefaultSubobject<UkdJumpSquashComponent>(TEXT("JumpSquashComponent"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 	/*	--	Default Values	--	*/
@@ -447,5 +462,15 @@ void AkdMyPlayer::NotifyLowStaminaWarning()
 	if (LowStaminaWidget)
 	{
 		LowStaminaWidget->FlashWarning();
+	}
+}
+
+void AkdMyPlayer::NotifyJumpApex()
+{
+	Super::NotifyJumpApex();
+
+	if (JumpSquashComponent)
+	{
+		JumpSquashComponent->NotifyApex();
 	}
 }

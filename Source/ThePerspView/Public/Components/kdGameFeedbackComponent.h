@@ -293,6 +293,15 @@ public:
     /** Called when player lands after exiting crush (CrushLand SFX) */
     void NotifyCrushLand();
 
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Shakes")
+    TSubclassOf<UCameraShakeBase> HardLandShakeClass;
+
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Particles")
+    TObjectPtr<UNiagaraSystem> LandingImpactNiagara;
+
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Particles", meta = (ClampMin = "0.0"))
+    float LandingNiagaraZOffset = 10.f;
+
 protected:
     virtual void BeginPlay() override;
     virtual void TickComponent(float DeltaTime, ELevelTick TickType,FActorComponentTickFunction* ThisTickFunction) override;
@@ -300,6 +309,9 @@ protected:
 private:
     /** Resolves AudioSubsystem once and caches it — safe to call any frame after BeginPlay */
     class UkdAudioSubsystem* GetAudioSubsystem() const;
+
+    UFUNCTION()
+    void OnPlayerJumpLanded(float ImpactSpeed, bool bHardLand);
 
     // ── Cached refs ──────────────────────────────────────────────────────────
 

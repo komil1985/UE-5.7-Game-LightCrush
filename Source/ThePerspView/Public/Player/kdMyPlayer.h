@@ -37,6 +37,8 @@ class UkdPlayerHoverComponent;
 class UkdLightHealthComponent;
 class UkdLightHealthWidget;
 class UkdStrategicCameraComponent;
+class UkdJumpSquashComponent;
+class UNiagaraComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
@@ -71,6 +73,18 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> EyeRight;
 
+	UPROPERTY(EditAnywhere, Category = "Components")
+	TObjectPtr<UNiagaraComponent> Tentacle_1;
+
+	UPROPERTY(EditAnywhere, Category = "Components")
+	TObjectPtr<UNiagaraComponent> Tentacle_2;
+
+	UPROPERTY(EditAnywhere, Category = "Components")
+	TObjectPtr<UNiagaraComponent> Tentacle_3;
+
+	UPROPERTY(EditAnywhere, Category = "Components")
+	TObjectPtr<UNiagaraComponent> Tentacle_4;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UkdFallDamageComponent> FallDamageComponent;
 
@@ -85,6 +99,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UkdStrategicCameraComponent> StrategicCameraComponent;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Components")
+	TObjectPtr<UkdJumpSquashComponent> JumpSquashComponent;
 	/*--------------------------------------------------------------------------*/
 
 	// -- User Interface -- //
@@ -144,6 +161,7 @@ public:
 	UFUNCTION()
 	void RequestStrategicViewStop();
 
+
 	FORCEINLINE UMaterialInstanceDynamic* GetCrushPPInstance() const { return CrushPPInstance; }
 
 	// ADD in the public section (near RequestCrushToggle)
@@ -159,6 +177,8 @@ public:
 	void HandleLevelComplete();
 
 	UkdGameFeedbackComponent* GetGameFeedbackComponent() const { return GameFeedbackComponent; }
+
+	virtual void NotifyJumpApex() override;
 
 protected:
 	virtual void BeginPlay() override;
