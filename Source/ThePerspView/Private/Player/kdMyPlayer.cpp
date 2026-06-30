@@ -70,16 +70,16 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	EyeRight->SetupAttachment(GetMesh());
 	EyeRight->SetRelativeLocation(FVector(150.0f, -50.0f, 50.0f));
 
-	Tentacle_1 = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Tentale 1"));
+	Tentacle_1 = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Tentacle 1"));
 	Tentacle_1->SetupAttachment(GetMesh());
 
-	Tentacle_2 = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Tentale 2"));
+	Tentacle_2 = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Tentacle 2"));
 	Tentacle_2->SetupAttachment(GetMesh());
 
-	Tentacle_3 = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Tentale 3"));
+	Tentacle_3 = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Tentacle 3"));
 	Tentacle_3->SetupAttachment(GetMesh());
 
-	Tentacle_4 = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Tentale 4"));
+	Tentacle_4 = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Tentacle 4"));
 	Tentacle_4->SetupAttachment(GetMesh());
 
 	CrushStateComponent = CreateDefaultSubobject<UkdCrushStateComponent>(TEXT("CrushState"));
