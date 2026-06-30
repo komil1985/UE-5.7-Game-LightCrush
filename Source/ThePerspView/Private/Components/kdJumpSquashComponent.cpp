@@ -7,6 +7,7 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
 #include "GameplayTags/kdGameplayTags.h"
+#include "NiagaraComponent.h" 
 
 namespace
 {
@@ -78,6 +79,10 @@ void UkdJumpSquashComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	{
 		AirborneScaleOffset = LaunchPopOffset = ApexPuffOffset = LandingOffset = FVector::ZeroVector;
 		bLaunchPopActive = bApexPuffActive = bLandingActive = false;
+		if (bDriveTentacleParameters)
+		{
+			ZeroTentacleParameters(); // <-- new: don't leave a tentacle stuck mid-kick on a mid-air crush entry
+		}
 		return;
 	}
 
@@ -104,6 +109,11 @@ void UkdJumpSquashComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	TickAirborne(DeltaTime);
 
 	ApplyFinalScale();
+
+	if (bDriveTentacleParameters) // <-- new, after ApplyFinalScale() at the end of TickComponent
+	{
+		UpdateTentacleParameters();
+	}
 }
 
 void UkdJumpSquashComponent::TickAirborne(float DeltaTime)
@@ -296,4 +306,62 @@ void UkdJumpSquashComponent::OnCharacterLanded(const FHitResult& Hit)
 	ApexPuffOffset = FVector::ZeroVector;
 
 	OnJumpLanded.Broadcast(ImpactSpeed, ImpactSpeed >= HardLandThreshold);
+}
+
+void UkdJumpSquashComponent::SetTentacleComponents(const TArray<UNiagaraComponent*>& InTentacles)
+{
+	Tentacles.Reset(InTentacles.Num());
+	for (UNiagaraComponent* Tent : InTentacles)
+	{
+		if (Tent)
+		{
+			Tentacles.Add(Tent);
+		}
+	}
+}
+
+void UkdJumpSquashComponent::UpdateTentacleParameters()
+{
+	if (Tentacles.IsEmpty()) return;
+
+	// LaunchKick: unsigned intensity of the pop curve, normalized against
+	// whichever extreme (compress or stretch) is larger. Naturally rises
+	// through the compress dip, may dip near the zero-crossing, rises
+	// again through the stretch peak, then decays to 0 as the pop settles.
+	const float LaunchKick = bLaunchPopActive
+		? FMath::Clamp(FMath::Abs(LaunchPopOffset.Z) / FMath::Max(LaunchStretchAmount, LaunchCompressAmount), 0.f, 1.f)
+		: 0.f;
+
+	// FallDrag: reuses the already-smoothed airborne offset rather than
+	// re-deriving from raw velocity — inherits the same VInterpTo blend
+	// the body squash uses, so it can't desync from what's visually happening.
+	const float FallDrag = AirborneScaleOffset.Z < 0.f
+		? FMath::Clamp(-AirborneScaleOffset.Z / FMath::Max(MaxFallSquash, KINDA_SMALL_NUMBER), 0.f, 1.f)
+		: 0.f;
+
+	// LandImpact: follows the landing squash/overshoot curve exactly.
+	const float LandImpact = bLandingActive
+		? FMath::Clamp(-LandingOffset.Z / FMath::Max(LandingSquashAmount, KINDA_SMALL_NUMBER), 0.f, 1.f)
+		: 0.f;
+
+	for (const TObjectPtr<UNiagaraComponent>& Tentacle : Tentacles)
+	{
+		if (!Tentacle) continue;
+
+		Tentacle->SetVariableFloat(TentacleLaunchParamName, LaunchKick);
+		Tentacle->SetVariableFloat(TentacleFallDragParamName, FallDrag);
+		Tentacle->SetVariableFloat(TentacleLandImpactParamName, LandImpact);
+	}
+}
+
+void UkdJumpSquashComponent::ZeroTentacleParameters()
+{
+	for (const TObjectPtr<UNiagaraComponent>& Tentacle : Tentacles)
+	{
+		if (!Tentacle) continue;
+
+		Tentacle->SetVariableFloat(TentacleLaunchParamName, 0.f);
+		Tentacle->SetVariableFloat(TentacleFallDragParamName, 0.f);
+		Tentacle->SetVariableFloat(TentacleLandImpactParamName, 0.f);
+	}
 }

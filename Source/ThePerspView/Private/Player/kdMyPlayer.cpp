@@ -196,6 +196,12 @@ void AkdMyPlayer::BeginPlay()
 		HoverComponent->SetMeshComponents(GetMesh(), { EyeLeft, EyeRight });  // Pass both eye meshes
 	}
 
+	// Tentacles react to launch/fall/land off the same curves driving the body squash.
+	if (JumpSquashComponent)
+	{
+		JumpSquashComponent->SetTentacleComponents({ Tentacle_1, Tentacle_2, Tentacle_3, Tentacle_4 });
+	}
+
 	// ── Light Health Widget — created as a screen-space viewport widget ───────
     if (LightHealthWidgetClass)
     {

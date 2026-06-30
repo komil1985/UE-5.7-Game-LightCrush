@@ -13,6 +13,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnJumpLanded, float, ImpactSpeed, 
 class USkeletalMeshComponent;
 class UCharacterMovementComponent;
 class UAbilitySystemComponent;
+class UNiagaraComponent;
 struct FHitResult;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -193,6 +194,40 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Jump Squash | Landing", meta = (ClampMin = "0.1", ClampMax = "1.0"))
 	float LandingSettleDuration = 0.32f;
 
+	/**
+	* Wire up the tentacle Niagara components from AkdMyPlayer::BeginPlay.
+	* Mirrors UkdPlayerHoverComponent::SetMeshComponents — safe to call
+	* multiple times, safe to pass a partial or empty array.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Jump Squash | Tentacles")
+	void SetTentacleComponents(const TArray<UNiagaraComponent*>& InTentacles);
+
+	// ── Tentacle reactivity ──────────────────────────────────────────────────
+	//
+	// Drives Niagara User Parameters on the tentacle components using the SAME
+	// curves already computed for the body squash above — zero extra curve
+	// authoring. Each value is a 0-1 alpha; what the Niagara system DOES with
+	// it (a force impulse, a spawn burst, a stretch) is entirely up to the
+	// graph. Calling SetVariableFloat with a name that doesn't exist on a
+	// given Niagara System is a safe no-op, so it's fine if not every tentacle
+	// system has all three wired yet.
+
+	/** Master toggle — false if your Niagara systems aren't wired with these params yet. */
+	UPROPERTY(EditDefaultsOnly, Category = "Jump Squash | Tentacles")
+	bool bDriveTentacleParameters = true;
+
+	/** 0-1, peaks during the launch pop (compress through stretch). Suggested use: a brief backward/downward force impulse — reads as the tentacles thrusting the launch. */
+	UPROPERTY(EditDefaultsOnly, Category = "Jump Squash | Tentacles")
+	FName TentacleLaunchParamName = FName("LaunchKick");
+
+	/** 0-1, rises with fall speed (same curve as the body's falling squash). Suggested use: drag/wind force strength or trail stretch, so tentacles visibly stream as you fall faster. */
+	UPROPERTY(EditDefaultsOnly, Category = "Jump Squash | Tentacles")
+	FName TentacleFallDragParamName = FName("FallDrag");
+
+	/** 0-1, follows the landing squash/overshoot curve. Suggested use: a radial splay displacement or a one-shot spawn burst on impact. */
+	UPROPERTY(EditDefaultsOnly, Category = "Jump Squash | Tentacles")
+	FName TentacleLandImpactParamName = FName("LandImpact");
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
@@ -234,4 +269,9 @@ private:
 	float LandingElapsed = 0.f;
 	float LandingDurationActual = 0.32f;
 	float LandingPeakSquash = 0.f;
+
+	void UpdateTentacleParameters();
+	void ZeroTentacleParameters();
+
+	UPROPERTY() TArray<TObjectPtr<UNiagaraComponent>> Tentacles;
 };
