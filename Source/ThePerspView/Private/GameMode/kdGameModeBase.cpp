@@ -11,6 +11,7 @@
 #include "GameplayTags/kdGameplayTags.h"
 #include "Components/kdDeathComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Audio/kdAudioSubsystem.h"
 
 AkdGameModeBase::AkdGameModeBase()
 {
@@ -57,6 +58,16 @@ void AkdGameModeBase::BeginPlay()
                     TEXT("GameMode: Could not find UkdDeathComponent on player."));
             }
         }, 0.1f, false);
+
+    // Request per-level music. BeginPlay is required here because PostLoadMapWithWorld
+    // does not fire in PIE for the initial level — only for OpenLevel transitions.
+    // OnPostLoadMap in GameInstance covers those transitions; this covers the first load.
+    if (UkdAudioSubsystem* Audio = UkdAudioSubsystem::Get(this))
+    {
+        FString MapName = GetWorld()->GetMapName();
+        MapName.RemoveFromStart(GetWorld()->StreamingLevelsPrefix); // strips "UEDPIE_N_" in PIE
+        Audio->RequestMusicForLevel(FName(*MapName));
+    }
 
 #if !UE_BUILD_SHIPPING
     UE_LOG(LogTemp, Log, TEXT("AkdGameModeBase: BeginPlay — Lives=%d"), RemainingLives);

@@ -19,6 +19,16 @@ void AkdMainMenuGameMode::BeginPlay()
 {
     Super::BeginPlay();
 
+    // BeginPlay owns music for the initial PIE launch. PostLoadMapWithWorld does NOT
+    // fire in PIE for the first level (PIE world is created by duplication, never via
+    // UEngine::LoadMap). OnPostLoadMap in GameInstance handles all subsequent
+    // OpenLevel transitions. The same-track guard in RequestMusic makes the
+    // double-call harmless if both happen to fire.
+    if (UkdAudioSubsystem* Audio = UkdAudioSubsystem::Get(this))
+    {
+        Audio->RequestMenuMusic();
+    }
+
     APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
     if (!PC) return;
 
