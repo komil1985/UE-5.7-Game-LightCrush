@@ -89,35 +89,42 @@ void UkdAudioSubsystem::LoadBank()
 
 // ─── Deck management ──────────────────────────────────────────────────────────
 
-UAudioComponent* UkdAudioSubsystem::SpawnPersistentDeck()
+UAudioComponent* UkdAudioSubsystem::SpawnPersistentDeck(USoundBase* WithSound)
 {
-    // bPersistAcrossLevelTransition keeps the component alive through OpenLevel.
-    // bAutoDestroy=false because WE own its lifetime (ping-pong reuse).
-    // Starting silent (volume 0) + not auto-playing; RequestMusic fades it in.
-    UAudioComponent* Deck = UGameplayStatics::SpawnSound2D(
+    // CRITICAL: SpawnSound2D and CreateSound2D both return nullptr immediately
+    // when Sound==nullptr — this was the root cause of all music failures.
+    // We are always called with a real Track, but guard defensively.
+    if (!WithSound) return nullptr;
+
+    // CreateSound2D creates the component WITHOUT calling Play() — we drive
+    // playback ourselves via FadeIn so we control the volume ramp.
+    // SpawnSound2D would call Play() immediately at vol 0, which is wasteful
+    // and bypasses our crossfade logic.
+    UAudioComponent* Deck = UGameplayStatics::CreateSound2D(
         this,
-        /*Sound*/ nullptr,
-        /*VolumeMultiplier*/ 0.f,
-        /*PitchMultiplier*/ 1.f,
-        /*StartTime*/ 0.f,
+        WithSound,
+        /*VolumeMultiplier*/ 1.f,      // FadeIn owns the 0→target ramp via its internal
+        // AdjustVolumeMultiplier. Base must be 1.f or the
+        // multiply chain is permanently zeroed out.
+        /*PitchMultiplier*/  1.f,
+        /*StartTime*/        0.f,
         /*ConcurrencySettings*/ nullptr,
         /*bPersistAcrossLevelTransition*/ true,
         /*bAutoDestroy*/ false);
 
     if (Deck && BankA && BankA->MusicClass)
     {
-        // Route through SC_Music so the Music slider (SoundMix) governs volume.
+        // Route through SC_Music so the Settings-menu Music slider governs volume.
         Deck->SoundClassOverride = BankA->MusicClass;
     }
-    return Deck;
-}
 
-void UkdAudioSubsystem::EnsureDecks()
-{
-    // Decks can go invalid if the audio device was unavailable at spawn time
-    // (e.g. cooking/headless). Re-create lazily and defensively.
-    if (!IsValid(MusicDeckA)) { MusicDeckA = SpawnPersistentDeck(); }
-    if (!IsValid(MusicDeckB)) { MusicDeckB = SpawnPersistentDeck(); }
+#if !UE_BUILD_SHIPPING
+    UE_LOG(LogTemp, Log, TEXT("[kdAudio] SpawnPersistentDeck — %s for '%s'"),
+        IsValid(Deck) ? TEXT("OK") : TEXT("FAILED"),
+        *GetNameSafe(WithSound));
+#endif
+
+    return Deck;
 }
 
 UAudioComponent* UkdAudioSubsystem::ActiveMusic() const
@@ -134,13 +141,14 @@ UAudioComponent* UkdAudioSubsystem::InactiveMusic() const
 
 void UkdAudioSubsystem::RequestMusic(USoundBase* Track, float FadeSeconds)
 {
-    if (!Track) return;
-    EnsureDecks();
-    if (!IsValid(MusicDeckA) || !IsValid(MusicDeckB)) return;   // no audio device
+    if (!Track)
+    {
+        UE_LOG(LogTemp, Error, TEXT("[kdAudio] RequestMusic — Track is NULL. DA field not assigned?"));
+        return;
+    }
 
-    // Same track already playing → let it ride. This is what makes music
-    // continue seamlessly when two consecutive levels share a track.
-    if (CurrentTrack == Track && ActiveMusic() && ActiveMusic()->IsPlaying())
+    // Same track already playing → let it ride (seamless same-track level loads).
+    if (CurrentTrack == Track && IsValid(ActiveMusic()) && ActiveMusic()->IsPlaying())
     {
         return;
     }
@@ -153,21 +161,51 @@ void UkdAudioSubsystem::RequestMusic(USoundBase* Track, float FadeSeconds)
         ? BankA->CrushMusicVolume
         : 1.f;
 
-    UAudioComponent* Outgoing = ActiveMusic();
+    UAudioComponent* Outgoing = ActiveMusic(); // null on very first call — handled below
+
+    // ── Incoming deck ─────────────────────────────────────────────────────────
+    // Reuse the inactive slot if it's already a live component; otherwise spawn
+    // a fresh one with the real Track. This is lazy — decks only exist once music
+    // has actually been requested, which is why SpawnPersistentDeck(nullptr) was
+    // always the wrong design (CreateSound2D rejects null sounds).
     UAudioComponent* Incoming = InactiveMusic();
 
-    // Bring the incoming deck up on the new track.
-    Incoming->SetSound(Track);
+    if (!IsValid(Incoming))
+    {
+        // First use of this slot — spawn with the real track so CreateSound2D
+        // gets a non-null sound and actually creates the component.
+        Incoming = SpawnPersistentDeck(Track);
+
+        // Store back into the correct slot.
+        if (ActiveDeck == 0) { MusicDeckB = Incoming; }
+        else { MusicDeckA = Incoming; }
+    }
+    else
+    {
+        // Slot already exists (second or later crossfade). Stop any residual
+        // playback from a previous fade-out before assigning the new sound —
+        // SetSound on a playing/fading component can cause a brief pop.
+        Incoming->Stop();
+        Incoming->SetSound(Track);
+    }
+
+    if (!IsValid(Incoming))
+    {
+        UE_LOG(LogTemp, Error,
+            TEXT("[kdAudio] RequestMusic — deck spawn failed for '%s'. No audio device?"), *Track->GetName());
+        return;
+    }
+
+    // ── Crossfade ─────────────────────────────────────────────────────────────
     Incoming->SetLowPassFilterEnabled(false);
     Incoming->FadeIn(Fade, TargetVol, 0.f);
 
-    // Retire the outgoing deck.
-    if (Outgoing && Outgoing->IsPlaying())
+    if (IsValid(Outgoing) && Outgoing->IsPlaying())
     {
         Outgoing->FadeOut(Fade, 0.f);
     }
 
-    // If we're mid-crush, the incoming deck should inherit the muffle.
+    // Inherit crush muffle if we're already in shadow at the moment of request.
     if (bCrushFilterActive)
     {
         ApplyCrushFilterToDeck(Incoming, true, /*bInstant*/ true);
@@ -177,7 +215,8 @@ void UkdAudioSubsystem::RequestMusic(USoundBase* Track, float FadeSeconds)
     CurrentTrack = Track;
 
 #if !UE_BUILD_SHIPPING
-    UE_LOG(LogTemp, Log, TEXT("UkdAudioSubsystem: music → %s (fade %.2fs)"), *Track->GetName(), Fade);
+    UE_LOG(LogTemp, Warning, TEXT("[kdAudio] RequestMusic — crossfade → '%s' (fade=%.2fs, vol=%.2f)"),
+        *Track->GetName(), Fade, TargetVol);
 #endif
 }
 
@@ -199,7 +238,33 @@ void UkdAudioSubsystem::RequestMusicForLevel(FName LevelName)
 
 void UkdAudioSubsystem::RequestMenuMusic()
 {
-    if (BankA) { RequestMusic(BankA->MenuMusic); }
+    if (!BankA) return;
+
+    // Primary: dedicated MenuMusic field.
+    USoundBase* Track = BankA->MenuMusic;
+
+    // Fallback: inline PerLevelMusic["MainMenu"] lookup.
+    // CRITICAL: do NOT call RequestMusicForLevel() here — that cross-call
+    // creates a second entry point into RequestMusic during the PostLoadMapWithWorld
+    // broadcast, which in UE5.7 causes infinite recursion via the persistent
+    // audio component registration re-triggering the delegate.
+    if (!Track)
+    {
+        static const FName MenuKey(TEXT("MainMenu"));
+        if (const TObjectPtr<USoundBase>* Found = BankA->PerLevelMusic.Find(MenuKey))
+        {
+            Track = *Found;
+        }
+    }
+
+    if (!Track)
+    {
+        UE_LOG(LogTemp, Warning,
+            TEXT("[kdAudio] RequestMenuMusic — no track found. Assign DA_HeliographAudio.MenuMusic or PerLevelMusic[\"MainMenu\"]."));
+        return;
+    }
+
+    RequestMusic(Track);
 }
 
 void UkdAudioSubsystem::StopMusic(float FadeSeconds)

@@ -152,8 +152,8 @@ private:
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     void LoadBank();
-    void EnsureDecks();                          // (re)create decks if invalid
-    UAudioComponent* SpawnPersistentDeck();
+    //void EnsureDecks();                          // (re)create decks if invalid
+    UAudioComponent* SpawnPersistentDeck(USoundBase* WithSound);
     UAudioComponent* ActiveMusic() const;
     UAudioComponent* InactiveMusic() const;
     void ApplyCrushFilterToDeck(UAudioComponent* Deck, bool bEnabled, bool bInstant);

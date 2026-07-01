@@ -150,5 +150,13 @@ private:
     void ApplyAudioSettings();
     void ApplyGraphicsSettings();
     void InternalLoadLevel(FName LevelName);
+
+    /** Re-entry guard: PostLoadMapWithWorld re-fires in UE5.7 when CreateSound2D
+    registers a persistent (bIgnoreForFlushing) component during level load. */
+    bool bMusicRouteInProgress = false;
+
+    /** Fired by the engine after every OpenLevel — the single place that
+    *  routes music so no individual GameMode needs to know which track to play. */
+    void OnPostLoadMap(UWorld* LoadedWorld);
 	
 };

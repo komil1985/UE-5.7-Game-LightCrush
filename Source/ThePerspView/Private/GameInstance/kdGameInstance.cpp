@@ -7,6 +7,8 @@
 #include "GameFramework/GameUserSettings.h"
 #include "Sound/SoundMix.h"
 #include "Sound/SoundClass.h"
+#include "Audio/kdAudioSubsystem.h"
+#include "Misc/PackageName.h"
 
 
 const FString UkdGameInstance::SaveSlotName = TEXT("KD_Save_00");
@@ -19,17 +21,23 @@ UkdGameInstance::UkdGameInstance()
         FName("L_MainMenu"),
         FName("L_Level_01"),
         FName("L_Level_02"),
-        FName("L_Level_03")
+        FName("L_Level_03"),
+        FName("L_Level_04"),
+        FName("L_Level_05")
         });
 }
 
 void UkdGameInstance::Init()
 {
     Super::Init();
-
-    // Load progress first so settings are populated before ApplySettings()
     TryLoadProgress();
     ApplySettings();
+
+    // Central music router — fires after every OpenLevel in all build types.
+    // Individual GameModes never need to know which track belongs to which level;
+    // the bank's PerLevelMusic TMap is the single source of truth.
+    FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(
+        this, &UkdGameInstance::OnPostLoadMap);
 
 #if !UE_BUILD_SHIPPING
     UE_LOG(LogTemp, Log, TEXT("UkdGameInstance: Initialized. LevelOrder has %d entries."), LevelOrder.Num());
@@ -38,6 +46,8 @@ void UkdGameInstance::Init()
 
 void UkdGameInstance::Shutdown()
 {
+    // Must unbind before Super — otherwise the delegate fires on a half-dead object.
+    FCoreUObjectDelegates::PostLoadMapWithWorld.RemoveAll(this);
     SaveProgress();
     Super::Shutdown();
 }
@@ -133,6 +143,42 @@ void UkdGameInstance::SetLastPlayedLevelIndex(int32 Index)
 void UkdGameInstance::InternalLoadLevel(FName LevelName)
 {
     UGameplayStatics::OpenLevel(GetWorld(), LevelName);
+}
+
+void UkdGameInstance::OnPostLoadMap(UWorld* LoadedWorld)
+{
+    // Re-entry guard: in UE5.7, CreateSound2D with bPersistAcrossLevelTransition
+    // registers a persistent component during the loading sequence, which
+    // re-broadcasts PostLoadMapWithWorld and causes infinite recursion.
+    if (bMusicRouteInProgress || !LoadedWorld) return;
+    TGuardValue<bool> ReentryGuard(bMusicRouteInProgress, true);
+
+    UkdAudioSubsystem* Audio = GetSubsystem<UkdAudioSubsystem>();
+    if (!Audio) return;
+
+    // StreamingLevelsPrefix == "UEDPIE_0_" in PIE, "" in standalone/shipping.
+    // Stripping it gives the bare map name that matches LevelOrder and PerLevelMusic keys.
+    FString MapName = LoadedWorld->GetMapName();
+    MapName.RemoveFromStart(LoadedWorld->StreamingLevelsPrefix);
+    const FName LevelFName(*MapName);
+
+    UE_LOG(LogTemp, Log, TEXT("[GameInstance] OnPostLoadMap → '%s'"), *MapName);
+
+    // Defer by one tick — places the audio call completely outside the
+    // PostLoadMapWithWorld broadcast stack so CreateSound2D cannot re-trigger it.
+    TWeakObjectPtr<UkdAudioSubsystem> AudioWeak(Audio);
+    const bool   bIsMenu = (LevelFName == MainMenuLevelName);
+    const FName  CapturedName = LevelFName;
+
+    LoadedWorld->GetTimerManager().SetTimerForNextTick(
+        FTimerDelegate::CreateLambda([AudioWeak, CapturedName, bIsMenu]()
+            {
+                UkdAudioSubsystem* A = AudioWeak.Get();
+                if (!IsValid(A)) return;
+
+                if (bIsMenu) A->RequestMenuMusic();
+                else         A->RequestMusicForLevel(CapturedName);
+            }));
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────

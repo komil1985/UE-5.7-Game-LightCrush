@@ -19,15 +19,6 @@ void AkdMainMenuGameMode::BeginPlay()
 {
     Super::BeginPlay();
 
-    // Start menu music as early as possible in the level's life so there's no
-    // audible gap before the first widget paints. The subsystem is a
-    // GameInstanceSubsystem, so it's already Initialize()'d and BankA is
-    // already resolved by the time any level's BeginPlay runs — safe to call here.
-    if (UkdAudioSubsystem* Audio = UkdAudioSubsystem::Get(this))
-    {
-        Audio->RequestMenuMusic();
-    }
-
     APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
     if (!PC) return;
 
