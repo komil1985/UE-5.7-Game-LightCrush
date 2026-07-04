@@ -222,17 +222,73 @@ void UkdAudioSubsystem::RequestMusic(USoundBase* Track, float FadeSeconds)
 
 void UkdAudioSubsystem::RequestMusicForLevel(FName LevelName)
 {
-    if (!BankA) return;
+    //if (!BankA) return;
+
+    //USoundBase* Track = nullptr;
+    //if (const TObjectPtr<USoundBase>* Found = BankA->PerLevelMusic.Find(LevelName))
+    //{
+    //    Track = *Found;
+    //}
+    //if (!Track)
+    //{
+    //    Track = BankA->DefaultGameplayMusic;
+    //}
+    //RequestMusic(Track);
+
+    if (!BankA)
+    {
+        UE_LOG(LogTemp, Error, TEXT("[kdAudio] RequestMusicForLevel('%s') — BankA is NULL."),
+            *LevelName.ToString());
+        return;
+    }
+
+    // ── Resolution policy ─────────────────────────────────────────────────────
+    //  1. PerLevelMusic entry exists with a track  → play it.
+    //  2. PerLevelMusic entry exists but is None   → EXPLICIT SILENCE. Stop music.
+    //     (An authored None is a decision, not an omission — do NOT fall back.)
+    //  3. No entry at all                          → DefaultGameplayMusic.
+    //  4. No entry and no default                  → stop music.
+    //
+    // Silence must always be reachable: the music deck persists across OpenLevel
+    // (bPersistAcrossLevelTransition=true, required for crossfade continuity),
+    // so "do nothing" here would let the previous level's track ride forever.
 
     USoundBase* Track = nullptr;
-    if (const TObjectPtr<USoundBase>* Found = BankA->PerLevelMusic.Find(LevelName))
+    const TCHAR* Source = TEXT("");
+
+    if (const TObjectPtr<USoundBase>* Entry = BankA->PerLevelMusic.Find(LevelName))
     {
-        Track = *Found;
+        if (*Entry)
+        {
+            Track = *Entry;
+            Source = TEXT("PerLevelMusic");
+        }
+        else
+        {
+            UE_LOG(LogTemp, Log,
+                TEXT("[kdAudio] Level '%s' → PerLevelMusic entry is None (explicit silence). Fading out."),
+                *LevelName.ToString());
+            StopMusic(BankA->MusicCrossfadeSeconds);
+            return;
+        }
     }
-    if (!Track)
+    else if (BankA->DefaultGameplayMusic)
     {
         Track = BankA->DefaultGameplayMusic;
+        Source = TEXT("DefaultGameplayMusic (no PerLevelMusic entry)");
     }
+
+    if (!Track)
+    {
+        UE_LOG(LogTemp, Log,
+            TEXT("[kdAudio] Level '%s' → no entry, no default. Fading out."),
+            *LevelName.ToString());
+        StopMusic(BankA->MusicCrossfadeSeconds);
+        return;
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("[kdAudio] Level '%s' → '%s' via %s"),
+        *LevelName.ToString(), *Track->GetName(), Source);
     RequestMusic(Track);
 }
 
@@ -269,8 +325,19 @@ void UkdAudioSubsystem::RequestMenuMusic()
 
 void UkdAudioSubsystem::StopMusic(float FadeSeconds)
 {
-    if (IsValid(MusicDeckA) && MusicDeckA->IsPlaying()) { MusicDeckA->FadeOut(FadeSeconds, 0.f); }
-    if (IsValid(MusicDeckB) && MusicDeckB->IsPlaying()) { MusicDeckB->FadeOut(FadeSeconds, 0.f); }
+    //if (IsValid(MusicDeckA) && MusicDeckA->IsPlaying()) { MusicDeckA->FadeOut(FadeSeconds, 0.f); }
+    //if (IsValid(MusicDeckB) && MusicDeckB->IsPlaying()) { MusicDeckB->FadeOut(FadeSeconds, 0.f); }
+    //CurrentTrack = nullptr;
+
+    UAudioComponent* Active = ActiveMusic();
+    if (IsValid(Active) && Active->IsPlaying())
+    {
+        Active->FadeOut(FMath::Max(0.f, FadeSeconds), 0.f);
+    }
+
+    // Clearing CurrentTrack is mandatory: the same-track early-out in
+    // RequestMusic compares against it, and after an authored silence the
+    // next request for the same track must be treated as a fresh start.
     CurrentTrack = nullptr;
 }
 
