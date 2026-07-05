@@ -20,6 +20,14 @@ void AkdPlayerController::BeginPlay()
 	Super::BeginPlay();
 	
 	EnhancedSubSystem();
+
+	if (ULocalPlayer* LP = GetLocalPlayer())
+	{
+		// Vertical FOV stays constant across every aspect ratio → the player's
+		// framing (and the DoF tuned to it) is invariant. Ultrawides simply reveal
+		// more horizontally instead of reframing the subject.
+		LP->AspectRatioAxisConstraint = AspectRatio_MaintainYFOV;
+	}
 }
 
 void AkdPlayerController::SetupInputComponent()

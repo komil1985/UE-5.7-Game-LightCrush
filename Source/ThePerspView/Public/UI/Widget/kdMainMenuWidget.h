@@ -9,6 +9,8 @@
 class UButton;
 class UTextBlock;
 class UkdGameInstance;
+class UkdGameInstance;
+class UKdLevelSelectWidget;
 UCLASS(BlueprintType, Blueprintable)
 class THEPERSPVIEW_API UkdMainMenuWidget : public UUserWidget
 {
@@ -23,6 +25,7 @@ protected:
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> CrushWordButton;
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_NewGame;
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_Continue;
+    UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_Levels;
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_Settings;
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_Quit;
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> Txt_Version;
@@ -30,6 +33,7 @@ protected:
     // Button click handlers
     UFUNCTION() void OnNewGameClicked();
     UFUNCTION() void OnContinueClicked();
+    UFUNCTION() void OnLevelsClicked();
     UFUNCTION() void OnSettingsClicked();
     UFUNCTION() void OnQuitClicked();
     UFUNCTION() void RefreshContinueButton();

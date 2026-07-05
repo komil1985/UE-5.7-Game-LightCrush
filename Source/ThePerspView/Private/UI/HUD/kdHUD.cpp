@@ -12,6 +12,7 @@
 #include "UI/Widget/kdDeathWidget.h"
 #include "UI/Widget/kdGameOverWidget.h"
 #include "UI/Widget/kdTransitionFlashWidget.h"
+#include "UI/Widget/KdLevelSelectWidget.h"
 
 
 void AkdHUD::BeginPlay()
@@ -199,6 +200,41 @@ void AkdHUD::HideLoadingScreen()
     if (LoadingScreenWidget)
     {
         LoadingScreenWidget->SetVisibility(ESlateVisibility::Collapsed);
+    }
+}
+
+void AkdHUD::ShowLevelSelect()
+{
+    // Level select is only opened from the main menu — hide it while we're here,
+    // same as ShowSettings does.
+    if (MainMenuWidget)
+    {
+        MainMenuWidget->SetVisibility(ESlateVisibility::Collapsed);
+    }
+
+    if (UKdLevelSelectWidget* W = GetOrCreate(LevelSelectWidget, LevelSelectWidgetClass, 30))
+    {
+        if (!W->IsInViewport())
+        {
+            W->AddToViewport(30);
+        }
+        W->RefreshLevelButtons();   // re-read unlock state each time it opens
+        W->SetVisibility(ESlateVisibility::Visible);
+    }
+    SetUIInputMode();
+}
+
+void AkdHUD::HideLevelSelect()
+{
+    if (LevelSelectWidget)
+    {
+        LevelSelectWidget->SetVisibility(ESlateVisibility::Collapsed);
+    }
+
+    // Opened from the main menu — bring it back
+    if (MainMenuWidget)
+    {
+        MainMenuWidget->SetVisibility(ESlateVisibility::Visible);
     }
 }
 

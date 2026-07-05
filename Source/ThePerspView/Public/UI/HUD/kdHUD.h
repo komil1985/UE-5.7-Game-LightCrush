@@ -16,6 +16,7 @@ class UkdGameOverWidget;
 class UkdStaminaWidget;
 class UUserWidget;
 class UkdTransitionFlashWidget;
+class UKdLevelSelectWidget;
 /**
  * 
  */
@@ -76,6 +77,12 @@ public:
     UFUNCTION(BlueprintCallable, Category = "UI")
     void HideLoadingScreen();
 
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void ShowLevelSelect();
+
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void HideLevelSelect();
+
     /**
      * Show the "YOU DIED" overlay while the screen is black.
      * Called by GameMode after the DeathComponent's fade completes.
@@ -122,6 +129,9 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+    UPROPERTY(EditDefaultsOnly, Category = "UI | Classes")
+    TSubclassOf<class UKdLevelSelectWidget> LevelSelectWidgetClass;
+
 private:
     // Live widget instances (null until first shown)
     UPROPERTY()
@@ -144,6 +154,9 @@ private:
 
     UPROPERTY()
     TObjectPtr<UkdGameOverWidget> GameOverWidget;
+
+    UPROPERTY()
+    TObjectPtr<UKdLevelSelectWidget> LevelSelectWidget;
 
     // Whether settings were opened from the pause menu (affects "back" behaviour)
     bool bSettingsFromPause = false;

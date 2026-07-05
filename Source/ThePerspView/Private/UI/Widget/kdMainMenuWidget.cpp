@@ -11,6 +11,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Misc/App.h"
 #include "Menu/kdMenuPresentationSubsystem.h"
+#include "UI/Widget/KdLevelSelectWidget.h"
 
 
 void UkdMainMenuWidget::NativeOnInitialized()
@@ -19,6 +20,7 @@ void UkdMainMenuWidget::NativeOnInitialized()
 
     if (Btn_NewGame) Btn_NewGame->OnClicked.AddDynamic(this, &UkdMainMenuWidget::OnNewGameClicked);
     if (Btn_Continue) Btn_Continue->OnClicked.AddDynamic(this, &UkdMainMenuWidget::OnContinueClicked);
+    if (Btn_Levels) Btn_Levels->OnClicked.AddDynamic(this, &UkdMainMenuWidget::OnLevelsClicked);
     if (Btn_Settings) Btn_Settings->OnClicked.AddDynamic(this, &UkdMainMenuWidget::OnSettingsClicked);
     if (Btn_Quit) Btn_Quit->OnClicked.AddDynamic(this, &UkdMainMenuWidget::OnQuitClicked);
 }
@@ -33,7 +35,7 @@ void UkdMainMenuWidget::NativeConstruct()
      //Populate version label from project version string in DefaultGame.ini
     if (Txt_Version)
     {
-        const FString VersionStr = FString::Printf(TEXT("v%d"), *FApp::GetBuildVersion());
+        const FString VersionStr = FString::Printf(TEXT("v%s"), FApp::GetBuildVersion());
         Txt_Version->SetText(FText::FromString(VersionStr));
     }
 
@@ -42,25 +44,6 @@ void UkdMainMenuWidget::NativeConstruct()
 
 void UkdMainMenuWidget::OnNewGameClicked()
 {
-    //UkdGameInstance* GI = UkdGameInstance::Get(GetWorld());
-    //if (!GI) return;
-
-    //APlayerController* PC = GetOwningPlayer();
-    //if (!PC) return;
-
-    //AkdHUD* HUD = Cast<AkdHUD>(PC->GetHUD());
-    //// Show loading screen before level open so the transition feels intentional
-    //if (HUD)
-    //{
-    //    HUD->ShowLoadingScreen();
-    //}
-
-    //// Level index 1 = first playable level (index 0 is the main menu itself)
-    //GI->SetCurrentLevelIndex(1);
-
-    //FTimerHandle LoadHandle;
-    //GetWorld()->GetTimerManager().SetTimer(LoadHandle, [GI](){GI->LoadNextLevel();}, LoadingScreenDisplayTime, false);
-
     // New Game always starts at Level 1 (index 1). LoadNextLevel will increment
     // CurrentLevelIndex (0 → 1), so we set it to 0 here.
     TransitionToLevel(0);
@@ -102,6 +85,17 @@ void UkdMainMenuWidget::OnContinueClicked()
         {
             GI->LoadCurrentLevel();
         }, LoadDelay, false);
+}
+
+void UkdMainMenuWidget::OnLevelsClicked()
+{
+    if (APlayerController* PC = GetOwningPlayer())
+    {
+        if (AkdHUD* HUD = Cast<AkdHUD>(PC->GetHUD()))
+        {
+            HUD->ShowLevelSelect();
+        }
+    }
 }
 
 void UkdMainMenuWidget::OnSettingsClicked()

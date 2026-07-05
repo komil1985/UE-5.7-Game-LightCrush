@@ -134,6 +134,17 @@ public:
     // ── Statics ───────────────────────────────────────────────────────────────
     static UkdGameInstance* Get(const UObject* WorldContext);
 
+    /** Map name at a LevelOrder index, or NAME_None if out of range. */
+    UFUNCTION(BlueprintCallable, Category = "Level")
+    FName GetLevelNameAtIndex(int32 Index) const
+    {
+        return LevelOrder.IsValidIndex(Index) ? LevelOrder[Index] : NAME_None;
+    }
+
+    /** The main-menu map name (LevelOrder index 0 in the default setup). */
+    UFUNCTION(BlueprintCallable, Category = "Level")
+    FName GetMainMenuLevelName() const { return MainMenuLevelName; }
+
 private:
     UPROPERTY()
     FkdGameSettings GameSettings;
