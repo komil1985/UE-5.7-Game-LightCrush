@@ -230,8 +230,12 @@ void UkdGameInstance::ApplyGraphicsSettings()
 
     UserSettings->SetOverallScalabilityLevel(GameSettings.QualityPreset);
     UserSettings->SetVSyncEnabled(GameSettings.bVSync);
-    UserSettings->SetFullscreenMode(
-        GameSettings.bFullscreen ? EWindowMode::Fullscreen : EWindowMode::Windowed);
+    UserSettings->SetFullscreenMode(GameSettings.bFullscreen ? EWindowMode::Fullscreen : EWindowMode::Windowed);
+    
+    if (GameSettings.ScreenResolution.X > 0 && GameSettings.ScreenResolution.Y > 0)
+    {
+        UserSettings->SetScreenResolution(GameSettings.ScreenResolution);
+    }
 
     // Only call ApplySettings once — it recompiles shaders if quality changed.
     // bCheckForCommandLineOverrides=false keeps our values authoritative.

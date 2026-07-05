@@ -10,7 +10,37 @@
 #include "Components/CheckBox.h"
 #include "Components/ComboBoxString.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/GameUserSettings.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "Engine/Engine.h"
 
+
+namespace
+{
+    // Build a human - friendly aspect - ratio tag("16:9", "21:9", "4:3") for a
+    // resolution. Precision-platforming readability lives or dies on framing, so
+    // surfacing the aspect ratio in the dropdown lets the player see at a glance
+    // whether they're picking an ultrawide that will letterbox the crush plane.
+    FString MakeAspectLabel(const FIntPoint& R)
+    {
+        if (R.X <= 0 || R.Y <= 0) return FString();
+
+        const int32 G = FMath::GreatestCommonDivisor(R.X, R.Y);
+        int32 AW = R.X / (G > 0 ? G : 1);
+        int32 AH = R.Y / (G > 0 ? G : 1);
+
+        // Prettify common ultrawide ratios that don't reduce to friendly numbers.
+        if (AW == 64 && AH == 27) { AW = 21; AH = 9; }   // 2560x1080, 3440x1440
+        else if (AW == 43 && AH == 18) { AW = 21; AH = 9; }
+
+        return FString::Printf(TEXT("%d:%d"), AW, AH);
+    }
+
+    FString MakeResolutionLabel(const FIntPoint& R)
+    {
+        return FString::Printf(TEXT("%d x %d  (%s)"), R.X, R.Y, *MakeAspectLabel(R));
+    }
+}
 
 
 void UkdSettingsWidget::NativeOnInitialized()
@@ -24,6 +54,7 @@ void UkdSettingsWidget::NativeOnInitialized()
 
     // Graphics
     if (Combo_Quality)    Combo_Quality->OnSelectionChanged.AddDynamic(this, &UkdSettingsWidget::OnQualitySelectionChanged);
+    if (Combo_Resolution) Combo_Resolution->OnSelectionChanged.AddDynamic(this, &UkdSettingsWidget::OnResolutionSelectionChanged);
     if (Check_Fullscreen) Check_Fullscreen->OnCheckStateChanged.AddDynamic(this, &UkdSettingsWidget::OnFullscreenChanged);
     if (Check_VSync)      Check_VSync->OnCheckStateChanged.AddDynamic(this, &UkdSettingsWidget::OnVSyncChanged);
 
@@ -43,12 +74,89 @@ void UkdSettingsWidget::NativeOnInitialized()
         Combo_Quality->AddOption(TEXT("High"));
         Combo_Quality->AddOption(TEXT("Epic"));
     }
+
+    // Resolution options are enumerated from the live display, not hard-coded.
+    PopulateResolutionOptions();
 }
 
 void UkdSettingsWidget::NativeConstruct()
 {
     Super::NativeConstruct();
     LoadCurrentSettingsToUI();
+}
+
+void UkdSettingsWidget::PopulateResolutionOptions()
+{
+    if (!Combo_Resolution) return;
+
+    Combo_Resolution->ClearOptions();
+    AvailableResolutions.Reset();
+
+    TArray<FIntPoint> Supported;
+    UKismetSystemLibrary::GetSupportedFullscreenResolutions(Supported);
+
+    // Fallback for platforms / headless RHI that report nothing — offer a safe,
+    // widely-supported common ladder so the control is never empty.
+    if (Supported.Num() == 0)
+    {
+        Supported = {
+            FIntPoint(1280, 720),  FIntPoint(1600, 900),
+            FIntPoint(1920, 1080), FIntPoint(2560, 1440),
+            FIntPoint(3840, 2160)
+        };
+    }
+
+    // Guarantee the resolution currently in effect is always selectable, even if
+    // it isn't a reported fullscreen mode (e.g. a custom windowed size).
+    if (UGameUserSettings* GUS = GEngine ? GEngine->GetGameUserSettings() : nullptr)
+    {
+        Supported.AddUnique(GUS->GetScreenResolution());
+    }
+
+    // Sort ascending (width, then height) so the list reads small → large.
+    Supported.Sort([](const FIntPoint& A, const FIntPoint& B)
+        {
+            return (A.X != B.X) ? (A.X < B.X) : (A.Y < B.Y);
+        });
+
+    // De-duplicate while adding.
+    FIntPoint Last(-1, -1);
+    for (const FIntPoint& R : Supported)
+    {
+        if (R.X <= 0 || R.Y <= 0 || R == Last) continue;
+        Last = R;
+
+        AvailableResolutions.Add(R);
+        Combo_Resolution->AddOption(MakeResolutionLabel(R));
+    }
+}
+
+void UkdSettingsWidget::SelectResolutionInUI(FIntPoint Res)
+{
+    if (!Combo_Resolution) return;
+
+    int32 Index = AvailableResolutions.IndexOfByKey(Res);
+
+    // Saved value is the (0,0) sentinel or otherwise not in the list → fall back
+    // to whatever resolution is live right now.
+    if (Index == INDEX_NONE)
+    {
+        if (UGameUserSettings* GUS = GEngine ? GEngine->GetGameUserSettings() : nullptr)
+        {
+            Index = AvailableResolutions.IndexOfByKey(GUS->GetScreenResolution());
+        }
+    }
+
+    // Last resort: pick the highest available so the combo is never blank.
+    if (Index == INDEX_NONE && AvailableResolutions.Num() > 0)
+    {
+        Index = AvailableResolutions.Num() - 1;
+    }
+
+    if (AvailableResolutions.IsValidIndex(Index))
+    {
+        Combo_Resolution->SetSelectedIndex(Index);
+    }
 }
 
 void UkdSettingsWidget::LoadCurrentSettingsToUI()
@@ -75,12 +183,16 @@ void UkdSettingsWidget::LoadCurrentSettingsToUI()
         }
     }
 
+    // Resolution — resolves the (0,0) sentinel to the live resolution internally.
+    SelectResolutionInUI(S.ScreenResolution);
+
     if (Check_Fullscreen) Check_Fullscreen->SetIsChecked(S.bFullscreen);
     if (Check_VSync)      Check_VSync->SetIsChecked(S.bVSync);
 
     if (Slider_Sensitivity) Slider_Sensitivity->SetValue(S.MouseSensitivity);
     UpdateVolumeLabel(Txt_Sensitivity, S.MouseSensitivity);
 
+    // Clear any spurious "changed" flags raised by the SetSelected* calls above.
     bHasUnsavedChanges = false;
 }
 
@@ -96,6 +208,17 @@ void UkdSettingsWidget::GatherUIIntoSettings(FkdGameSettings& OutSettings) const
         const FString Selected = Combo_Quality->GetSelectedOption();
         OutSettings.QualityPreset = Options.IndexOfByKey(Selected);
         if (OutSettings.QualityPreset == INDEX_NONE) OutSettings.QualityPreset = 2;
+    }
+
+    // Resolution — index straight into the parallel FIntPoint array (no label
+    // parsing). If nothing valid is selected, leave the sentinel so apply skips.
+    if (Combo_Resolution)
+    {
+        const int32 Idx = Combo_Resolution->GetSelectedIndex();
+        if (AvailableResolutions.IsValidIndex(Idx))
+        {
+            OutSettings.ScreenResolution = AvailableResolutions[Idx];
+        }
     }
 
     if (Check_Fullscreen) OutSettings.bFullscreen = Check_Fullscreen->IsChecked();
@@ -137,6 +260,16 @@ void UkdSettingsWidget::OnSensitivityChanged(float Value)
 void UkdSettingsWidget::OnQualitySelectionChanged(FString SelectedItem, ESelectInfo::Type SelectionType)
 {
     bHasUnsavedChanges = true;
+}
+
+void UkdSettingsWidget::OnResolutionSelectionChanged(FString SelectedItem, ESelectInfo::Type SelectionType)
+{
+    // Ignore programmatic selection (Direct) so LoadCurrentSettingsToUI doesn't
+    // flag unsaved changes; only genuine user picks should dirty the panel.
+    if (SelectionType != ESelectInfo::Direct)
+    {
+        bHasUnsavedChanges = true;
+    }
 }
 
 void UkdSettingsWidget::OnFullscreenChanged(bool bIsChecked)

@@ -35,6 +35,9 @@ struct THEPERSPVIEW_API FkdGameSettings
     UPROPERTY(BlueprintReadWrite, SaveGame, Category = "Graphics")
     bool bVSync = false;
 
+    UPROPERTY(BlueprintReadWrite, SaveGame, Category = "Graphics")
+    FIntPoint ScreenResolution = FIntPoint(0, 0);
+
     // Controls
     UPROPERTY(BlueprintReadWrite, SaveGame, Category = "Controls")
     float MouseSensitivity = 1.0f;
