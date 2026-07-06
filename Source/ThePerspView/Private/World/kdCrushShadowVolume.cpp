@@ -4,12 +4,17 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "Kismet/GameplayStatics.h"
-#include "GameplayTags/kdGameplayTags.h"        
+#include "GameplayTags/kdGameplayTags.h"
 #include "Player/kdMyPlayer.h"
 #include "Crush/kdCrushDirectionLibrary.h"
+
+// Material parameter names — must match the M_CrushShadowVolume graph.
+const FName AkdCrushShadowVolume::MP_ShadowColor = TEXT("ShadowColor");
+const FName AkdCrushShadowVolume::MP_ShadowOpacity = TEXT("ShadowOpacity");
 
 
 AkdCrushShadowVolume::AkdCrushShadowVolume()
@@ -27,8 +32,9 @@ AkdCrushShadowVolume::AkdCrushShadowVolume()
         VolumeMesh->SetStaticMesh(CubeFinder.Object);
     }
 
-    // Custom-Depth-ONLY: never drawn in colour, casts nothing, collides with
-    // nothing. Its footprint is the only thing we use.
+    // Baseline = Custom-Depth-ONLY: never drawn in colour, casts nothing, collides
+    // with nothing. If a tint material is assigned, BeginPlay re-enables the main
+    // pass so the translucent slab can render; otherwise this legacy state stands.
     VolumeMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     VolumeMesh->SetCanEverAffectNavigation(false);
     VolumeMesh->SetCastShadow(false);
@@ -46,21 +52,60 @@ void AkdCrushShadowVolume::ApplyZoneScale(bool bCollapsesY)
     VolumeMesh->SetWorldScale3D(Scale);
 }
 
+void AkdCrushShadowVolume::EnsureDynamicMaterial()
+{
+    // No source material assigned → keep the legacy stencil-only behaviour. The
+    // mesh stays out of the main pass and nothing coloured ever draws.
+    if (!ShadowVolumeMaterial)
+    {
+        return;
+    }
+
+    // One dynamic instance per volume so ShadowColor / ShadowOpacity are per-instance.
+    ShadowMID = VolumeMesh->CreateAndSetMaterialInstanceDynamicFromMaterial(0, ShadowVolumeMaterial);
+
+    if (ShadowMID)
+    {
+        // Promote the mesh into the colour pass so the translucent slab can render.
+        // It remains hidden until Crush Mode activates it (SetVolumeActive).
+        VolumeMesh->SetRenderInMainPass(true);
+        RefreshMaterialParameters();
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning,
+            TEXT("AkdCrushShadowVolume [%s]: Failed to create dynamic material from %s."),
+            *GetName(), *GetNameSafe(ShadowVolumeMaterial));
+    }
+}
+
+void AkdCrushShadowVolume::RefreshMaterialParameters()
+{
+    if (!ShadowMID)
+    {
+        return;
+    }
+
+    ShadowMID->SetVectorParameterValue(MP_ShadowColor, ShadowColor);
+    ShadowMID->SetScalarParameterValue(MP_ShadowOpacity, ShadowOpacity);
+}
+
 void AkdCrushShadowVolume::BeginPlay()
 {
     Super::BeginPlay();
-
-    UE_LOG(LogTemp, Warning, TEXT("ShadowVolume BeginPlay"));
 
     OriginalPlacedLocation = GetActorLocation();
 
     ApplyZoneScale(false);
 
-    VolumeMesh->SetRenderInMainPass(false);              // invisible in colour
-    VolumeMesh->SetCastShadow(false);                    // <-- THE FIX: no shadow from the box
+    // Stencil / shadow-suppression setup (unchanged legacy pipeline).
+    VolumeMesh->SetCastShadow(false);                    // no shadow from the box
     VolumeMesh->bCastHiddenShadow = false;               // belt-and-suspenders for hidden-mesh shadows
-    VolumeMesh->SetRenderCustomDepth(true);              // still writes the stencil tag
     VolumeMesh->SetCustomDepthStencilValue(ShadowStencilValue);
+
+    // Build the per-instance tint material (only if one is assigned). This may
+    // flip the mesh into the main pass; visibility is still gated by Crush Mode.
+    EnsureDynamicMaterial();
 
     CachedPlayer = Cast<AkdMyPlayer>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
     if (!CachedPlayer)
@@ -98,6 +143,18 @@ void AkdCrushShadowVolume::EndPlay(const EEndPlayReason::Type Reason)
     }
     Super::EndPlay(Reason);
 }
+
+#if WITH_EDITOR
+void AkdCrushShadowVolume::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+    Super::PostEditChangeProperty(PropertyChangedEvent);
+
+    // Immediate feedback while tuning in a running PIE session. Outside PIE the slab
+    // is not visible anyway (Crush Mode is a runtime state), and the values are
+    // re-read on the next activation regardless.
+    RefreshMaterialParameters();
+}
+#endif
 
 void AkdCrushShadowVolume::OnCrushModeTagChanged(const FGameplayTag /*Tag*/, int32 NewCount)
 {
@@ -139,9 +196,16 @@ void AkdCrushShadowVolume::SetVolumeActive(bool bActive)
 
                 SetActorLocation(Loc);
             }
+
+            // Re-read the (possibly edited) tint each time the volume comes alive,
+            // giving a reliable edit-in-Details → toggle-crush → see-it loop.
+            RefreshMaterialParameters();
         }
     }
 
-    VolumeMesh->SetRenderCustomDepth(bActive);
+    // Stencil write can be suppressed independently of visibility (bWriteShadowStencil).
+    VolumeMesh->SetRenderCustomDepth(bActive && bWriteShadowStencil);
+
+    // Drives both the legacy invisible stamp and the translucent tint slab.
     VolumeMesh->SetVisibility(bActive);
 }
