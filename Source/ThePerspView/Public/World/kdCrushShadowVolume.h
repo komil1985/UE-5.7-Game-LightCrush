@@ -22,6 +22,7 @@ class UStaticMeshComponent;
 class UAbilitySystemComponent;
 class UMaterialInterface;
 class UMaterialInstanceDynamic;
+class UkdWorldColorDriver;
 class AkdMyPlayer;
 
 /**
@@ -33,31 +34,36 @@ class AkdMyPlayer;
  *   The mesh is a Custom-Depth-ONLY stamp. It is never drawn in the colour
  *   pass, casts nothing, collides with nothing. It only writes ShadowStencilValue
  *   (project convention: 2 = darken) into the custom-depth buffer, and the global
- *   M_CrushPostProcess material reads that stencil to darken the scene. In this
- *   mode there is NO per-volume colour or opacity — the look is global.
+ *   AAkdGlobalPostProcessVolume's PP_CrushShadowStencil blendable reads that stencil
+ *   to darken the scene. In this mode there is NO per-volume colour or opacity.
  *
  * SELF-RENDERED TINT SLAB (opt-in, when ShadowVolumeMaterial is assigned):
  *   The mesh additionally renders itself as an unlit, translucent "tint slab"
  *   whose colour and opacity are driven per-instance by a UMaterialInstanceDynamic.
- *   This gives true per-volume, editor-tunable ShadowColor + ShadowOpacity that
- *   are entirely self-contained: they live in this actor's own material domain and
- *   never write to MPC_WorldColor or any post-process field, so the single-writer
- *   rule owned by UkdWorldColorDriver is preserved untouched.
+ *   Set bWriteShadowStencil = false on these volumes so the global stencil-2 darken
+ *   ignores them (no double-darken); PP_NeonPreservation still re-brightens stencil-1
+ *   neon on top, so lit elements punch through the slab for free.
  *
- *   INTEGRATION (do once):
- *    - Drop these volumes out of the M_CrushPostProcess stencil-2 darken (or keep
- *      the stencil write purely for pipeline ordering) so the slab is not
- *      double-darkened by both paths.
- *    - The slab material should discard where CustomStencil == 1 (neon-preserve)
- *      so lit / neon elements punch through the shadow.
+ * DRIVER-SYNCED DEVELOP-IN FADE (automatic whenever the slab is active):
+ *   ShadowOpacity is treated as the *target*. On every crush toggle the slab's live
+ *   opacity is driven by UkdWorldColorDriver::GetBlendAlpha() (0 = light, 1 = crush)
+ *   so the tint develops in / out on the exact same curve as the rest of the world,
+ *   in both directions. This is a READ of the driver's blend state — the driver
+ *   remains the sole writer of MPC_WorldColor, so the single-writer rule is intact.
+ *
+ *   IMPORTANT — do NOT gate this on State.Transitioning. That tag brackets the
+ *   geometry morph, which completes *before* State.CrushMode flips and the colour
+ *   blend begins; gating on it would freeze the slab at 0 exactly as the fade
+ *   should start. The correct clock is the driver's blend (GetBlendAlpha /
+ *   IsBlending), which begins on the same tag event this actor already listens to.
+ *
+ *   The actor ticks only while the driver is blending and idles otherwise
+ *   (bStartWithTickEnabled = false; toggled per transition), so at-rest cost is zero.
  *
  *   REQUIRED MATERIAL (M_CrushShadowVolume):
- *    - Shading Model: Unlit
- *    - Blend Mode:    Translucent
- *    - Two Sided:     true   (visible when the camera is inside the slab)
+ *    - Shading Model: Unlit ; Blend Mode: Translucent ; Two Sided: true
  *    - Emissive Color = Vector param "ShadowColor"
- *    - Opacity        = Scalar param "ShadowOpacity"  (optionally * a fade scalar)
- *    - (Recommended) sample SceneTexture:CustomStencil; opacity 0 where == 1.
+ *    - Opacity        = Scalar param "ShadowOpacity"
  */
 UCLASS()
 class THEPERSPVIEW_API AkdCrushShadowVolume : public AActor
@@ -83,22 +89,20 @@ public:
     // ── Appearance (2D / Crush Mode) ──────────────────────────────────────────
     /** Optional self-rendered tint material. Assign M_CrushShadowVolume to turn
      *  this volume into a per-instance coloured translucent slab. Leave EMPTY to
-     *  keep the legacy stencil-only behaviour (global darken via M_CrushPostProcess).
-     *  Prefer promoting this to a UkdThemeSettings / DeveloperSettings pointer if
-     *  you want one shared default across every volume. */
+     *  keep the legacy stencil-only behaviour (global darken via the PP stack). */
     UPROPERTY(EditDefaultsOnly, Category = "Crush Shadow|Appearance")
     TObjectPtr<UMaterialInterface> ShadowVolumeMaterial;
 
-    /** Per-volume shadow tint used by the tint slab (Emissive of the Unlit material).
-     *  Default approximates the Heliograph IndigoField token (#0E1538). Ignored when
-     *  ShadowVolumeMaterial is unset. Authored/re-read on each crush activation. */
+    /** Per-volume shadow tint (Emissive of the Unlit material). Default approximates
+     *  the Heliograph IndigoField token (#0E1538). Ignored when ShadowVolumeMaterial
+     *  is unset. Re-read on each crush activation and on edit. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Shadow|Appearance",
         meta = (HideAlphaChannel))
     FLinearColor ShadowColor = FLinearColor(0.055f, 0.082f, 0.220f, 1.f);
 
-    /** Per-volume shadow strength [0..1] (Opacity of the tint slab).
-     *  0 = fully transparent (slab invisible), 1 = solid tint. Ignored when
-     *  ShadowVolumeMaterial is unset. Re-read on each crush activation. */
+    /** Per-volume shadow strength [0..1] — the TARGET opacity at full crush. The live
+     *  slab opacity is this value scaled by the world blend alpha, so it develops in
+     *  and out with the transition. Ignored when ShadowVolumeMaterial is unset. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Shadow|Appearance",
         meta = (ClampMin = "0.0", ClampMax = "1.0"))
     float ShadowOpacity = 0.85f;
@@ -108,10 +112,10 @@ public:
     UPROPERTY(EditAnywhere, Category = "Crush Shadow|Render", meta = (ClampMin = "1", ClampMax = "255"))
     int32 ShadowStencilValue = 2;
 
-    /** Keep writing the custom-depth stencil while active. Leave ON so the
-     *  neon-preserve pipeline (stencil 1) still resolves correctly even when the
-     *  slab supplies the visible darkening. Turn OFF only if you have fully moved
-     *  darkening to the slab and no longer want any stencil-2 interaction. */
+    /** Keep writing the custom-depth stencil while active. Set OFF on slab volumes
+     *  so the global stencil-2 darken ignores them and the slab is not double-darkened.
+     *  Leave ON only when you still want this volume's darkening to come from the
+     *  global PP_CrushShadowStencil pass (legacy / stencil-only volumes). */
     UPROPERTY(EditAnywhere, Category = "Crush Shadow|Render")
     bool bWriteShadowStencil = true;
 
@@ -134,6 +138,7 @@ public:
 protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type Reason) override;
+    virtual void Tick(float DeltaTime) override;
 
 #if WITH_EDITOR
     /** Live-pushes ShadowColor / ShadowOpacity to the dynamic material while a PIE
@@ -156,19 +161,41 @@ private:
     UPROPERTY()
     TObjectPtr<UAbilitySystemComponent> CachedASC;
 
+    /** Read-only handle to the world colour driver on the player pawn. Supplies the
+     *  blend alpha the slab fade rides on. Never written to — read only. */
+    UPROPERTY()
+    TObjectPtr<UkdWorldColorDriver> CachedColorDriver;
+
     FDelegateHandle CrushTagHandle;
     FVector OriginalPlacedLocation = FVector::ZeroVector;
 
+    // ── Per-crush fade state ──────────────────────────────────────────────────
+    /** True if this volume participates in the current crush (axis filter passed). */
+    bool bVisibleThisCrush = false;
+    /** True while the current target is Crush (entering / held), false while exiting. */
+    bool bTargetCrushActive = false;
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
     void ApplyZoneScale(bool bCollapsesY);
-    void SetVolumeActive(bool bActive);
+
+    /** Evaluates the axis filter for the current crush direction; if this volume
+     *  participates, applies zone scale + depth placement and returns true. */
+    bool PositionForCurrentCrush();
+
+    /** Immediate, non-animated state set (level start, or fallback when no tint
+     *  material / no driver is available). */
+    void SnapToState(bool bInCrush);
 
     /** Builds the dynamic material (if a source material is set) and flips the mesh
      *  into the main pass so the translucent slab can render. No-op otherwise. */
     void EnsureDynamicMaterial();
 
-    /** Pushes the current ShadowColor / ShadowOpacity into ShadowMID. Cheap; safe
-     *  to call every activation. */
+    /** Pushes ShadowColor + full ShadowOpacity into the MID (endpoints / editor tune). */
     void RefreshMaterialParameters();
+
+    /** Called when the driver-synced blend has settled: writes the exact endpoint
+     *  and disables tick. */
+    void FinalizeFade();
 
     void OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
 

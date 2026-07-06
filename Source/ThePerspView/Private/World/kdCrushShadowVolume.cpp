@@ -11,6 +11,7 @@
 #include "GameplayTags/kdGameplayTags.h"
 #include "Player/kdMyPlayer.h"
 #include "Crush/kdCrushDirectionLibrary.h"
+#include "Components/kdWorldColorDriver.h"
 
 // Material parameter names — must match the M_CrushShadowVolume graph.
 const FName AkdCrushShadowVolume::MP_ShadowColor = TEXT("ShadowColor");
@@ -19,7 +20,9 @@ const FName AkdCrushShadowVolume::MP_ShadowOpacity = TEXT("ShadowOpacity");
 
 AkdCrushShadowVolume::AkdCrushShadowVolume()
 {
-    PrimaryActorTick.bCanEverTick = false;
+    // Tick is enabled per-transition and disabled at rest — zero idle cost.
+    PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.bStartWithTickEnabled = false;
 
     VolumeMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VolumeMesh"));
     SetRootComponent(VolumeMesh);
@@ -52,6 +55,47 @@ void AkdCrushShadowVolume::ApplyZoneScale(bool bCollapsesY)
     VolumeMesh->SetWorldScale3D(Scale);
 }
 
+bool AkdCrushShadowVolume::PositionForCurrentCrush()
+{
+    if (!CachedPlayer)
+    {
+        return false;
+    }
+
+    const FkdCrushBasis Basis = UkdCrushDirectionLibrary::MakeCrushBasis(
+        CachedPlayer->GetActiveCrushDirection());
+
+    // Per-volume axis filter: a volume may opt to appear only on X-crush,
+    // only on Y-crush, or on both.
+    const bool bAxisAllowed =
+        (ActivationAxisFilter == EkdCrushAxisFilter::AnyAxis) ||
+        (ActivationAxisFilter == EkdCrushAxisFilter::YAxisOnly && Basis.bCollapsesY) ||
+        (ActivationAxisFilter == EkdCrushAxisFilter::XAxisOnly && !Basis.bCollapsesY);
+
+    if (!bAxisAllowed)
+    {
+        return false;   // this volume sits out the current crush direction
+    }
+
+    ApplyZoneScale(Basis.bCollapsesY);
+
+    if (bTrackPlayerDepth)
+    {
+        const FVector PlayerLoc = CachedPlayer->GetActorLocation();
+        const float   Behind = DepthBehindPlayer + (ZoneDepthX * 0.5f);
+        FVector       Loc = OriginalPlacedLocation;
+
+        if (Basis.bCollapsesY)
+            Loc.Y = PlayerLoc.Y + Basis.ViewForward.Y * Behind;
+        else
+            Loc.X = PlayerLoc.X + Basis.ViewForward.X * Behind;
+
+        SetActorLocation(Loc);
+    }
+
+    return true;
+}
+
 void AkdCrushShadowVolume::EnsureDynamicMaterial()
 {
     // No source material assigned → keep the legacy stencil-only behaviour. The
@@ -67,7 +111,7 @@ void AkdCrushShadowVolume::EnsureDynamicMaterial()
     if (ShadowMID)
     {
         // Promote the mesh into the colour pass so the translucent slab can render.
-        // It remains hidden until Crush Mode activates it (SetVolumeActive).
+        // It stays at zero opacity / hidden until Crush Mode activates it.
         VolumeMesh->SetRenderInMainPass(true);
         RefreshMaterialParameters();
     }
@@ -88,6 +132,25 @@ void AkdCrushShadowVolume::RefreshMaterialParameters()
 
     ShadowMID->SetVectorParameterValue(MP_ShadowColor, ShadowColor);
     ShadowMID->SetScalarParameterValue(MP_ShadowOpacity, ShadowOpacity);
+}
+
+void AkdCrushShadowVolume::SnapToState(bool bInCrush)
+{
+    // Non-animated set: used at level start and as the fallback when there is no
+    // tint material or no colour driver to sync a fade against.
+    bVisibleThisCrush = bInCrush && PositionForCurrentCrush();
+
+    VolumeMesh->SetVisibility(bVisibleThisCrush);
+    VolumeMesh->SetRenderCustomDepth(bVisibleThisCrush && bWriteShadowStencil);
+
+    if (ShadowMID)
+    {
+        ShadowMID->SetVectorParameterValue(MP_ShadowColor, ShadowColor);
+        ShadowMID->SetScalarParameterValue(MP_ShadowOpacity,
+            bVisibleThisCrush ? ShadowOpacity : 0.f);
+    }
+
+    SetActorTickEnabled(false);
 }
 
 void AkdCrushShadowVolume::BeginPlay()
@@ -115,6 +178,9 @@ void AkdCrushShadowVolume::BeginPlay()
         return;
     }
 
+    // Cache the colour driver (read-only) so the slab fade can ride its blend alpha.
+    CachedColorDriver = CachedPlayer->FindComponentByClass<UkdWorldColorDriver>();
+
     CachedASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(CachedPlayer);
     if (!CachedASC)
     {
@@ -129,8 +195,9 @@ void AkdCrushShadowVolume::BeginPlay()
         EGameplayTagEventType::NewOrRemoved)
         .AddUObject(this, &AkdCrushShadowVolume::OnCrushModeTagChanged);
 
-    // Honour current state in case we begin already in Crush Mode.
-    SetVolumeActive(CachedASC->GetTagCount(FkdGameplayTags::Get().State_CrushMode) > 0);
+    // Honour current state WITHOUT a fade — if we start already in Crush Mode the
+    // slab should simply be present, not develop in on level load.
+    SnapToState(CachedASC->GetTagCount(FkdGameplayTags::Get().State_CrushMode) > 0);
 }
 
 void AkdCrushShadowVolume::EndPlay(const EEndPlayReason::Type Reason)
@@ -149,63 +216,118 @@ void AkdCrushShadowVolume::PostEditChangeProperty(FPropertyChangedEvent& Propert
 {
     Super::PostEditChangeProperty(PropertyChangedEvent);
 
-    // Immediate feedback while tuning in a running PIE session. Outside PIE the slab
-    // is not visible anyway (Crush Mode is a runtime state), and the values are
-    // re-read on the next activation regardless.
+    // Immediate feedback while tuning in a running PIE session. During an active
+    // fade the tick overwrites opacity next frame; at rest this sets the endpoint.
     RefreshMaterialParameters();
 }
 #endif
 
 void AkdCrushShadowVolume::OnCrushModeTagChanged(const FGameplayTag /*Tag*/, int32 NewCount)
 {
-    SetVolumeActive(NewCount > 0);
-}
+    bTargetCrushActive = (NewCount > 0);
 
-void AkdCrushShadowVolume::SetVolumeActive(bool bActive)
-{
-    if (bActive && CachedPlayer)
+    // A driver-synced fade needs both a tint material AND the colour driver. Without
+    // either we fall back to the original binary snap so nothing regresses.
+    const bool bCanFade = (ShadowMID != nullptr) && (CachedColorDriver != nullptr);
+
+    if (bTargetCrushActive)
     {
-        const FkdCrushBasis Basis = UkdCrushDirectionLibrary::MakeCrushBasis(
-            CachedPlayer->GetActiveCrushDirection());
+        // Entering: resolve axis + placement now so the fade develops in the right
+        // spot. bVisibleThisCrush is latched here and reused on the matching exit.
+        bVisibleThisCrush = PositionForCurrentCrush();
 
-        // Per-volume axis filter: a volume may opt to appear only on X-crush,
-        // only on Y-crush, or on both.
-        const bool bAxisAllowed =
-            (ActivationAxisFilter == EkdCrushAxisFilter::AnyAxis) ||
-            (ActivationAxisFilter == EkdCrushAxisFilter::YAxisOnly && Basis.bCollapsesY) ||
-            (ActivationAxisFilter == EkdCrushAxisFilter::XAxisOnly && !Basis.bCollapsesY);
-
-        if (!bAxisAllowed)
+        if (!bVisibleThisCrush)
         {
-            bActive = false;   // this volume sits out the current crush direction
+            // This volume sits out the current crush direction — stay hidden, no fade.
+            SnapToState(false);
+            return;
         }
-        else
+
+        // Show now; opacity begins at ~0 and the driver-synced tick ramps it in,
+        // so there is no first-frame pop even if the driver hasn't ticked yet.
+        VolumeMesh->SetVisibility(true);
+        VolumeMesh->SetRenderCustomDepth(bWriteShadowStencil);
+        if (ShadowMID)
         {
-            ApplyZoneScale(Basis.bCollapsesY);
-
-            if (bTrackPlayerDepth)
-            {
-                const FVector PlayerLoc = CachedPlayer->GetActorLocation();
-                const float   Behind = DepthBehindPlayer + (ZoneDepthX * 0.5f);
-                FVector       Loc = OriginalPlacedLocation;
-
-                if (Basis.bCollapsesY)
-                    Loc.Y = PlayerLoc.Y + Basis.ViewForward.Y * Behind;
-                else
-                    Loc.X = PlayerLoc.X + Basis.ViewForward.X * Behind;
-
-                SetActorLocation(Loc);
-            }
-
-            // Re-read the (possibly edited) tint each time the volume comes alive,
-            // giving a reliable edit-in-Details → toggle-crush → see-it loop.
-            RefreshMaterialParameters();
+            ShadowMID->SetVectorParameterValue(MP_ShadowColor, ShadowColor);
+            ShadowMID->SetScalarParameterValue(MP_ShadowOpacity, 0.f);
         }
     }
+    else
+    {
+        // Exiting: if this volume was never shown this crush, there is nothing to
+        // fade out — snap hidden and bail.
+        if (!bVisibleThisCrush)
+        {
+            SnapToState(false);
+            return;
+        }
+        // Otherwise keep the current placement and let the tick fade the slab out.
+    }
 
-    // Stencil write can be suppressed independently of visibility (bWriteShadowStencil).
-    VolumeMesh->SetRenderCustomDepth(bActive && bWriteShadowStencil);
+    if (bCanFade)
+    {
+        SetActorTickEnabled(true);   // driver-synced fade takes over in Tick()
+    }
+    else
+    {
+        SnapToState(bTargetCrushActive);   // binary fallback (legacy / no driver)
+    }
+}
 
-    // Drives both the legacy invisible stamp and the translucent tint slab.
-    VolumeMesh->SetVisibility(bActive);
+void AkdCrushShadowVolume::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+
+    // Safety: only the slab path ticks. Anything else disables itself.
+    if (!ShadowMID)
+    {
+        SetActorTickEnabled(false);
+        return;
+    }
+
+    // BlendAlpha: 0 = light world, 1 = crush world — the exact curve the
+    // WorldColorDriver drives the rest of the scene on. Read-only, so the driver
+    // stays the sole writer of MPC_WorldColor.
+    const float Alpha = CachedColorDriver
+        ? CachedColorDriver->GetBlendAlpha()
+        : (bTargetCrushActive ? 1.f : 0.f);
+
+    const float Effective = (bVisibleThisCrush ? ShadowOpacity : 0.f) * Alpha;
+    ShadowMID->SetScalarParameterValue(MP_ShadowOpacity, Effective);
+
+    // Settle on the frame the world blend finishes: snap to the precise endpoint
+    // and idle. Endpoint is derived from the known target, not the sampled alpha,
+    // so tick-order against the driver is irrelevant.
+    if (!CachedColorDriver || !CachedColorDriver->IsBlending())
+    {
+        FinalizeFade();
+    }
+}
+
+void AkdCrushShadowVolume::FinalizeFade()
+{
+    if (bTargetCrushActive)
+    {
+        // Fully in Crush Mode.
+        if (ShadowMID)
+        {
+            ShadowMID->SetScalarParameterValue(MP_ShadowOpacity,
+                bVisibleThisCrush ? ShadowOpacity : 0.f);
+        }
+        VolumeMesh->SetVisibility(bVisibleThisCrush);
+        VolumeMesh->SetRenderCustomDepth(bVisibleThisCrush && bWriteShadowStencil);
+    }
+    else
+    {
+        // Fully back in the lit 3D world — hidden, stencil cleared.
+        if (ShadowMID)
+        {
+            ShadowMID->SetScalarParameterValue(MP_ShadowOpacity, 0.f);
+        }
+        VolumeMesh->SetVisibility(false);
+        VolumeMesh->SetRenderCustomDepth(false);
+    }
+
+    SetActorTickEnabled(false);
 }
