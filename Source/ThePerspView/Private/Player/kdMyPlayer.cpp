@@ -14,7 +14,6 @@
 #include "GameplayTags/kdGameplayTags.h"
 #include "AbilitySystem/Abilities/kd_CrushToggle.h"
 #include "AbilitySystem/Abilities/kdShadowMove.h"
-#include "UI/Widget/kdStaminaWidget.h"
 #include "Components/WidgetComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/kdCharacterMovementComponent.h"
@@ -29,7 +28,6 @@
 #include "Components/kdLightHealthComponent.h"
 #include "UI/Widget/kdLightHealthWidget.h"
 #include "Crush/kdCrushDirectionLibrary.h"
-#include "Crush/kdCrushStateComponent.h"
 #include "AbilitySystem/Abilities/kdStrategicView.h"
 #include "Components/kdStrategicCameraComponent.h"
 #include "Components/kdJumpSquashComponent.h"
@@ -57,7 +55,7 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	SpringArm->bInheritYaw = true;
 	SpringArm->bEnableCameraLag = true;
 	SpringArm->CameraLagSpeed = 10.0f;
-	
+
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 	Camera->bUsePawnControlRotation = false;
@@ -88,7 +86,7 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	FallDamageComponent = CreateDefaultSubobject<UkdFallDamageComponent>(TEXT("FallDamageComponent"));
 	GameFeedbackComponent = CreateDefaultSubobject<UkdGameFeedbackComponent>(TEXT("GameFeedbackComponent"));
 	HoverComponent = CreateDefaultSubobject<UkdPlayerHoverComponent>(TEXT("HoverComponent"));
-	LightHealthComponent = CreateDefaultSubobject<UkdLightHealthComponent>(TEXT("LightHealthComponent"));
+	//LightHealthComponent = CreateDefaultSubobject<UkdLightHealthComponent>(TEXT("LightHealthComponent"));
 	JumpSquashComponent = CreateDefaultSubobject<UkdJumpSquashComponent>(TEXT("JumpSquashComponent"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
@@ -102,7 +100,7 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	bUseControllerRotationRoll = false;
 	/*-----------------------------------------------------------------------------------------------------------*/
 
-	/* -- GAS Setup -- */	
+	/* -- GAS Setup -- */
 	AbilitySystemComponent = CreateDefaultSubobject<UkdAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 	AbilitySystemComponent->SetIsReplicated(false); // Essential for multiplayer, safe for single
 	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
@@ -110,17 +108,13 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	AttributeSet = CreateDefaultSubobject<UkdAttributeSet>(TEXT("AttributeSet"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
-	/* -- Stamina Widget Component -- */
-	StaminaWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("StaminaWidgetComponent"));
-	StaminaWidgetComponent->SetupAttachment(GetMesh());
-	StaminaWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 100.0f));
-	StaminaWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
-
-	// Low Stamina Warning Widget Component — floats above the stamina bar
+	// Low Stamina Warning Widget Component — world-space, floats above the player's head.
+	// NOTE: this is the legacy world-space UI pattern; candidate for migration into the
+	// screen-space HUD (see chat notes). Left active so the flash warning keeps working.
 	LowStaminaWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("LowStaminaWidgetComponent"));
 	LowStaminaWidgetComponent->SetupAttachment(GetMesh());
-	LowStaminaWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 150.0f));  // above StaminaWidgetComponent
-	LowStaminaWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);	
+	LowStaminaWidgetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 150.0f));
+	LowStaminaWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
 
 	/* -- Strategic Camera Component -- */
 	StrategicCameraComponent = CreateDefaultSubobject<UkdStrategicCameraComponent>(TEXT("StrategicCameraComponent"));
@@ -152,7 +146,7 @@ void AkdMyPlayer::BeginPlay()
 
 	// Binding Transition Finished Event
 	if (CrushTransitionComponent) CrushTransitionComponent->OnTransitionComplete.AddDynamic(this, &AkdMyPlayer::OnTransitionFinished);
-	
+
 	// Initialize AbilitySystem
 	if (AbilitySystemComponent)
 	{
@@ -160,23 +154,9 @@ void AkdMyPlayer::BeginPlay()
 		InitializeAbilitySystem();
 
 		// Bind to tag changes for CrushMode
-		AbilitySystemComponent->RegisterGameplayTagEvent(FkdGameplayTags::Get().State_CrushMode,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AkdMyPlayer::OnCrushModeTagChanged);
+		AbilitySystemComponent->RegisterGameplayTagEvent(FkdGameplayTags::Get().State_CrushMode, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AkdMyPlayer::OnCrushModeTagChanged);
 	}
 
-	//--- Stamina Widget ---------------------------------------------------
-	if (StaminaWidgetComponent && StaminaWidgetClass)
-	{
-		StaminaWidgetComponent->SetWidgetClass(StaminaWidgetClass);
-		// Optional: force widget creation if not already created
-		StaminaWidgetComponent->InitWidget();
-
-		UUserWidget* Widget = StaminaWidgetComponent->GetUserWidgetObject();
-		if (StaminaWidget = Cast<UkdStaminaWidget>(Widget))
-		{
-			StaminaWidget->InitializeWithAbilitySystemComponent(AbilitySystemComponent);
-		}
-	}
-	
 	// ── Low Stamina Warning Widget ──────────────────────────────────────────────
 	if (LowStaminaWidgetComponent && LowStaminaWidgetClass)
 	{
@@ -203,30 +183,30 @@ void AkdMyPlayer::BeginPlay()
 	}
 
 	// ── Light Health Widget — created as a screen-space viewport widget ───────
-    if (LightHealthWidgetClass)
-    {
-        APlayerController* PC = Cast<APlayerController>(GetController());
-        if (!PC) PC = GetWorld()->GetFirstPlayerController();
+	//if (LightHealthWidgetClass)
+	//{
+	//	APlayerController* PC = Cast<APlayerController>(GetController());
+	//	if (!PC) PC = GetWorld()->GetFirstPlayerController();
 
-        LightHealthWidget = CreateWidget<UkdLightHealthWidget>(PC, LightHealthWidgetClass);
-        if (LightHealthWidget)
-        {
-            LightHealthWidget->AddToViewport(5);		// ZOrder 5: above gameplay, below menus
-            LightHealthWidget->SetVisibility(ESlateVisibility::Hidden);		// hidden until CrushMode
-            LightHealthWidget->InitializeWithASC(AbilitySystemComponent, LightHealthComponent);
+	//	LightHealthWidget = CreateWidget<UkdLightHealthWidget>(PC, LightHealthWidgetClass);
+	//	if (LightHealthWidget)
+	//	{
+	//		LightHealthWidget->AddToViewport(5);		// ZOrder 5: above gameplay, below menus
+	//		LightHealthWidget->SetVisibility(ESlateVisibility::Hidden);		// hidden until CrushMode
+	//		LightHealthWidget->InitializeWithASC(AbilitySystemComponent, LightHealthComponent);
 
-            UE_LOG(LogTemp, Log, TEXT("LightHealthWidget: Created and added to viewport."));
-        }
-        else
-        {
-            UE_LOG(LogTemp, Error,
-                TEXT("LightHealthWidget: CreateWidget FAILED. Ensure WBP_LightHealth parent class is UkdLightHealthWidget."));
-        }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("LightHealthWidgetClass not assigned in BP_Player Details panel!"));
-    }
+	//		UE_LOG(LogTemp, Log, TEXT("LightHealthWidget: Created and added to viewport."));
+	//	}
+	//	else
+	//	{
+	//		UE_LOG(LogTemp, Error,
+	//			TEXT("LightHealthWidget: CreateWidget FAILED. Ensure WBP_LightHealth parent class is UkdLightHealthWidget."));
+	//	}
+	//}
+	//else
+	//{
+	//	UE_LOG(LogTemp, Warning, TEXT("LightHealthWidgetClass not assigned in BP_Player Details panel!"));
+	//}
 
 }
 
@@ -249,7 +229,7 @@ void AkdMyPlayer::RequestCrushToggle()
 				// TryActivateAbility returns false for ANY block reason (transitioning,
 				// exhausted, etc.).  We only want the warning when the specific cause
 				// is stamina exhaustion — check the tag directly.
-				if (!bActivated &&	AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_Exhausted))
+				if (!bActivated && AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_Exhausted))
 				{
 					NotifyLowStaminaWarning();
 				}
@@ -438,17 +418,6 @@ void AkdMyPlayer::InitializeAbilitySystem()
 		{
 			FGameplayAbilitySpec Spec(AbilityClass, 1, INDEX_NONE, this);
 			AbilitySystemComponent->GiveAbility(Spec);
-		}
-	}
-
-	// List all granted abilities after giving them
-	const TArray<FGameplayAbilitySpec>& Specs = AbilitySystemComponent->GetActivatableAbilities();
-	for (const FGameplayAbilitySpec& Spec : Specs)
-	{
-		if (Spec.Ability)
-		{
-			 //Check if this ability has the LightCrush tag
-			const FGameplayTagContainer& AbilityTags = Spec.Ability->AbilityTags;
 		}
 	}
 

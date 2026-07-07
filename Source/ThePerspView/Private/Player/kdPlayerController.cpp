@@ -12,8 +12,24 @@
 #include "GameMode/kdGameModeBase.h"
 #include "UI/Widget/kdPauseMenuWidget.h"
 #include "Crush/kdCrushDirectionLibrary.h"
+#include "Components/kdPlayerHUDComponent.h"
+#include "UI/Widget/kdHUDWidget.h"
+#include "UObject/ConstructorHelpers.h"
 
 
+
+AkdPlayerController::AkdPlayerController()
+{
+	HUDComponent = CreateDefaultSubobject<UkdPlayerHUDComponent>(TEXT("HUDComponent"));
+
+	// Quick path to assign the WBP class (C++-only friendly). Adapt the asset path.
+	static ConstructorHelpers::FClassFinder<UkdHUDWidget> HUDClassFinder(
+		TEXT("/Game/UI/Widget/HUD/WBP_HUD.WBP_HUD_C"));
+	if (HUDClassFinder.Succeeded() && HUDComponent)
+	{
+		HUDComponent->HUDWidgetClass = HUDClassFinder.Class;
+	}
+}
 
 void AkdPlayerController::BeginPlay()
 {
@@ -93,6 +109,14 @@ void AkdPlayerController::OnPossess(APawn* InPawn)
 	// consume mouse input during gameplay, which is correct.
 	SetInputMode(FInputModeGameOnly());
 	SetShowMouseCursor(false);
+
+	if (HUDComponent) { HUDComponent->InitializeForPawn(InPawn); }
+}
+
+void AkdPlayerController::OnUnPossess()
+{
+	if (HUDComponent) { HUDComponent->ReleasePawn(); }
+	Super::OnUnPossess();
 }
 
 void AkdPlayerController::Move(const FInputActionValue& InputActionValue)

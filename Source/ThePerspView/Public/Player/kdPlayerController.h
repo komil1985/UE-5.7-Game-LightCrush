@@ -15,12 +15,14 @@ class UInputAction;
 class UInputMappingContext;
 class AkdMyPlayer;
 class UAbilitySystemComponent;
+class UkdPlayerHUDComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
 public:
+	AkdPlayerController();
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
 
@@ -56,8 +58,12 @@ public:
 	TObjectPtr<UInputAction> StrategicViewAction;
 	/*-----------------------------------------------------------------*/
 
+	UPROPERTY(VisibleAnywhere, Category = "kd|HUD")
+	TObjectPtr<UkdPlayerHUDComponent> HUDComponent = nullptr;
+
 protected:
 	virtual void OnPossess(APawn* InPawn) override;
+	virtual void OnUnPossess() override;
 
 private:
 	void Move(const FInputActionValue& Value);

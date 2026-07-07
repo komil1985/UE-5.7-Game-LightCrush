@@ -27,7 +27,7 @@ class UkdDeathComponent;
 class UkdAttributeSet;
 class UGameplayAbility;
 class UWidgetComponent;
-class UkdStaminaWidget;
+//class UkdStaminaWidget;
 class UWidgetComponent;
 class UStaticMeshComponent;
 class UMaterialInstanceDynamic;
@@ -105,14 +105,14 @@ public:
 	/*--------------------------------------------------------------------------*/
 
 	// -- User Interface -- //
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly , Category = "UI")
-	TSubclassOf<UkdStaminaWidget> StaminaWidgetClass;
+	//UPROPERTY(EditDefaultsOnly, BlueprintReadOnly , Category = "UI")
+	//TSubclassOf<UkdStaminaWidget> StaminaWidgetClass;
 
-	UPROPERTY()
-	TObjectPtr<UkdStaminaWidget> StaminaWidget;
+	//UPROPERTY()
+	//TObjectPtr<UkdStaminaWidget> StaminaWidget;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
-	TObjectPtr<UWidgetComponent> StaminaWidgetComponent;
+	//UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
+	//TObjectPtr<UWidgetComponent> StaminaWidgetComponent;
 
 	// -- Low Stamina Warning Widget -------------------------------------------- //
 
