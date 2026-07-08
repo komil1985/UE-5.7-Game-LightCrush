@@ -148,6 +148,14 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.State_InLight.ToString());
 #endif
 
+	GameplayTags.State_Dead = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("State.Dead"),
+		FString("Player is dead")
+	);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.State_Dead.ToString());
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Effect Tags

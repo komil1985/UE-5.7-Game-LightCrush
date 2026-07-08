@@ -39,6 +39,7 @@ public:
 	FGameplayTag State_Dashing;
 	FGameplayTag State_EnemyContact;
 	FGameplayTag State_InLight;
+	FGameplayTag State_Dead;
 
 	//Effects
 	FGameplayTag Effect_ShadowDrain;

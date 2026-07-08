@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "UI/ColorLibrary/kdHUDColorRamp.h"
 #include "kdHUDWidget.generated.h"
 
 class UProgressBar;
@@ -11,44 +12,68 @@ class UProgressBar;
 /**
  * UkdHUDWidget
  *
- * Screen-space HUD view for the player's vital bars (Health + Stamina).
+ * Screen-space vitals HUD (Health + Stamina). Pure view: values are pushed in by
+ * UkdPlayerHUDComponent; the widget owns only presentation (fill % + themed color).
  *
- * PURE VIEW. It never reads gameplay attributes and never subscribes to the ASC.
- * All values are pushed in by UkdPlayerHUDComponent (single writer). Keeping the
- * subscription off the widget means the widget can be safely recreated across
- * level loads without ever disturbing the ASC delegate bindings that live on the
- * persistent component.
- *
- * Fixed on-screen placement ("like every other game") is authored in the WBP via
- * anchors + alignment. This class only exposes the bind points and setters.
+ * Color is driven by two FkdBarColorRamps (Heliograph defaults set in the constructor,
+ * overridable in the WBP or injected at runtime via ApplyBarThemes). Percent -> color is
+ * evaluated on every value change; a low-fill "brownout" throb and the stamina exhaust
+ * flash are driven in NativeTick (which early-outs when nothing is animating).
  */
 UCLASS()
 class THEPERSPVIEW_API UkdHUDWidget : public UUserWidget
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    /** Sets the health bar fill (clamped to [0,1]). */
-    void SetHealthPercent(float InPercent01);
+	UkdHUDWidget(const FObjectInitializer& ObjectInitializer);
 
-    /** Sets the stamina bar fill (clamped to [0,1]). */
-    void SetStaminaPercent(float InPercent01);
+	/** Push fill fractions (clamped to [0,1]). */
+	void SetHealthPercent(float InPercent01);
+	void SetStaminaPercent(float InPercent01);
 
-    /** Optional exhausted flourish hook (e.g. flash the stamina bar to ExhaustRed). */
-    void SetExhausted(bool bExhausted);
+	/** Stamina-lockout flash (drive from the State.Exhausted tag). */
+	void SetExhausted(bool bInExhausted);
+
+	/** Optional: inject themed ramps (e.g. from UkdThemeSubsystem / DA_Heliograph). */
+	void ApplyBarThemes(const FkdBarColorRamp& InHealthRamp, const FkdBarColorRamp& InStaminaRamp);
 
 protected:
-    virtual void NativeConstruct() override;
+	virtual void NativeConstruct() override;
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
-    /** WBP element names MUST match these identifiers exactly (BindWidget contract). */
-    UPROPERTY(meta = (BindWidget))
-    TObjectPtr<UProgressBar> Bar_Health = nullptr;
+	void RefreshHealthVisual();
+	void RefreshStaminaVisual();
 
-    UPROPERTY(meta = (BindWidget))
-    TObjectPtr<UProgressBar> Bar_Stamina = nullptr;
+	/** WBP element names must match exactly (BindWidget contract). */
+	UPROPERTY(meta = (BindWidget)) TObjectPtr<UProgressBar> Bar_Health = nullptr;
+	UPROPERTY(meta = (BindWidget)) TObjectPtr<UProgressBar> Bar_Stamina = nullptr;
 
-    /** Cached last-pushed values so a late NativeConstruct still shows the correct fill. */
-    float PendingHealth01 = 1.f;
-    float PendingStamina01 = 1.f;
-    bool  bPendingExhausted = false;
+	// ── Theme (Heliograph defaults in ctor; override in WBP or via ApplyBarThemes) ──
+	UPROPERTY(EditAnywhere, Category = "kd|HUD|Theme") FkdBarColorRamp HealthRamp;
+	UPROPERTY(EditAnywhere, Category = "kd|HUD|Theme") FkdBarColorRamp StaminaRamp;
+
+	/** Below this health fraction the bar throbs (failing-light heartbeat). */
+	UPROPERTY(EditAnywhere, Category = "kd|HUD|Theme", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float LowPulseThreshold = 0.28f;
+
+	/** Pulse angular speed (rad/s). ~6 ≈ one throb/sec. */
+	UPROPERTY(EditAnywhere, Category = "kd|HUD|Theme") float PulseSpeed = 6.0f;
+
+	/** Brightness swing of the throb (0..1). */
+	UPROPERTY(EditAnywhere, Category = "kd|HUD|Theme", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float PulseDepth = 0.22f;
+
+	/** Color the stamina bar flashes toward while exhausted. */
+	UPROPERTY(EditAnywhere, Category = "kd|HUD|Theme") FLinearColor ExhaustFlashColor;
+
+private:
+	float Health01 = 1.f;
+	float Stamina01 = 1.f;
+	bool  bExhausted = false;
+	float PulsePhase = 0.f;
+
+	// Un-pulsed base colors, cached so NativeTick can modulate without re-evaluating.
+	FLinearColor HealthBaseColor = FLinearColor::White;
+	FLinearColor StaminaBaseColor = FLinearColor::White;
 };

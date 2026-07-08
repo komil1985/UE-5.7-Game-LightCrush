@@ -7,11 +7,9 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/Pawn.h"
-
-// TODO(adapt): point this at your actual AttributeSet header + class name.
-//   The four accessors below (Get<Attr>Attribute) are the standard ATTRIBUTE_ACCESSORS
-//   boilerplate — verify they exist / match your naming.
 #include "AbilitySystem/kdAttributeSet.h"
+#include "GameplayTags/kdGameplayTags.h"
+
 
 UkdPlayerHUDComponent::UkdPlayerHUDComponent()
 {
@@ -22,7 +20,7 @@ void UkdPlayerHUDComponent::BeginPlay()
 {
     Super::BeginPlay();
 
-    EnsureWidget();
+    //EnsureWidget();
 
     // If possession happened before BeginPlay, bind immediately (covers both orderings).
     if (APlayerController* PC = GetOwningPlayerController())
@@ -109,6 +107,7 @@ void UkdPlayerHUDComponent::InitializeForPawn(APawn* InPawn)
     }
 
     BoundASC = ASC;
+    bUpdatesFrozen = false;
 
     // GetGameplayAttributeValueChangeDelegate fires on base-value writes made via
     // SetNumericAttributeBase and on aggregated current-value changes.
@@ -127,6 +126,12 @@ void UkdPlayerHUDComponent::InitializeForPawn(APawn* InPawn)
     MaxStaminaChangedHandle = ASC->GetGameplayAttributeValueChangeDelegate(
         UkdAttributeSet::GetMaxShadowStaminaAttribute())
         .AddUObject(this, &UkdPlayerHUDComponent::HandleMaxStaminaChanged);
+
+    // Death → freeze the bars. Mirrors the CrushMode tag-event pattern.
+    DeadTagHandle = ASC->RegisterGameplayTagEvent(
+        FkdGameplayTags::Get().State_Dead,
+        EGameplayTagEventType::NewOrRemoved)
+        .AddUObject(this, &UkdPlayerHUDComponent::OnDeadTagChanged);
 
     // Seed so the bars are correct on the first frame.
     CachedHealth = ASC->GetNumericAttribute(UkdAttributeSet::GetLightHealthAttribute());
@@ -147,20 +152,42 @@ void UkdPlayerHUDComponent::ReleasePawn()
         BoundASC->GetGameplayAttributeValueChangeDelegate(UkdAttributeSet::GetMaxLightHealthAttribute()).Remove(MaxHealthChangedHandle);
         BoundASC->GetGameplayAttributeValueChangeDelegate(UkdAttributeSet::GetShadowStaminaAttribute()).Remove(StaminaChangedHandle);
         BoundASC->GetGameplayAttributeValueChangeDelegate(UkdAttributeSet::GetMaxShadowStaminaAttribute()).Remove(MaxStaminaChangedHandle);
+        BoundASC->UnregisterGameplayTagEvent(DeadTagHandle, FkdGameplayTags::Get().State_Dead, EGameplayTagEventType::NewOrRemoved);
     }
 
     HealthChangedHandle.Reset();
     MaxHealthChangedHandle.Reset();
     StaminaChangedHandle.Reset();
     MaxStaminaChangedHandle.Reset();
+    DeadTagHandle.Reset();
 
     BoundASC = nullptr;
 }
 
-void UkdPlayerHUDComponent::HandleHealthChanged(const FOnAttributeChangeData& Data) { CachedHealth = Data.NewValue;     RefreshHealthBar(); }
-void UkdPlayerHUDComponent::HandleMaxHealthChanged(const FOnAttributeChangeData& Data) { CachedMaxHealth = Data.NewValue;  RefreshHealthBar(); }
-void UkdPlayerHUDComponent::HandleStaminaChanged(const FOnAttributeChangeData& Data) { CachedStamina = Data.NewValue;    RefreshStaminaBar(); }
-void UkdPlayerHUDComponent::HandleMaxStaminaChanged(const FOnAttributeChangeData& Data) { CachedMaxStamina = Data.NewValue; RefreshStaminaBar(); }
+void UkdPlayerHUDComponent::HandleHealthChanged(const FOnAttributeChangeData& Data) 
+{ 
+    if (bUpdatesFrozen) return;
+    CachedHealth = Data.NewValue;     
+    RefreshHealthBar(); 
+}
+
+void UkdPlayerHUDComponent::HandleMaxHealthChanged(const FOnAttributeChangeData& Data) 
+{ 
+    CachedMaxHealth = Data.NewValue;  
+    RefreshHealthBar();
+}
+
+void UkdPlayerHUDComponent::HandleStaminaChanged(const FOnAttributeChangeData& Data) 
+{ 
+    CachedStamina = Data.NewValue;   
+    RefreshStaminaBar(); 
+}
+
+void UkdPlayerHUDComponent::HandleMaxStaminaChanged(const FOnAttributeChangeData& Data) 
+{ 
+    CachedMaxStamina = Data.NewValue; 
+    RefreshStaminaBar(); 
+}
 
 void UkdPlayerHUDComponent::RefreshHealthBar() const
 {
@@ -176,3 +203,33 @@ void UkdPlayerHUDComponent::RefreshStaminaBar() const
     HUDWidget->SetStaminaPercent(Pct);
 }
 
+void UkdPlayerHUDComponent::FreezeUpdates()
+{
+    bUpdatesFrozen = true;
+}
+
+void UkdPlayerHUDComponent::UnfreezeUpdates()
+{
+    bUpdatesFrozen = false;
+    if (!IsValid(BoundASC)) return;
+
+    // Re-seed to current ASC values so the bars catch up after being frozen.
+    CachedHealth = BoundASC->GetNumericAttribute(UkdAttributeSet::GetLightHealthAttribute());
+    CachedMaxHealth = BoundASC->GetNumericAttribute(UkdAttributeSet::GetMaxLightHealthAttribute());
+    CachedStamina = BoundASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
+    CachedMaxStamina = BoundASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
+    RefreshHealthBar();
+    RefreshStaminaBar();
+}
+
+void UkdPlayerHUDComponent::OnDeadTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+{
+    if (NewCount > 0)
+    {
+        // Tag added → player is dead → lock the bars at their last values.
+        FreezeUpdates();
+    }
+    // NewCount == 0 (tag removed, e.g. on respawn) is intentionally NOT auto-unfrozen
+    // here — a fresh possession runs InitializeForPawn(), which resets bUpdatesFrozen.
+    // If you respawn WITHOUT re-possessing, add: else { UnfreezeUpdates(); }
+}

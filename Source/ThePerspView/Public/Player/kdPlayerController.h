@@ -61,6 +61,8 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "kd|HUD")
 	TObjectPtr<UkdPlayerHUDComponent> HUDComponent = nullptr;
 
+	FORCEINLINE UkdPlayerHUDComponent* GetHUDComponent() const { return HUDComponent; }
+
 protected:
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;

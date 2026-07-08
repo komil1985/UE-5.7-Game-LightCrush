@@ -2,6 +2,7 @@
 
 
 #include "Player/kdMyPlayer.h"
+#include "Player/kdPlayerController.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -31,6 +32,7 @@
 #include "AbilitySystem/Abilities/kdStrategicView.h"
 #include "Components/kdStrategicCameraComponent.h"
 #include "Components/kdJumpSquashComponent.h"
+#include "Components/kdPlayerHUDComponent.h"
 #include "NiagaraComponent.h"
 
 
@@ -137,6 +139,14 @@ void AkdMyPlayer::HandleLevelComplete()
 	if (UkdCrushStateComponent* Crush = FindComponentByClass<UkdCrushStateComponent>())
 	{
 		Crush->Freeze();
+	}
+
+	if (AkdPlayerController* PC = Cast<AkdPlayerController>(GetController()))
+	{ 
+		if (UkdPlayerHUDComponent* HUD = PC->GetHUDComponent())
+		{
+			HUD->FreezeUpdates();
+		}
 	}
 }
 

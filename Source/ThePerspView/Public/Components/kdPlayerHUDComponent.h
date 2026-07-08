@@ -50,6 +50,12 @@ public:
     UPROPERTY(EditAnywhere, Category = "kd|HUD")
     TSubclassOf<UkdHUDWidget> HUDWidgetClass = nullptr;
 
+    void FreezeUpdates();
+    void UnfreezeUpdates();
+
+    UFUNCTION()
+    void OnDeadTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
+
 protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -82,9 +88,11 @@ private:
     FDelegateHandle MaxHealthChangedHandle;
     FDelegateHandle StaminaChangedHandle;
     FDelegateHandle MaxStaminaChangedHandle;
+    FDelegateHandle DeadTagHandle;
 
     float CachedHealth = 0.f;
     float CachedMaxHealth = 1.f;
     float CachedStamina = 0.f;
     float CachedMaxStamina = 1.f;
+    bool bUpdatesFrozen = false;
 };
