@@ -63,6 +63,9 @@ void UkdPlayerHUDComponent::EnsureWidget()
         return;
     }
 
+    UE_LOG(LogTemp, Warning, TEXT("[kdHUD] EnsureWidget by Owner=%s  Map=%s"),
+        *GetNameSafe(GetOwner()), *GetWorld()->GetMapName());
+
     HUDWidget = CreateWidget<UkdHUDWidget>(PC, HUDWidgetClass);
     if (IsValid(HUDWidget))
     {
