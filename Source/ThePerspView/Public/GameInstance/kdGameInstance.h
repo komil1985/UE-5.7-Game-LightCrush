@@ -145,6 +145,13 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Level")
     FName GetMainMenuLevelName() const { return MainMenuLevelName; }
 
+    /* Tutorial Tracking */
+    UFUNCTION(BlueprintCallable, Category = "Tutorial")
+    bool HasSeenTutorial(FName StepId) const;
+
+    UFUNCTION(BlueprintCallable, Category = "Tutorial")
+    void MarkTutorialSeen(FName StepId);
+
 private:
     UPROPERTY()
     FkdGameSettings GameSettings;

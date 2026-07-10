@@ -10,6 +10,18 @@ UkdSaveGame::UkdSaveGame()
 	UnlockedLevels.Add(1);  // First playable level also unlocked by default
 }
 
+bool UkdSaveGame::HasSeenTutorial(FName StepId) const
+{
+	return StepId.IsNone() ? false : SeenTutorialSteps.Contains(StepId);
+}
+
+bool UkdSaveGame::MarkTutorialSeen(FName StepId)
+{
+	if (StepId.IsNone() || SeenTutorialSteps.Contains(StepId)) return false;
+	SeenTutorialSteps.Add(StepId);
+	return true;
+}
+
 int32 UkdSaveGame::GetHighScore(int32 LevelIdx) const
 {
 	return LevelHighScores.IsValidIndex(LevelIdx) ? LevelHighScores[LevelIdx] : 0;

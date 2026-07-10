@@ -62,6 +62,22 @@ UkdGameInstance* UkdGameInstance::Get(const UObject* WorldContext)
     return Cast<UkdGameInstance>(World->GetGameInstance());
 }
 
+bool UkdGameInstance::HasSeenTutorial(FName StepId) const
+{
+    return SaveGameObject ? SaveGameObject->HasSeenTutorial(StepId) : false;
+}
+
+void UkdGameInstance::MarkTutorialSeen(FName StepId)
+{
+    if (!SaveGameObject) return;
+
+    // Only hit the disk when the set actually changed.
+    if (SaveGameObject->MarkTutorialSeen(StepId))
+    {
+        SaveProgress();
+    }
+}
+
 // ─── Level Navigation ─────────────────────────────────────────────────────────
 
 void UkdGameInstance::LoadLevel(FName LevelName)

@@ -23,12 +23,12 @@ AkdPlayerController::AkdPlayerController()
 	HUDComponent = CreateDefaultSubobject<UkdPlayerHUDComponent>(TEXT("HUDComponent"));
 
 	// Quick path to assign the WBP class (C++-only friendly). Adapt the asset path.
-	static ConstructorHelpers::FClassFinder<UkdHUDWidget> HUDClassFinder(
-		TEXT("D:/Unreal Projects/ThePerspView/Content/Blueprints/UI/Widget/HUD/WBP_HUD"));
-	if (HUDClassFinder.Succeeded() && HUDComponent)
-	{
-		HUDComponent->HUDWidgetClass = HUDClassFinder.Class;
-	}
+	//static ConstructorHelpers::FClassFinder<UkdHUDWidget> HUDClassFinder(
+	//	TEXT("D:/Unreal Projects/ThePerspView/Content/Blueprints/UI/Widget/HUD/WBP_HUD"));
+	//if (HUDClassFinder.Succeeded() && HUDComponent)
+	//{
+	//	HUDComponent->HUDWidgetClass = HUDClassFinder.Class;
+	//}
 }
 
 void AkdPlayerController::BeginPlay()

@@ -41,6 +41,9 @@ struct THEPERSPVIEW_API FkdGameSettings
     // Controls
     UPROPERTY(BlueprintReadWrite, SaveGame, Category = "Controls")
     float MouseSensitivity = 1.0f;
+
+    UPROPERTY(BlueprintReadWrite, SaveGame, Category = "Accessibility")
+    bool bShowTutorialHints = true;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -57,7 +60,7 @@ public:
     UkdSaveGame();
 
     // Bump this when the serialized layout changes so we can migrate old saves
-    static constexpr int32 CurrentSaveVersion = 2;
+    static constexpr int32 CurrentSaveVersion = 3;
 
     UPROPERTY(SaveGame)
     int32 SaveVersion = CurrentSaveVersion;
@@ -78,6 +81,15 @@ public:
 
 	UPROPERTY(SaveGame, BlueprintReadWrite)
     int32 LastPlayedLevelIndex = 1;
+
+    /** StepIds the player has already demonstrated mastery of. Never replayed. */
+    UPROPERTY(SaveGame, BlueprintReadWrite)
+    TArray<FName> SeenTutorialSteps;
+
+    bool HasSeenTutorial(FName StepId) const;
+
+    /** Returns true only if the id was newly added (so callers can skip a disk write). */
+    bool MarkTutorialSeen(FName StepId);
 
     // ── Helpers ──────────────────────────────────────────────────────────────
     int32  GetHighScore(int32 LevelIdx) const;
