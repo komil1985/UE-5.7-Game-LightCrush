@@ -47,12 +47,16 @@ protected:
 
 private:
     UFUNCTION()
-    void OnBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
-        int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Sweep);
+    void OnBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Sweep);
 
     UFUNCTION()
-    void OnEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
-        int32 OtherBodyIndex);
+    void OnEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+    /** Shared entry path. Called by OnBegin AND by the deferred spawn-inside sweep. */
+    void HandlePawnEntered(AActor* OtherActor);
+
+    /** Runs one tick after BeginPlay to catch a player who spawned already inside. */
+    void CheckInitialOverlap();
 
     bool bFired = false;
 };
