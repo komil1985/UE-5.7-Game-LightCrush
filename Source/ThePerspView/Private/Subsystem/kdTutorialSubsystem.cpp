@@ -68,6 +68,20 @@ void UkdTutorialSubsystem::OnWorldBeginPlay(UWorld& InWorld)
         // getter or read it via your existing settings accessor if you have one.
         // bTutorialsEnabled = GI->GetGameSettings().bShowTutorialHints;
     }
+
+    // Default checkpoint = the player's spawn location, captured one tick later so
+    // possession has completed. Any tutorial trigger touched afterwards overrides it.
+    // (Same next-tick deferral the audio route uses for the possession/loadmap race.)
+    InWorld.GetTimerManager().SetTimerForNextTick(
+        FTimerDelegate::CreateWeakLambda(this, [this]()
+            {
+                if (bHasCheckpoint) return;   // a trigger may already have set one
+                if (const APawn* P = GetPlayerPawnSafe())
+                {
+                    CheckpointLocation = P->GetActorLocation();
+                    bHasCheckpoint = true;
+                }
+            }));
 }
 
 UkdTutorialSubsystem* UkdTutorialSubsystem::Get(const UObject* WorldContext)
@@ -214,6 +228,19 @@ void UkdTutorialSubsystem::SetTutorialsEnabled(bool bEnabled)
         if (bHasActive) RetireStep(/*bMarkSeen*/ false);
         if (IsValid(PromptWidget)) PromptWidget->HideImmediate();
     }
+}
+
+void UkdTutorialSubsystem::SetCheckpoint(const FVector& WorldLocation)
+{
+    CheckpointLocation = WorldLocation;
+    bHasCheckpoint = true;
+}
+
+bool UkdTutorialSubsystem::GetCheckpoint(FVector& OutLocation) const
+{
+    if (!bHasCheckpoint) return false;
+    OutLocation = CheckpointLocation;
+    return true;
 }
 
 // ─── Flow ─────────────────────────────────────────────────────────────────────

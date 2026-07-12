@@ -70,6 +70,12 @@ public:
     UFUNCTION(BlueprintCallable, Category = "kd|Tutorial")
     void SetTutorialsEnabled(bool bEnabled);
 
+    /** Called by AkdTutorialTrigger on entry. Becomes the fall-recovery point. */
+    void SetCheckpoint(const FVector& WorldLocation);
+
+    /** Latest checkpoint. Returns false only if nothing has ever been set. */
+    bool GetCheckpoint(FVector& OutLocation) const;
+
 private:
     enum class EPhase : uint8 { Idle, Armed, Showing, Dismissing };
 
@@ -101,6 +107,10 @@ private:
     // ── State ─────────────────────────────────────────────────────────────────
     UPROPERTY() TObjectPtr<UkdTutorialBank> Bank = nullptr;
     UPROPERTY() TObjectPtr<UkdTutorialPromptWidget> PromptWidget = nullptr;
+
+    // ── Fall-recovery checkpoint ────────────────────────────────────────────
+    FVector CheckpointLocation = FVector::ZeroVector;
+    bool    bHasCheckpoint = false;
 
     TArray<FPending> Queue;
 

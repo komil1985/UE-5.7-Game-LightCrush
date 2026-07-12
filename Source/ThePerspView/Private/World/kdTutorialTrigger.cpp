@@ -19,6 +19,11 @@ AkdTutorialTrigger::AkdTutorialTrigger()
     TriggerBox->SetGenerateOverlapEvents(true);
     TriggerBox->SetHiddenInGame(true);
     TriggerBox->ShapeColor = FColor(232, 184, 75);   // Sunmark, for editor legibility
+
+    // Respawn anchor. Defaults to the box origin; drag it down onto the floor
+    // in the level so recovered players land standing, not at capsule-centre height.
+    RespawnPoint = CreateDefaultSubobject<USceneComponent>(TEXT("RespawnPoint"));
+    RespawnPoint->SetupAttachment(TriggerBox);
 }
 
 void AkdTutorialTrigger::BeginPlay()
@@ -60,16 +65,20 @@ void AkdTutorialTrigger::OnEnd(UPrimitiveComponent*, AActor* OtherActor, UPrimit
 
 void AkdTutorialTrigger::HandlePawnEntered(AActor* OtherActor)
 {
-    if (bFired && bOneShotPerLevel) return;
     if (!Cast<AkdMyPlayer>(OtherActor)) return;
 
-    if (UkdTutorialSubsystem* Sub = UkdTutorialSubsystem::Get(this))
-    {
-        // RequestStep is idempotent: if OnBegin and the sweep both reach here,
-        // the second call is ignored (already queued / active / seen).
-        Sub->RequestStep(StepId, this);
-        bFired = true;
-    }
+    UkdTutorialSubsystem* Sub = UkdTutorialSubsystem::Get(this);
+    if (!Sub) return;
+
+    // ALWAYS refresh the checkpoint — including re-touching a one-shot trigger,
+    // so walking back through Room 1 makes Room 1 your recovery point again.
+    Sub->SetCheckpoint(RespawnPoint->GetComponentLocation());
+
+    // The lesson itself still respects one-shot rules.
+    if (bFired && bOneShotPerLevel) return;
+
+    Sub->RequestStep(StepId, this);
+    bFired = true;
 }
 
 void AkdTutorialTrigger::CheckInitialOverlap()

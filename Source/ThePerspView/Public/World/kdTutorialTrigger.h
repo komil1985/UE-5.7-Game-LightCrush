@@ -45,6 +45,11 @@ protected:
     UPROPERTY(EditInstanceOnly, Category = "Tutorial")
     bool bCancelOnExit = false;
 
+    /** Where the fall-recovery volume returns the player. Nudge onto the floor. */
+    UPROPERTY(VisibleAnywhere, Category = "Components")
+    TObjectPtr<class USceneComponent> RespawnPoint;
+
+
 private:
     UFUNCTION()
     void OnBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Sweep);
