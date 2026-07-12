@@ -169,7 +169,7 @@ void AkdPlayerController::Look(const FInputActionValue& Value)
 void AkdPlayerController::StartJump()
 {
 	if (!MyPlayerCache) return;
-	if (IsActionLocked(StateTags.Tutorial_Lock_Jump)) return;   // silent: fires every frame
+	if (IsActionLocked(StateTags.Tutorial_Lock_Jump)) return;   
 
 	// Block jump entirely in Crush Mode (covers both crush-wandering and in-shadow states)
     // State_InShadow is always a sub-state of State_CrushMode, so one check is sufficient
@@ -193,13 +193,13 @@ void AkdPlayerController::StopJump()
 
 void AkdPlayerController::Interact()
 {
-	if (IsActionLocked(StateTags.Tutorial_Lock_Interact)) return;   // silent: fires every frame
+	if (IsActionLocked(StateTags.Tutorial_Lock_Interact)) return;   
 	if (MyPlayerCache) MyPlayerCache->RequestInteract();
 }
 
 void AkdPlayerController::ShadowDash()
 {
-	if (IsActionLocked(StateTags.Tutorial_Lock_Dash)) return;   // silent: fires every frame
+	if (IsActionLocked(StateTags.Tutorial_Lock_Dash)) return;   
 	if (MyPlayerCache) MyPlayerCache->RequestShadowDash();
 }
 
@@ -236,7 +236,7 @@ void AkdPlayerController::TogglePause()
 
 void AkdPlayerController::StrategicViewStart()
 {
-	if (IsActionLocked(StateTags.Tutorial_Lock_StrategicView)) return;   // silent: fires every frame
+	if (IsActionLocked(StateTags.Tutorial_Lock_StrategicView)) return;   
 	if (MyPlayerCache) MyPlayerCache->RequestStrategicViewStart();
 }
 
@@ -258,7 +258,7 @@ void AkdPlayerController::EnhancedSubSystem()
 
 void AkdPlayerController::CrushToggleRequest()
 {
-	if (IsActionLocked(StateTags.Tutorial_Lock_Crush)) return;   // silent: fires every frame
+	if (IsActionLocked(StateTags.Tutorial_Lock_Crush)) return;   
 	if (MyPlayerCache) MyPlayerCache->RequestCrushToggle();
 }
 
@@ -285,4 +285,3 @@ bool AkdPlayerController::IsActionLocked(const FGameplayTag& LockTag) const
 #endif
 	return bLocked;
 }
-

@@ -87,3 +87,4 @@ void AkdRespawnVolume::RespawnPlayer(AkdMyPlayer* Player)
     UE_LOG(LogTemp, Log, TEXT("[kdRespawnVolume] Recovered player to %s"), *Target.ToString());
 #endif
 }
+
