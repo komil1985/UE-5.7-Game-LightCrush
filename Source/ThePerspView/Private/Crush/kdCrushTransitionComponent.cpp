@@ -53,6 +53,10 @@ void UkdCrushTransitionComponent::BeginPlay()
         UE_LOG(LogTemp, Warning,
             TEXT("CrushTransition [%s]: No TransitionCurve assigned — using linear."),
             *GetOwner()->GetName());
+        UCurveFloat* Linear = NewObject<UCurveFloat>(this, TEXT("LinearFallbackCurve"));
+        Linear->FloatCurve.AddKey(0.f, 0.f);
+        Linear->FloatCurve.AddKey(1.f, 1.f);
+        TransitionCurve = Linear;
     }
 
     FOnTimelineFloat UpdateDelegate;
@@ -295,8 +299,7 @@ void UkdCrushTransitionComponent::HandleTimelineUpdate(float Value)
     ApplyZSquashStretch(Alpha, Mesh);
 
     // ── Camera: FOV + arm length + arm rotation (Slerp, entire timeline) ──────
-    if (CachedOwner->Camera)
-        CachedOwner->Camera->SetFieldOfView(FMath::Lerp(FOVFrom, FOVTo, Alpha));
+    if (CachedOwner->Camera) CachedOwner->Camera->SetFieldOfView(FMath::Lerp(FOVFrom, FOVTo, Alpha));
 
     if (CachedOwner->SpringArm)
     {
@@ -305,8 +308,7 @@ void UkdCrushTransitionComponent::HandleTimelineUpdate(float Value)
         // Slerp: always takes the shortest arc regardless of ±180° boundary.
         const FQuat SlerpedQ = FQuat::Slerp(ArmRotFromQ, ArmRotToQ, Alpha);
         FRotator Applied = SlerpedQ.Rotator();
-        Applied.Roll = (bTargetCrushMode ? -TransitionRollDegrees : TransitionRollDegrees)
-            * FMath::Sin(Alpha * PI);
+        Applied.Roll = (bTargetCrushMode ? -TransitionRollDegrees : TransitionRollDegrees) * FMath::Sin(Alpha * PI);
         CachedOwner->SpringArm->SetRelativeRotation(Applied);
     }
 
@@ -314,8 +316,7 @@ void UkdCrushTransitionComponent::HandleTimelineUpdate(float Value)
     if (!bYawLocked && Alpha >= 0.5f)
     {
         bYawLocked = true;
-        if (CachedOwner->SpringArm)
-            CachedOwner->SpringArm->bInheritYaw = !bTargetCrushMode;
+        if (CachedOwner->SpringArm) CachedOwner->SpringArm->bInheritYaw = !bTargetCrushMode;
     }
 }
 
@@ -374,14 +375,12 @@ void UkdCrushTransitionComponent::HandleTimelineFinished()
     if (!bMovementRestored)
     {
         bMovementRestored = true;
-        if (UCharacterMovementComponent* MC = CachedOwner->GetCharacterMovement())
-            MC->SetMovementMode(MOVE_Walking);
+        if (UCharacterMovementComponent* MC = CachedOwner->GetCharacterMovement()) MC->SetMovementMode(MOVE_Walking);
     }
 
     // ── Hard-snap everything to exact targets ─────────────────────────────────
 
-    if (CachedOwner->Camera)
-        CachedOwner->Camera->SetFieldOfView(FOVTo);
+    if (CachedOwner->Camera) CachedOwner->Camera->SetFieldOfView(FOVTo);
 
     if (CachedOwner->SpringArm)
     {

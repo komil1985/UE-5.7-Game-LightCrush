@@ -123,6 +123,9 @@ private:
 
     void TriggerGameOver();
     UkdDeathComponent* FindDeathComponent() const;
+
+    FTimerHandle DeathBindHandle; 
+    int32 DeathBindAttempts = 0;
 	
 };
 

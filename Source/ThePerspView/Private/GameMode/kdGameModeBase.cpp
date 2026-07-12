@@ -42,24 +42,24 @@ void AkdGameModeBase::BeginPlay()
     // ── Bind to DeathComponent delegate ───────────────────────────────────────
     // We poll for the player here because on dedicated servers the pawn may not
     // yet be possessed at BeginPlay.  A short delay covers that edge case.
-    FTimerHandle BindHandle;
-    GetWorldTimerManager().SetTimer(BindHandle, [this]()
+    //FTimerHandle BindHandle;
+    GetWorldTimerManager().SetTimer(DeathBindHandle, [this]()
         {
             if (UkdDeathComponent* DC = FindDeathComponent())
             {
-                DC->OnDeathSequenceComplete.AddDynamic(
-                    this, &AkdGameModeBase::OnDeathSequenceFinished);
+                DC->OnDeathSequenceComplete.AddDynamic(this, &AkdGameModeBase::OnDeathSequenceFinished);
+                GetWorldTimerManager().ClearTimer(DeathBindHandle);
 
 #if !UE_BUILD_SHIPPING
                 UE_LOG(LogTemp, Log, TEXT("GameMode: Bound to DeathComponent.OnDeathSequenceComplete"));
 #endif
             }
-            else
+            else if (++DeathBindAttempts > 50)
             {
-                UE_LOG(LogTemp, Warning,
-                    TEXT("GameMode: Could not find UkdDeathComponent on player."));
+                UE_LOG(LogTemp, Warning, TEXT("GameMode: Could not find UkdDeathComponent on player."));
+                GetWorldTimerManager().ClearTimer(DeathBindHandle);
             }
-        }, 0.1f, false);
+        }, 0.1f, /*bLoop=*/true);
 
     // Request per-level music. BeginPlay is required here because PostLoadMapWithWorld
     // does not fire in PIE for the initial level — only for OpenLevel transitions.
