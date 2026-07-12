@@ -76,6 +76,15 @@ public:
     /** Latest checkpoint. Returns false only if nothing has ever been set. */
     bool GetCheckpoint(FVector& OutLocation) const;
 
+    /** Apply every lock tag in the set to the player ASC. Called at tutorial start. */
+    void EngageActionLock(const TArray<FGameplayTag>& LockTags);
+
+    /** Remove one lock tag from the player ASC (an action becomes usable). */
+    void UnlockAction(const FGameplayTag& LockTag);
+
+    /** True while any lock has been engaged this session (so re-locks make sense). */
+    FORCEINLINE bool IsActionLockEngaged() const { return bActionLockEngaged; }
+
 private:
     enum class EPhase : uint8 { Idle, Armed, Showing, Dismissing };
 
@@ -98,11 +107,11 @@ private:
     void OnWatchedTagChanged(const FGameplayTag ChangedTag, int32 NewCount);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-    bool  EnsureWidget();
+    bool EnsureWidget();
     APawn* GetPlayerPawnSafe() const;
     UAbilitySystemComponent* GetPlayerASC() const;
     FText ResolveKeyGlyph(const UInputAction* Action) const;
-    bool  IsPlayerDead() const;
+    bool IsPlayerDead() const;
 
     // ── State ─────────────────────────────────────────────────────────────────
     UPROPERTY() TObjectPtr<UkdTutorialBank> Bank = nullptr;
@@ -110,7 +119,7 @@ private:
 
     // ── Fall-recovery checkpoint ────────────────────────────────────────────
     FVector CheckpointLocation = FVector::ZeroVector;
-    bool    bHasCheckpoint = false;
+    bool bHasCheckpoint = false;
 
     TArray<FPending> Queue;
 
@@ -119,12 +128,17 @@ private:
     TWeakObjectPtr<AActor> ActiveSource;
 
     EPhase Phase = EPhase::Idle;
-    float  PhaseTime = 0.f;
-    bool   bHasActive = false;
-    bool   bConditionMet = false;
-    bool   bTutorialsEnabled = true;
+    float PhaseTime = 0.f;
+    bool bHasActive = false;
+    bool bConditionMet = false;
+    bool bTutorialsEnabled = true;
+    bool bActionLockEngaged = false;
 
     TWeakObjectPtr<UAbilitySystemComponent> WatchedASC;
     FDelegateHandle WatchHandle;
-    FGameplayTag    WatchedTag;   // cached so Unregister always matches Register
+    FGameplayTag WatchedTag;   // cached so Unregister always matches Register
+
+    /** Actions unlocked this session. EngageActionLock skips these, so the
+     *  spawn-inside unlock can't be clobbered by a later lock pass (and vice-versa). */
+    TSet<FGameplayTag> UnlockedActions;
 };

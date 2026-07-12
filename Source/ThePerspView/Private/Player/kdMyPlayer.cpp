@@ -359,6 +359,24 @@ void AkdMyPlayer::RequestStrategicViewStop()
 	}
 }
 
+void AkdMyPlayer::ForceExitCrush()
+{
+	if (!AbilitySystemComponent) return;
+
+	const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
+
+	// Already in 3D — nothing to do.
+	if (!AbilitySystemComponent->HasMatchingGameplayTag(StateTags.State_CrushMode)) return;
+
+	// A toggle activated now would flip 3D→2D only if we were in 3D; since we're in
+	// crush, RequestCrushToggle resolves to an EXIT. Exit needs no camera alignment
+	// (alignment is entry-only) and isn't gated by exhaustion, so the normal path is
+	// correct and safe. If a transition is mid-flight, the ability's own
+	// State.Transitioning block drops this cleanly — the fall recovery will teleport
+	// regardless, and the transition finishes into whatever state it was heading to.
+	RequestCrushToggle();
+}
+
 void AkdMyPlayer::OnTransitionFinished(bool bNewCrushState)
 {
 	if (!AbilitySystemComponent) return;

@@ -72,6 +72,11 @@ void AkdRespawnVolume::RespawnPlayer(AkdMyPlayer* Player)
         CMC->StopMovementImmediately();
     }
 
+    // If the player fell while crushed, restore 3D through the real ability path
+    // BEFORE teleporting — so the CMC exits CMOVE_Shadow2D cleanly and the
+    // checkpoint (a 3D-authored spot) receives a properly 3D player.
+    Player->ForceExitCrush();
+
     // sweep=false so we don't collide through geometry on the way; TeleportPhysics
     // so animation/physics treat it as a hard discontinuity, not interpolated motion.
     Player->SetActorLocation(

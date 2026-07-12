@@ -49,6 +49,16 @@ public:
 	//Interactions
 	FGameplayTag Interact_CrushOnly;
 
+	// Tutorial action locks — present on ASC ⇒ that action is blocked.
+	// Only applied inside the tutorial; absent everywhere else.
+	FGameplayTag Tutorial_Lock_Move;
+	FGameplayTag Tutorial_Lock_Look;
+	FGameplayTag Tutorial_Lock_Jump;
+	FGameplayTag Tutorial_Lock_Crush;
+	FGameplayTag Tutorial_Lock_Dash;
+	FGameplayTag Tutorial_Lock_StrategicView;
+	FGameplayTag Tutorial_Lock_Interact;
+
 	// Datas
 	FGameplayTag Data_StaminaDelta;
 

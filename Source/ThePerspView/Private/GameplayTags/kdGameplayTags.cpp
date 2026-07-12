@@ -8,14 +8,15 @@ FkdGameplayTags FkdGameplayTags::GameplayTags;
 
 void FkdGameplayTags::InitializeNativeGameplayTags()
 {
-	// Tags Manager
+	// Tags Manager	////////////////////////////////////////////////////////////////////////////////////
 	UGameplayTagsManager& TagManager = UGameplayTagsManager::Get();
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("Initializing native gameplay tags..."));
 #endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	// Attributes Tags
+
+	// Attributes Tags	////////////////////////////////////////////////////////////////////////////////
 	GameplayTags.Attribute_ShadowStamina = UGameplayTagsManager::Get().AddNativeGameplayTag(
 		FName("Attribute.ShadowStamina"),
 		FString("Stamina used while moving in shadow")
@@ -49,7 +50,8 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 #endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	// Abilities Tags
+
+	// Abilities Tags	////////////////////////////////////////////////////////////////////////////////
 	GameplayTags.Ability_LightCrush = UGameplayTagsManager::Get().AddNativeGameplayTag(
 		FName("Ability.LightCrush"),
 		FString("Ability to crush light")
@@ -91,7 +93,8 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 #endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	// States Tags
+
+	// States Tags	////////////////////////////////////////////////////////////////////////////////////
 	GameplayTags.State_CrushMode = UGameplayTagsManager::Get().AddNativeGameplayTag(
 		FName("State.CrushMode"),
 		FString("Player in crush mode")
@@ -158,7 +161,8 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	// Effect Tags
+
+	// Effect Tags	////////////////////////////////////////////////////////////////////////////////////
 	GameplayTags.Effect_ShadowDrain = UGameplayTagsManager::Get().AddNativeGameplayTag(
 		FName("Effect.ShadowDrain"),
 		FString("Tag applied by the shadow drain effect")
@@ -185,7 +189,8 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	// Interaction Tags
+
+	// Interaction Tags	////////////////////////////////////////////////////////////////////////////////
 	GameplayTags.Interact_CrushOnly = UGameplayTagsManager::Get().AddNativeGameplayTag(
 		FName("Interact.CrushOnly"),
 		FString("Interact in Crush Only")
@@ -195,16 +200,69 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 #endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	// Data Tags
+
+	// Tutorial action lock Tags	////////////////////////////////////////////////////////////////////
+	GameplayTags.Tutorial_Lock_Move = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Tutorial.Lock.Move"), 
+		FString("Movement locked until taught"));
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Tutorial_Lock_Move.ToString());
+#endif
+
+	GameplayTags.Tutorial_Lock_Look = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Tutorial.Lock.Look"), 
+		FString("Camera look locked until taught"));
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Tutorial_Lock_Look.ToString());
+#endif
+
+	GameplayTags.Tutorial_Lock_Jump = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Tutorial.Lock.Jump"), 
+		FString("Jump locked until taught"));
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Tutorial_Lock_Jump.ToString());
+#endif
+
+	GameplayTags.Tutorial_Lock_Crush = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Tutorial.Lock.Crush"), 
+		FString("Crush toggle locked until taught"));
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Tutorial_Lock_Crush.ToString());
+#endif
+
+	GameplayTags.Tutorial_Lock_Dash = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Tutorial.Lock.Dash"), 
+		FString("Shadow dash locked until taught"));
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Tutorial_Lock_Dash.ToString());
+#endif
+
+	GameplayTags.Tutorial_Lock_StrategicView = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Tutorial.Lock.StrategicView"), 
+		FString("Strategic view locked until taught"));
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Tutorial_Lock_StrategicView.ToString());
+#endif
+
+	GameplayTags.Tutorial_Lock_Interact = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("Tutorial.Lock.Interact"), 
+		FString("Interact locked until taught"));
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Tutorial_Lock_Interact.ToString());
+#endif
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+	// Data Tags	////////////////////////////////////////////////////////////////////////////////////
 	GameplayTags.Data_StaminaDelta = UGameplayTagsManager::Get().AddNativeGameplayTag(
 		FName("Data.StaminaDelta"),
 		FString("Stamina Delta Data Tag")
 	);
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.Data_StaminaDelta.ToString());
 #endif
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("Gameplay tags initialization complete!"));

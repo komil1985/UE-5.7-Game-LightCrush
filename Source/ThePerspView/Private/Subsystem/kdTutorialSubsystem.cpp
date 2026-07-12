@@ -72,14 +72,39 @@ void UkdTutorialSubsystem::OnWorldBeginPlay(UWorld& InWorld)
     // Default checkpoint = the player's spawn location, captured one tick later so
     // possession has completed. Any tutorial trigger touched afterwards overrides it.
     // (Same next-tick deferral the audio route uses for the possession/loadmap race.)
+    //InWorld.GetTimerManager().SetTimerForNextTick(
+    //    FTimerDelegate::CreateWeakLambda(this, [this]()
+    //        {
+    //            if (bHasCheckpoint) return;   // a trigger may already have set one
+    //            if (const APawn* P = GetPlayerPawnSafe())
+    //            {
+    //                CheckpointLocation = P->GetActorLocation();
+    //                bHasCheckpoint = true;
+    //            }
+    //        }));
+
+    // (NEW - UPDATE) Seed default checkpoint AND engage the action lock, one tick after begin play
+    // so possession/ASC init has completed (same possession race the audio route hits).
+    const FName MapName = FName(*InWorld.GetMapName().Replace(*InWorld.StreamingLevelsPrefix, TEXT("")));
+
     InWorld.GetTimerManager().SetTimerForNextTick(
-        FTimerDelegate::CreateWeakLambda(this, [this]()
+        FTimerDelegate::CreateWeakLambda(this, [this, MapName]()
             {
-                if (bHasCheckpoint) return;   // a trigger may already have set one
-                if (const APawn* P = GetPlayerPawnSafe())
+                // Default fall-recovery point = spawn (overridden by any trigger touched).
+                if (!bHasCheckpoint)
                 {
-                    CheckpointLocation = P->GetActorLocation();
-                    bHasCheckpoint = true;
+                    if (const APawn* P = GetPlayerPawnSafe())
+                    {
+                        CheckpointLocation = P->GetActorLocation();
+                        bHasCheckpoint = true;
+                    }
+                }
+
+                // Engage the progressive lock only on designated tutorial maps.
+                const UkdTutorialSettings* S = GetDefault<UkdTutorialSettings>();
+                if (S && S->ActionLockLevels.Contains(MapName) && S->ActionLockTags.Num() > 0)
+                {
+                    EngageActionLock(S->ActionLockTags);
                 }
             }));
 }
@@ -170,10 +195,29 @@ void UkdTutorialSubsystem::Tick(float DeltaTime)
 
 void UkdTutorialSubsystem::RequestStep(FName StepId, AActor* SourceTrigger)
 {
-    if (!bTutorialsEnabled || StepId.IsNone() || !Bank) return;
+    //if (!bTutorialsEnabled || StepId.IsNone() || !Bank) return;
 
-    if (bHasActive && Active.StepId == StepId) return;
-    if (Queue.ContainsByPredicate([StepId](const FPending& P) { return P.StepId == StepId; })) return;
+    //if (bHasActive && Active.StepId == StepId) return;
+    //if (Queue.ContainsByPredicate([StepId](const FPending& P) { return P.StepId == StepId; })) return;
+
+    //const FkdTutorialStep* Step = Bank->FindStep(StepId);
+    //if (!Step)
+    //{
+    //    UE_LOG(LogkdTutorial, Warning, TEXT("[kdTutorial] Unknown StepId '%s'."), *StepId.ToString());
+    //    return;
+    //}
+
+    //if (Step->bShowOncePerSave)
+    //{
+    //    if (const UkdGameInstance* GI = GetWorld() ? GetWorld()->GetGameInstance<UkdGameInstance>() : nullptr)
+    //    {
+    //        if (GI->HasSeenTutorial(StepId)) return;
+    //    }
+    //}
+
+    //Queue.Add(FPending{ StepId, SourceTrigger });
+
+    if (!bTutorialsEnabled || StepId.IsNone() || !Bank) return;
 
     const FkdTutorialStep* Step = Bank->FindStep(StepId);
     if (!Step)
@@ -182,11 +226,18 @@ void UkdTutorialSubsystem::RequestStep(FName StepId, AActor* SourceTrigger)
         return;
     }
 
+    // UNLOCK FIRST — unconditionally, regardless of hint state. Touching the box
+    // must restore the action even on a replay where the hint is suppressed.
+    UnlockAction(Step->UnlockTag);
+
+    if (bHasActive && Active.StepId == StepId) return;
+    if (Queue.ContainsByPredicate([StepId](const FPending& P) { return P.StepId == StepId; })) return;
+
     if (Step->bShowOncePerSave)
     {
         if (const UkdGameInstance* GI = GetWorld() ? GetWorld()->GetGameInstance<UkdGameInstance>() : nullptr)
         {
-            if (GI->HasSeenTutorial(StepId)) return;
+            if (GI->HasSeenTutorial(StepId)) return;   // hint suppressed — but action already unlocked above
         }
     }
 
@@ -241,6 +292,48 @@ bool UkdTutorialSubsystem::GetCheckpoint(FVector& OutLocation) const
     if (!bHasCheckpoint) return false;
     OutLocation = CheckpointLocation;
     return true;
+}
+
+void UkdTutorialSubsystem::EngageActionLock(const TArray<FGameplayTag>& LockTags)
+{
+    UAbilitySystemComponent* ASC = GetPlayerASC();
+    if (!ASC)
+    {
+        UE_LOG(LogkdTutorial, Warning, TEXT("[kdTutorial] EngageActionLock: no player ASC yet."));
+        return;
+    }
+
+    for (const FGameplayTag& Tag : LockTags)
+    {
+        if (!Tag.IsValid()) continue;
+
+        // Already unlocked (e.g. spawned inside its trigger) → never re-lock it.
+        if (UnlockedActions.Contains(Tag)) continue;
+
+        if (!ASC->HasMatchingGameplayTag(Tag))
+        {
+            ASC->AddLooseGameplayTag(Tag);
+        }
+    }
+    bActionLockEngaged = true;
+}
+
+void UkdTutorialSubsystem::UnlockAction(const FGameplayTag& LockTag)
+{
+    if (!LockTag.IsValid()) return;
+
+    // Record intent even if the ASC isn't ready or the lock hasn't been applied yet.
+    // EngageActionLock reads this set, so order between the two next-tick timers
+    // no longer matters.
+    UnlockedActions.Add(LockTag);
+
+    if (UAbilitySystemComponent* ASC = GetPlayerASC())
+    {
+        if (ASC->HasMatchingGameplayTag(LockTag))
+        {
+            ASC->RemoveLooseGameplayTag(LockTag);
+        }
+    }
 }
 
 // ─── Flow ─────────────────────────────────────────────────────────────────────

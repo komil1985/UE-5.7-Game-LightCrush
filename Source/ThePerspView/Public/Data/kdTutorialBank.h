@@ -85,6 +85,15 @@ struct THEPERSPVIEW_API FkdTutorialStep
     UPROPERTY(EditAnywhere, Category = "Gating")
     FGameplayTagContainer SuppressIfAnyTagPresent;
 
+    /**
+     * Lock tag removed the instant this step's trigger is entered. This is the
+     * "unlock" — granted BEFORE the seen-check, so a returning player (hints
+     * suppressed) still regains the action. Leave invalid for steps that gate
+     * nothing (e.g. Tut.Goal).
+     */
+    UPROPERTY(EditAnywhere, Category = "Gating")
+    FGameplayTag UnlockTag;
+
     /** Routed through UkdAudioSubsystem::PlaySFX2D. Never played directly. */
     UPROPERTY(EditAnywhere, Category = "Feedback")
     TObjectPtr<USoundBase> RevealSound = nullptr;

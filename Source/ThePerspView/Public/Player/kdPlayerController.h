@@ -90,4 +90,8 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> DebugPrintTagsAction;
 
+	/** True if the given lock tag is present on the pawn's ASC (⇒ action blocked).
+	 *  Cheap poll; used at the top of each input handler. */
+	bool IsActionLocked(const FGameplayTag& LockTag) const;
+
 };

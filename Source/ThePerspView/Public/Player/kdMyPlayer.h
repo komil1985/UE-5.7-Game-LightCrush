@@ -27,7 +27,6 @@ class UkdDeathComponent;
 class UkdAttributeSet;
 class UGameplayAbility;
 class UWidgetComponent;
-//class UkdStaminaWidget;
 class UWidgetComponent;
 class UStaticMeshComponent;
 class UMaterialInstanceDynamic;
@@ -104,16 +103,6 @@ public:
 	TObjectPtr<UkdJumpSquashComponent> JumpSquashComponent;
 	/*--------------------------------------------------------------------------*/
 
-	// -- User Interface -- //
-	//UPROPERTY(EditDefaultsOnly, BlueprintReadOnly , Category = "UI")
-	//TSubclassOf<UkdStaminaWidget> StaminaWidgetClass;
-
-	//UPROPERTY()
-	//TObjectPtr<UkdStaminaWidget> StaminaWidget;
-
-	//UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
-	//TObjectPtr<UWidgetComponent> StaminaWidgetComponent;
-
 	// -- Low Stamina Warning Widget -------------------------------------------- //
 
 	/** Blueprint widget class for the world-space "LOW STAMINA!" popup.
@@ -160,6 +149,16 @@ public:
 
 	UFUNCTION()
 	void RequestStrategicViewStop();
+
+	/**
+	 * Force a return to 3D from anywhere (fall recovery, death, cutscene).
+	 * Goes through the normal crush-toggle ability so the CMC handoff and
+	 * plane-constraint release run identically to a player-initiated uncrush.
+	 * No-op if already in 3D. Safe to call mid-transition (defers via the ability's
+	 * own State.Transitioning block, so it won't double-fire).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Crush")
+	void ForceExitCrush();
 
 
 	FORCEINLINE UMaterialInstanceDynamic* GetCrushPPInstance() const { return CrushPPInstance; }
