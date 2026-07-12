@@ -44,6 +44,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Level")
     void LoadMainMenu();
 
+    UFUNCTION(BlueprintCallable, Category = "Level")
+    void LoadTutorial();
+
     UFUNCTION(BlueprintPure, Category = "Level")
     int32 GetCurrentLevelIndex() const { return CurrentLevelIndex; }
 
@@ -130,6 +133,9 @@ public:
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Levels")
     FName MainMenuLevelName = FName("L_MainMenu");
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Levels")
+    FName TutorialLevelName = FName("L_Tutorial");
 
     // ── Statics ───────────────────────────────────────────────────────────────
     static UkdGameInstance* Get(const UObject* WorldContext);

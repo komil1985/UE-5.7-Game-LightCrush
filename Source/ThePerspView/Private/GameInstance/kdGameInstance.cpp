@@ -122,6 +122,26 @@ void UkdGameInstance::LoadMainMenu()
     InternalLoadLevel(MainMenuLevelName);
 }
 
+void UkdGameInstance::LoadTutorial()
+{
+    // Reset transient session data exactly like every other load path.
+    LevelStartTime = 0.f;
+    SessionScore = 0;
+
+    // NOTE: We intentionally leave CurrentLevelIndex alone. The tutorial isn't in
+    // LevelOrder, so there is no valid index for it; writing one here would lie to
+    // any later index-based navigation (LoadNextLevel, ReloadCurrentLevel).
+    if (TutorialLevelName.IsNone())
+    {
+        UE_LOG(LogTemp, Warning,
+            TEXT("LoadTutorial: TutorialLevelName is None — set it on the GameInstance Blueprint."));
+        return;
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("LoadTutorial: opening %s"), *TutorialLevelName.ToString());
+    InternalLoadLevel(TutorialLevelName);   // routes through OpenLevel + music router
+}
+
 bool UkdGameInstance::HasNextLevel() const
 {
     return LevelOrder.IsValidIndex(CurrentLevelIndex + 1);

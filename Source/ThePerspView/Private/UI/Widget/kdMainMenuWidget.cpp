@@ -20,6 +20,7 @@ void UkdMainMenuWidget::NativeOnInitialized()
 
     if (Btn_NewGame) Btn_NewGame->OnClicked.AddDynamic(this, &UkdMainMenuWidget::OnNewGameClicked);
     if (Btn_Continue) Btn_Continue->OnClicked.AddDynamic(this, &UkdMainMenuWidget::OnContinueClicked);
+    if (Btn_Tutorial) Btn_Tutorial->OnClicked.AddDynamic(this, &UkdMainMenuWidget::OnTutorialClicked);
     if (Btn_Levels) Btn_Levels->OnClicked.AddDynamic(this, &UkdMainMenuWidget::OnLevelsClicked);
     if (Btn_Settings) Btn_Settings->OnClicked.AddDynamic(this, &UkdMainMenuWidget::OnSettingsClicked);
     if (Btn_Quit) Btn_Quit->OnClicked.AddDynamic(this, &UkdMainMenuWidget::OnQuitClicked);
@@ -85,6 +86,30 @@ void UkdMainMenuWidget::OnContinueClicked()
         {
             GI->LoadCurrentLevel();
         }, LoadDelay, false);
+}
+
+void UkdMainMenuWidget::OnTutorialClicked()
+{
+    UkdGameInstance* GI = UkdGameInstance::Get(GetWorld());
+    if (!GI) return;
+
+    APlayerController* PC = GetOwningPlayer();
+    if (!PC) return;
+
+    // Loading screen up first — same round-trip New Game / Continue / Level Select use.
+    if (AkdHUD* HUD = Cast<AkdHUD>(PC->GetHUD()))
+    {
+        HUD->ShowLoadingScreen();
+    }
+
+    // Hold the loading art for the authored duration, then open the tutorial map.
+    // A local FTimerHandle is fine for a one-shot: the timer manager owns the timer
+    // internally, and this widget is torn down by the level change anyway.
+    FTimerHandle LoadHandle;
+    GetWorld()->GetTimerManager().SetTimer(LoadHandle, [GI]()
+        {
+            GI->LoadTutorial();
+        }, LoadingScreenDisplayTime, false);
 }
 
 void UkdMainMenuWidget::OnLevelsClicked()
