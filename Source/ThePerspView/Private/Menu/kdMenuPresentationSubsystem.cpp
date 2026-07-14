@@ -1,4 +1,4 @@
-// Copyright ASKD Games. ThePerspView.
+// Copyright ASKD Games
 
 #include "Menu/kdMenuPresentationSubsystem.h"
 #include "Menu/kdMenuCrushDirector.h"
