@@ -87,7 +87,7 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	FallDamageComponent = CreateDefaultSubobject<UkdFallDamageComponent>(TEXT("FallDamageComponent"));
 	GameFeedbackComponent = CreateDefaultSubobject<UkdGameFeedbackComponent>(TEXT("GameFeedbackComponent"));
 	HoverComponent = CreateDefaultSubobject<UkdPlayerHoverComponent>(TEXT("HoverComponent"));
-	//LightHealthComponent = CreateDefaultSubobject<UkdLightHealthComponent>(TEXT("LightHealthComponent"));
+	LightHealthComponent = CreateDefaultSubobject<UkdLightHealthComponent>(TEXT("LightHealthComponent"));
 	JumpSquashComponent = CreateDefaultSubobject<UkdJumpSquashComponent>(TEXT("JumpSquashComponent"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
@@ -216,6 +216,61 @@ void AkdMyPlayer::BeginPlay()
 	//{
 	//	UE_LOG(LogTemp, Warning, TEXT("LightHealthWidgetClass not assigned in BP_Player Details panel!"));
 	//}
+
+	// ── Light Health Widget — screen-space viewport widget ────────────────────
+// Created here (not in the ctor) because it needs a valid PlayerController and
+// an already-initialised ASC. Hidden until Crush entry; shown/hidden by
+// AkdMyPlayer::OnCrushModeTagChanged.
+	if (LightHealthWidgetClass)
+	{
+		// Prefer the C++ subobject; fall back to a BP-added instance so init
+		// never silently no-ops.
+		if (!LightHealthComponent)
+		{
+			LightHealthComponent = FindComponentByClass<UkdLightHealthComponent>();
+		}
+
+		APlayerController* PC = Cast<APlayerController>(GetController());
+		if (!PC) PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+
+		if (PC && AbilitySystemComponent && LightHealthComponent)
+		{
+			LightHealthWidget = CreateWidget<UkdLightHealthWidget>(PC, LightHealthWidgetClass);
+			if (LightHealthWidget)
+			{
+				LightHealthWidget->AddToViewport(5); // above gameplay, below menus
+				LightHealthWidget->SetVisibility(ESlateVisibility::Hidden);
+				LightHealthWidget->InitializeWithASC(AbilitySystemComponent, LightHealthComponent);
+
+				// Defensive: if a level pre-applies State.CrushMode, reveal immediately
+				// (OnCrushModeTagChanged may have fired before the widget existed).
+				if (AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+				{
+					LightHealthWidget->ShowWidget();
+				}
+
+#if !UE_BUILD_SHIPPING
+				UE_LOG(LogTemp, Log, TEXT("LightHealthWidget: created, initialised, hidden until Crush."));
+#endif
+			}
+			else
+			{
+				UE_LOG(LogTemp, Error,
+					TEXT("LightHealthWidget: CreateWidget FAILED — verify WBP_LightHealth reparents to UkdLightHealthWidget."));
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error,
+				TEXT("LightHealthWidget: missing prerequisite (PC=%d ASC=%d Comp=%d) — not created."),
+				PC != nullptr, AbilitySystemComponent != nullptr, LightHealthComponent != nullptr);
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("LightHealthWidgetClass not assigned in BP_Player Details — light-health HUD disabled."));
+	}
 
 }
 

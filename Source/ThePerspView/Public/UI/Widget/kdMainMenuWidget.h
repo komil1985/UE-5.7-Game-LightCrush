@@ -11,6 +11,7 @@ class UTextBlock;
 class UkdGameInstance;
 class UkdGameInstance;
 class UKdLevelSelectWidget;
+class AkdMyPlayer;
 UCLASS(BlueprintType, Blueprintable)
 class THEPERSPVIEW_API UkdMainMenuWidget : public UUserWidget
 {
@@ -47,6 +48,7 @@ protected:
 
     UPROPERTY(meta = (BindWidget)) 
     TObjectPtr<UTextBlock> Txt_Version;
+
 
     // Button click handlers
     UFUNCTION() 

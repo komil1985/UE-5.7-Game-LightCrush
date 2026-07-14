@@ -9,6 +9,7 @@
 class UMaterialParameterCollection;
 class UCurveFloat;
 class APostProcessVolume;
+class USpringArmComponent;
 
 /**
  * UkdMenuCrushDirector
@@ -144,6 +145,33 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Heliograph|Menu|PostProcess")
 	bool bCrossfadeVolumes = true;
 
+	//~ Config: camera ------------------------------------------------------------
+
+	/**
+	 * The menu's display pawn is a copy that is NOT possessed, so it is located by
+	 * actor tag rather than through the player controller. Add MenuPawnTag as an
+	 * Actor Tag on the copy; the director grabs its first USpringArmComponent.
+	 * Rotation is interpolated with FQuat::Slerp to stay pop-free across large
+	 * angular deltas; differ pitch only between the two poses and leave yaw
+	 * identical unless a yaw swing is intended.
+	 */
+
+	 /** Actor Tag on the unpossessed menu pawn copy. If None, falls back to a possessed player pawn. */
+	UPROPERTY(EditAnywhere, Category = "Heliograph|Menu|Camera")
+	FName MenuPawnTag = TEXT("MenuCameraRig");
+
+	/** If true, LightArmRotation is captured from the arm's pose the first time it resolves, so you only author the Crush end. */
+	UPROPERTY(EditAnywhere, Category = "Heliograph|Menu|Camera")
+	bool bSeedLightRotationFromArm = true;
+
+	/** Spring arm relative rotation at the Light state (alpha 0). Ignored while bSeedLightRotationFromArm is on. */
+	UPROPERTY(EditAnywhere, Category = "Heliograph|Menu|Camera")
+	FRotator LightArmRotation = FRotator::ZeroRotator;
+
+	/** Spring arm relative rotation at the Crush state (alpha 1). */
+	UPROPERTY(EditAnywhere, Category = "Heliograph|Menu|Camera")
+	FRotator CrushArmRotation = FRotator::ZeroRotator;
+
 	//~ Config: attract mode ------------------------------------------------------
 
 	/** Slowly oscillate Light<->Crush until the player first interacts (attract / "teach the verb"). */
@@ -169,9 +197,18 @@ private:
 	float AttractPhase = 0.f;
 	float PulseRemaining = 0.f;
 
+	/** Boom on the spawned pawn, resolved lazily to survive the spawn/possession race. */
+	UPROPERTY(Transient)
+	TWeakObjectPtr<USpringArmComponent> CachedArm;
+
+	/** Set once LightArmRotation has been captured from the resolved arm. */
+	bool  bLightRotationSeeded = false;
+
 	void  CacheRestState();
 	void  ApplyAlphaToTargets(float Alpha) const;
 	void  ApplyPostProcess(float Alpha) const;
+	void  ApplySpringArm(float Alpha);
+	USpringArmComponent* ResolveSpringArm();
 	void  WriteColorParameters(float Alpha, float PulseAlpha) const;
 	float EvaluateEase(float Linear01) const;
 	void  BeginTransition(float NewTarget);

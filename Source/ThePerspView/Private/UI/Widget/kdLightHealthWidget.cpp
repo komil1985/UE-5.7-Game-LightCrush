@@ -10,6 +10,8 @@
 #include "Data/kdColorTheme.h"
 #include "UI/ColorLibrary/kdHUDColorLibrary.h"
 #include "UI/ColorLibrary/kdThemeAccess.h"
+#include "GameplayTags/kdGameplayTags.h"
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NativeConstruct / Destruct
@@ -139,11 +141,26 @@ void UkdLightHealthWidget::ShowWidget()
         const float Current = CachedASC->GetNumericAttribute(UkdAttributeSet::GetLightHealthAttribute());
         const float Max = CachedASC->GetNumericAttribute(UkdAttributeSet::GetMaxLightHealthAttribute());
         UpdateBar(Current, Max);
+
+        // ── Re-seed the light-exposure warning from ground truth ──────────────
+        // The component broadcasts OnShadowStateChanged only on an *edge*.
+        // Entering Crush already-under-light produces no edge, so without this
+        // the sign can stay stuck hidden from a prior shadow episode. Read the
+        // live tag directly so it's correct regardless of multicast order.
+        bInShadow = CachedASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_InShadow);
+        TargetBarColor = ResolveTargetBarColor();
+        DangerTimer = 0.f; // start the blink in its visible phase
+
+        if (Txt_LightDanger)
+        {
+            Txt_LightDanger->SetVisibility(
+                bInShadow ? ESlateVisibility::Hidden : ESlateVisibility::HitTestInvisible);
+        }
     }
 
 #if !UE_BUILD_SHIPPING
-    UE_LOG(LogTemp, Log, TEXT("LightHealthWidget: ShowWidget — health=%.0f%%"),
-        TargetHealth * 100.f);
+    UE_LOG(LogTemp, Log, TEXT("LightHealthWidget: ShowWidget — health=%.0f%% inShadow=%d"),
+        TargetHealth * 100.f, bInShadow);
 #endif
 }
 

@@ -1,15 +1,20 @@
 // Copyright ASKD Games. ThePerspView.
 
 #include "Menu/kdMenuCrushDirector.h"
+
 #include "Menu/kdMenuPresentationSubsystem.h"
+
 #include "GameFramework/Actor.h"
+#include "GameFramework/Pawn.h"
 #include "Components/SceneComponent.h"
+#include "GameFramework/SpringArmComponent.h"
 #include "Engine/PostProcessVolume.h"
 #include "Curves/CurveFloat.h"
 #include "Materials/MaterialParameterCollection.h"
 #include "Kismet/KismetMaterialLibrary.h"
+#include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
-
+#include "TimerManager.h"
 
 UkdMenuCrushDirector::UkdMenuCrushDirector()
 {
@@ -40,11 +45,25 @@ void UkdMenuCrushDirector::BeginPlay()
 		}
 	}
 
+	// The pawn is spawned/possessed from the Player Start and may not exist yet on
+	// this BeginPlay. Defer one tick to resolve its boom and capture the Light pose,
+	// so the seed isn't taken from a half-initialized rig. ApplySpringArm also
+	// resolves lazily, so a slower possession still recovers on the first transition.
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimerForNextTick(
+			FTimerDelegate::CreateWeakLambda(this, [this]()
+				{
+					ApplySpringArm(CurrentAlpha);
+				}));
+	}
+
 	// Open in the Light (uncrushed) state.
 	CurrentAlpha = 0.f;
 	CommittedTarget = 0.f;
 	ApplyAlphaToTargets(0.f);
 	ApplyPostProcess(0.f);
+	ApplySpringArm(0.f);
 	WriteColorParameters(0.f, 0.f);
 }
 
@@ -139,6 +158,77 @@ void UkdMenuCrushDirector::ApplyPostProcess(float Alpha) const
 	}
 }
 
+USpringArmComponent* UkdMenuCrushDirector::ResolveSpringArm()
+{
+	if (CachedArm.IsValid())
+	{
+		return CachedArm.Get();
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return nullptr;
+	}
+
+	// Primary path: the menu display pawn is a copy that nothing possesses, so it
+	// cannot be reached via the player controller. Locate it by its actor tag and
+	// take the first spring arm on it.
+	if (!MenuPawnTag.IsNone())
+	{
+		TArray<AActor*> Tagged;
+		UGameplayStatics::GetAllActorsWithTag(World, MenuPawnTag, Tagged);
+		for (AActor* Actor : Tagged)
+		{
+			if (IsValid(Actor))
+			{
+				if (USpringArmComponent* Arm = Actor->FindComponentByClass<USpringArmComponent>())
+				{
+					CachedArm = Arm;
+					return Arm;
+				}
+			}
+		}
+	}
+
+	// Fallback: a possessed pawn, in case this menu is ever wired that way.
+	if (APawn* Pawn = UGameplayStatics::GetPlayerPawn(World, 0))
+	{
+		if (USpringArmComponent* Arm = Pawn->FindComponentByClass<USpringArmComponent>())
+		{
+			CachedArm = Arm;
+			return Arm;
+		}
+	}
+
+	return nullptr;
+}
+
+void UkdMenuCrushDirector::ApplySpringArm(float Alpha)
+{
+	USpringArmComponent* Arm = ResolveSpringArm();
+	if (!Arm)
+	{
+		return; // Pawn not spawned/possessed yet; a later apply will pick it up.
+	}
+
+	// Capture the Light pose from the live arm the first time it resolves.
+	if (bSeedLightRotationFromArm && !bLightRotationSeeded)
+	{
+		LightArmRotation = Arm->GetRelativeRotation();
+		bLightRotationSeeded = true;
+	}
+
+	// Slerp between the two poses. FQuat::Slerp takes the shortest arc and never
+	// gimbals, so a large pitch delta stays smooth and pop-free (naive rotator lerp
+	// is exactly what caused the in-game transition snaps).
+	const FQuat A = LightArmRotation.Quaternion();
+	const FQuat B = CrushArmRotation.Quaternion();
+	const FQuat R = FQuat::Slerp(A, B, FMath::Clamp(Alpha, 0.f, 1.f));
+
+	Arm->SetRelativeRotation(R.Rotator());
+}
+
 void UkdMenuCrushDirector::WriteColorParameters(float Alpha, float PulseAlpha) const
 {
 	if (!IsValid(WorldColorMPC))
@@ -193,6 +283,7 @@ void UkdMenuCrushDirector::SetCrushed(bool bCrushed, bool bImmediate)
 		PulseRemaining = 0.f;
 		ApplyAlphaToTargets(Goal);
 		ApplyPostProcess(Goal);
+		ApplySpringArm(Goal);
 		WriteColorParameters(Goal, 0.f);
 		return;
 	}
@@ -226,6 +317,7 @@ void UkdMenuCrushDirector::TickComponent(float DeltaTime, ELevelTick TickType, F
 		CurrentAlpha = 0.5f - 0.5f * FMath::Cos(AttractPhase); // smooth 0..1..0
 		ApplyAlphaToTargets(CurrentAlpha);
 		ApplyPostProcess(CurrentAlpha);
+		ApplySpringArm(CurrentAlpha);
 		WriteColorParameters(CurrentAlpha, PulseAlpha);
 		return;
 	}
@@ -246,6 +338,7 @@ void UkdMenuCrushDirector::TickComponent(float DeltaTime, ELevelTick TickType, F
 
 		ApplyAlphaToTargets(CurrentAlpha);
 		ApplyPostProcess(CurrentAlpha);
+		ApplySpringArm(CurrentAlpha);
 		WriteColorParameters(CurrentAlpha, PulseAlpha);
 		return;
 	}
