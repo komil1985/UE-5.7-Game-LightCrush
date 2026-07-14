@@ -1,9 +1,7 @@
 // Copyright ASKD Games. ThePerspView.
 
 #include "Menu/kdMenuCrushDirector.h"
-
 #include "Menu/kdMenuPresentationSubsystem.h"
-
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
 #include "Components/SceneComponent.h"
