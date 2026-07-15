@@ -38,6 +38,7 @@ class UkdLightHealthWidget;
 class UkdStrategicCameraComponent;
 class UkdJumpSquashComponent;
 class UNiagaraComponent;
+class UkdRagdollComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
@@ -101,6 +102,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TObjectPtr<UkdJumpSquashComponent> JumpSquashComponent;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Components")
+	TObjectPtr<UkdRagdollComponent> RagdollComponent;
 	/*--------------------------------------------------------------------------*/
 
 	// -- Low Stamina Warning Widget -------------------------------------------- //
@@ -130,6 +134,11 @@ public:
 	//UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
 	//TObjectPtr<UWidgetComponent> LightHealthWidgetComponent;
 	/*--------------------------------------------------------------------------*/
+
+	/** Single query point for "is this pawn dead" — reads the authoritative tag
+	*  rather than a duplicated bool. */
+	UFUNCTION(BlueprintPure, Category = "Death")
+	bool IsDead() const;
 
 	/** Called by the controller on Dash input. Finds and activates UkdCrushToggle. */
 	UFUNCTION()

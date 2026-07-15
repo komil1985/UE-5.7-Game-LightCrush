@@ -25,6 +25,7 @@ UkdStrategicView::UkdStrategicView()
 	// because ActivationBlockedTags only gate activation, not active abilities.)
 	ActivationBlockedTags.AddTag(Tags.State_CrushMode);
 	ActivationBlockedTags.AddTag(Tags.State_Transitioning);
+	ActivationBlockedTags.AddTag(Tags.State_Dead);
 }
 
 UkdStrategicCameraComponent* UkdStrategicView::GetStrategicCamera() const

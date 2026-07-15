@@ -26,6 +26,17 @@ UkdJumpSquashComponent::UkdJumpSquashComponent()
 	PrimaryComponentTick.TickGroup = TG_PostUpdateWork;
 }
 
+bool UkdJumpSquashComponent::IsSuspended() const
+{
+	if (!CachedASC) return false;
+
+	const FkdGameplayTags& Tags = FkdGameplayTags::Get();
+
+	// Crush Mode → UkdCrushTransitionComponent owns the scale.
+	// Dead        → UkdRagdollComponent owns the whole mesh transform.
+	return CachedASC->HasMatchingGameplayTag(Tags.State_CrushMode) || CachedASC->HasMatchingGameplayTag(Tags.State_Dead);
+}
+
 void UkdJumpSquashComponent::BeginPlay()
 {
 	Super::BeginPlay();

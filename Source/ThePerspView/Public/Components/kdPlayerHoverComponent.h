@@ -128,6 +128,16 @@ public:
     UPROPERTY(EditDefaultsOnly, Category = "Blink", meta = (ClampMin = "0", ClampMax = "2"))
     int32 BlinkAxis = 2;
 
+    /**
+     * Suspends the per-frame mesh-location write so another system can take
+     * mesh-transform authority (UkdRagdollComponent on death).
+     *
+     * This component drives the mesh unconditionally every frame; without this
+     * it would fight the physics sync and the ragdoll would never move.
+     */
+    UFUNCTION(BlueprintCallable, Category = "Hover")
+    void SetSuspended(bool bSuspend);
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
@@ -171,5 +181,7 @@ private:
 
     UFUNCTION()
     void OnBlinkTimerFired();
+
+    bool bSuspended = false;
 		
 };

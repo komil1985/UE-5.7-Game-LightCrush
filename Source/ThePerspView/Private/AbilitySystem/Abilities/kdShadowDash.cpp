@@ -22,9 +22,10 @@ UkdShadowDash::UkdShadowDash()
 	ActivationRequiredTags.AddTag(Tags.State_CrushMode);
 	ActivationRequiredTags.AddTag(Tags.State_InShadow);
 
-	// Cannot dash while stamina-depleted or already in cooldown
+	// Cannot dash while stamina-depleted or already in cooldown or dead
 	ActivationBlockedTags.AddTag(Tags.State_Exhausted);
 	ActivationBlockedTags.AddTag(Tags.State_Dashing);
+	ActivationBlockedTags.AddTag(Tags.State_Dead);
 
 	// Wire up the C++ effect classes as defaults.
 	// Override in a Blueprint-derived class if you want to swap effects.

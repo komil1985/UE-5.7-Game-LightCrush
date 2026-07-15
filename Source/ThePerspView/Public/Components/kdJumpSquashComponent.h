@@ -228,6 +228,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Jump Squash | Tentacles")
 	FName TentacleLandImpactParamName = FName("LandImpact");
 
+	/** True while another system owns BodyMesh scale (Crush morph, or the death
+	*  ragdoll). Writing scale on a simulating skeletal mesh rebuilds the Chaos
+	*  body scales every frame — jitter plus a real perf cost. */
+	bool IsSuspended() const;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;

@@ -9,6 +9,10 @@
 #include "Camera/PlayerCameraManager.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Components/kdRagdollComponent.h"
+#include "Crush/kdCrushTransitionComponent.h"
+#include "Crush/kdCrushStateComponent.h"
+
 
 UkdDeathComponent::UkdDeathComponent()
 {
@@ -40,8 +44,28 @@ void UkdDeathComponent::TriggerDeath()
         return;
     }
 
+    // Read momentum FIRST — ShutdownCrushSystems below can zero the CMC.
+    const FVector DeathVelocity = CachedPlayer ? CachedPlayer->GetVelocity() : FVector::ZeroVector;
+
     SetDeathState(EPlayerDeathState::Dying);
     DisablePlayerInput();
+
+    // ── 0. Declare death to GAS ───────────────────────────────────────────────
+    // One tag, and the crush mechanic is off everywhere: every ability lists
+    // State.Dead in ActivationBlockedTags, UkdJumpSquashComponent self-suspends
+    // on it, and UkdPlayerHUDComponent / UkdTutorialSubsystem were already
+    // listening for it. Cleared only in ClearAllGASDeathState() on respawn.
+    ApplyDeadTag();
+
+    // ── 0b. Stop the crush pipeline. MUST precede EnterRagdoll — the Timeline
+    //        writes mesh scale, and Chaos bakes body scale at sim start.
+    ShutdownCrushSystems();
+
+    // ── 0c. Ragdoll ───────────────────────────────────────────────────────────
+    if (CachedPlayer && CachedPlayer->RagdollComponent)
+    {
+        CachedPlayer->RagdollComponent->EnterRagdoll(DeathVelocity);
+    }
 
     // ── 1. Red screen-fade ────────────────────────────────────────────────────
     if (APlayerCameraManager* Cam = GetCameraManager())
@@ -101,6 +125,14 @@ void UkdDeathComponent::TriggerRespawn(const FVector& Location, const FRotator& 
 
     if (!CachedPlayer) return;
 
+    // Defensive: TriggerRespawn is public and documented as safe without a prior
+    // TriggerDeath (debug console, forced respawn). Teleporting while the mesh
+    // simulates moves the capsule and leaves the corpse behind. Idempotent.
+    if (CachedPlayer->RagdollComponent)
+    {
+        CachedPlayer->RagdollComponent->ExitRagdoll();
+    }
+
     // ── 1. Teleport ───────────────────────────────────────────────────────────
     CachedPlayer->SetActorLocation(Location, false, nullptr, ETeleportType::TeleportPhysics);
     CachedPlayer->SetActorRotation(Rotation);
@@ -150,11 +182,21 @@ void UkdDeathComponent::FinishDeathSequence()
 {
     SetDeathState(EPlayerDeathState::Dead);
 
-    // Hide the mesh while the screen is black so the player doesn't see
-    // the character standing frozen before the respawn teleport.
     if (CachedPlayer)
     {
+        // Hide FIRST. Everything below is a hard snap that must never be seen —
+        // the fade is holding black at this point (bHoldWhenFinished = true).
         CachedPlayer->GetMesh()->SetVisibility(false);
+
+        // Physics off BEFORE we touch the rig: a simulating mesh ignores
+        // SetRelativeScale3D and teleports. This ordering is load-bearing.
+        if (CachedPlayer->RagdollComponent)
+        {
+            CachedPlayer->RagdollComponent->ExitRagdoll();
+        }
+
+        // World un-folds now, invisibly, during the GameMode's RespawnDelay.
+        RestoreWorldToThreeD();
     }
 
     OnDeathSequenceComplete.Broadcast();
@@ -238,6 +280,7 @@ void UkdDeathComponent::ClearAllGASDeathState()
         StateTags.State_Transitioning,
         StateTags.State_Dashing,
         StateTags.State_EnemyContact,
+        StateTags.State_Dead,
     };
 
     for (const FGameplayTag& Tag : TagsToRemove)
@@ -283,5 +326,76 @@ void UkdDeathComponent::RestoreStamina()
         UE_LOG(LogTemp, Log, TEXT("DeathComponent: Stamina restored to %.0f / %.0f"),
             RestoredStamina, MaxStamina);
 #endif
+    }
+}
+
+void UkdDeathComponent::ApplyDeadTag()
+{
+    if (!CachedPlayer) return;
+    UAbilitySystemComponent* ASC = CachedPlayer->GetAbilitySystemComponent();
+    if (!ASC) return;
+
+    const FGameplayTag& Dead = FkdGameplayTags::Get().State_Dead;
+    if (!ASC->HasMatchingGameplayTag(Dead))
+    {
+        ASC->AddLooseGameplayTag(Dead);
+    }
+}
+
+void UkdDeathComponent::ShutdownCrushSystems()
+{
+    if (!CachedPlayer) return;
+    UAbilitySystemComponent* ASC = CachedPlayer->GetAbilitySystemComponent();
+    if (!ASC) return;
+
+    // Cancel first: each ability's EndAbility does its own teardown — the crush
+    // toggle removes State.Transitioning, unbinds OnTransitionComplete, and
+    // strips the drain effect. Aborting the timeline BEFORE cancelling would let
+    // the ability's OnTransitionFinished run against a half-morph.
+    ASC->CancelAllAbilities();
+
+    // The Timeline is owned by the component, not the ability, so the cancel
+    // above does not stop it. Without this it keeps writing mesh scale + camera
+    // FOV over the ragdoll for up to 0.63s.
+    if (CachedPlayer->CrushTransitionComponent)
+    {
+        CachedPlayer->CrushTransitionComponent->AbortTransition();
+    }
+
+    // ── Why State.CrushMode stays ON here ────────────────────────────────────
+    // UkdGeometryTransitionComponent, UkdWorldColorDriver, UkdLightHealthComponent
+    // and UkdGameFeedbackComponent all un-fold the world on that tag dropping.
+    // Sliding world geometry through a simulating ragdoll is a guaranteed
+    // penetration blow-up. The un-crush happens in FinishDeathSequence(), under
+    // the black screen, after ExitRagdoll — and it reads better: you die crushed.
+}
+
+void UkdDeathComponent::RestoreWorldToThreeD()
+{
+    if (!CachedPlayer) return;
+    UAbilitySystemComponent* ASC = CachedPlayer->GetAbilitySystemComponent();
+    if (!ASC) return;
+
+    const FkdGameplayTags& Tags = FkdGameplayTags::Get();
+
+    if (ASC->HasMatchingGameplayTag(Tags.State_CrushMode))
+    {
+        // Owned by CrushStateComponent: releases the plane constraint, projects
+        // velocity off the collapse axis, drops State.InShadow.
+        if (CachedPlayer->CrushStateComponent)
+        {
+            CachedPlayer->CrushStateComponent->ToggleShadowTracking(false);
+        }
+
+        // This is the signal the whole world listens to. AkdMyPlayer's new
+        // State.Dead guard stops it answering with a morph.
+        ASC->RemoveLooseGameplayTag(Tags.State_CrushMode);
+    }
+
+    // Unconditional: a death timed into a morph can leave the camera at 14° FOV
+    // with a 2200cm arm even if State.CrushMode was never applied.
+    if (CachedPlayer->CrushTransitionComponent)
+    {
+        CachedPlayer->CrushTransitionComponent->SnapToThreeD();
     }
 }

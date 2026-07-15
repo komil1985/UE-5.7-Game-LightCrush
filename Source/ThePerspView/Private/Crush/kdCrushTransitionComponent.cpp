@@ -7,6 +7,9 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/TimelineComponent.h"
 #include "Crush/kdCrushDirectionLibrary.h"
+#include "AbilitySystemComponent.h"
+#include "GameplayTags/kdGameplayTags.h"
+#include "Components/SkeletalMeshComponent.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -20,7 +23,6 @@ UkdCrushTransitionComponent::UkdCrushTransitionComponent()
 // BeginPlay — capture all 3D baselines.  Never touch these again until the
 // component is re-initialized (level reload / respawn).
 // ─────────────────────────────────────────────────────────────────────────────
-
 void UkdCrushTransitionComponent::BeginPlay()
 {
     Super::BeginPlay();
@@ -689,5 +691,83 @@ void UkdCrushTransitionComponent::ReleasePlaneConstraint()
 
 #if !UE_BUILD_SHIPPING
     UE_LOG(LogTemp, Log, TEXT("CrushTransition: Plane constraint OFF"));
+#endif
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AbortTransition
+// ─────────────────────────────────────────────────────────────────────────────
+void UkdCrushTransitionComponent::AbortTransition()
+{
+    if (!CachedOwner) return;
+
+    if (CrushTimeline) CrushTimeline->Stop();
+    if (UWorld* W = GetWorld()) W->GetTimerManager().ClearTimer(SettleTickHandle);
+
+    // StartTransition() froze the CMC and ONLY HandleTimelineFinished un-freezes
+    // it. If we abort without taking that responsibility, an abort that loses the
+    // race with respawn leaves the player in MOVE_None — a hard soft-lock.
+    if (!bMovementRestored)
+    {
+        bMovementRestored = true;
+        if (UCharacterMovementComponent* MC = CachedOwner->GetCharacterMovement())
+        {
+            MC->SetMovementMode(MOVE_Falling);
+        }
+    }
+
+    // Land the mesh on the scale that matches the AUTHORITATIVE gameplay state,
+    // not the aborted target. A death mid-enter-morph has no State.CrushMode yet
+    // (the toggle only adds it in OnTransitionFinished), so the correct answer is
+    // the 3D scale even though bTargetCrushMode is true.
+    if (USkeletalMeshComponent* Mesh = CachedOwner->GetMesh())
+    {
+        const UAbilitySystemComponent* ASC = CachedOwner->GetAbilitySystemComponent();
+        const bool bCrushedNow = ASC && ASC->HasMatchingGameplayTag(
+            FkdGameplayTags::Get().State_CrushMode);
+
+        Mesh->SetRelativeScale3D(bCrushedNow ? PlayerCrushScale : Original3DScale);
+        Mesh->SetRelativeLocation(OriginalMeshRelativeLoc);
+    }
+
+#if !UE_BUILD_SHIPPING
+    UE_LOG(LogTemp, Log, TEXT("CrushTransition: ABORTED (target was %s)."),
+        bTargetCrushMode ? TEXT("2D") : TEXT("3D"));
+#endif
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SnapToThreeD
+// ─────────────────────────────────────────────────────────────────────────────
+void UkdCrushTransitionComponent::SnapToThreeD()
+{
+    if (!CachedOwner) return;
+
+    AbortTransition();
+
+    // FIX: BeginPlay only ever seeds Original3DArmRotQ — Original3DArmRotation
+    // keeps its hardcoded FRotator(-30,0,0) default, so RestoreCameraDefaults()
+    // was silently ignoring the BP's authored arm rotation. Drive from the quat,
+    // which is the value BeginPlay actually captures.
+    ApplyCameraState(Original3DFOV, Original3DArmLength, Original3DArmRotQ.Rotator(), 0.f);
+
+    if (CachedOwner->SpringArm)
+    {
+        CachedOwner->SpringArm->bInheritYaw = true;   // undo the midpoint yaw lock
+        FRotator Clean = CachedOwner->SpringArm->GetRelativeRotation();
+        Clean.Roll = 0.f;
+        CachedOwner->SpringArm->SetRelativeRotation(Clean);
+    }
+
+    if (USkeletalMeshComponent* Mesh = CachedOwner->GetMesh())
+    {
+        Mesh->SetRelativeScale3D(Original3DScale);
+        Mesh->SetRelativeLocation(OriginalMeshRelativeLoc);
+    }
+
+    bTargetCrushMode = false;
+
+#if !UE_BUILD_SHIPPING
+    UE_LOG(LogTemp, Log, TEXT("CrushTransition: SNAP → 3D (silent)."));
 #endif
 }

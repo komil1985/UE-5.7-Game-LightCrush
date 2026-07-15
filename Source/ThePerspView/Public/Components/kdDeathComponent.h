@@ -131,6 +131,16 @@ private:
     void EnablePlayerInput();
     void ClearAllGASDeathState();
     void RestoreStamina();
+
+    /** Adds State.Dead. This is the switch that disables the crush mechanic. */
+    void ApplyDeadTag();
+
+    /** Cancels the crush ability + aborts any in-flight morph. Deliberately
+    *  leaves State.CrushMode ON — see the .cpp for why. */
+    void ShutdownCrushSystems();
+
+    /** Silent, instant return to 3D. Only ever called under the black screen. */
+    void RestoreWorldToThreeD();
 		
 };
 

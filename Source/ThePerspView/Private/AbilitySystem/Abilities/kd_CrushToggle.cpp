@@ -24,6 +24,7 @@ Ukd_CrushToggle::Ukd_CrushToggle()
 
     ActivationBlockedTags.AddTag(Tags.State_Transitioning);
     ActivationBlockedTags.AddTag(Tags.State_Exhausted);
+    ActivationBlockedTags.AddTag(Tags.State_Dead);
 
 }
 

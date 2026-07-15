@@ -34,6 +34,7 @@
 #include "Components/kdJumpSquashComponent.h"
 #include "Components/kdPlayerHUDComponent.h"
 #include "NiagaraComponent.h"
+#include "Components/kdRagdollComponent.h"
 
 
 
@@ -89,6 +90,7 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	HoverComponent = CreateDefaultSubobject<UkdPlayerHoverComponent>(TEXT("HoverComponent"));
 	LightHealthComponent = CreateDefaultSubobject<UkdLightHealthComponent>(TEXT("LightHealthComponent"));
 	JumpSquashComponent = CreateDefaultSubobject<UkdJumpSquashComponent>(TEXT("JumpSquashComponent"));
+	RagdollComponent = CreateDefaultSubobject<UkdRagdollComponent>(TEXT("RagdollComponent"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 	/*	--	Default Values	--	*/
@@ -274,9 +276,15 @@ void AkdMyPlayer::BeginPlay()
 
 }
 
+bool AkdMyPlayer::IsDead() const
+{
+	return AbilitySystemComponent
+		&& AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_Dead);
+}
+
 void AkdMyPlayer::RequestCrushToggle()
 {
-	if (!AbilitySystemComponent) return;
+	if (!AbilitySystemComponent || IsDead()) return;   // ← add IsDead()
 
 	// Find the CrushToggle ability class in the DefaultAbilities array
 	for (TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
@@ -311,7 +319,7 @@ void AkdMyPlayer::RequestCrushToggle()
 
 void AkdMyPlayer::RequestInteract()
 {
-	if (!AbilitySystemComponent) return;
+	if (!AbilitySystemComponent || IsDead()) return;   // ← add IsDead()
 
 	// Only allow interaction in Crush Mode (matches Interact_CrushOnly intent)
 	if (!AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
@@ -362,7 +370,7 @@ void AkdMyPlayer::RequestInteract()
 
 void AkdMyPlayer::RequestShadowDash()
 {
-	if (!AbilitySystemComponent) return;
+	if (!AbilitySystemComponent || IsDead()) return;   // ← add IsDead()
 
 	// Mirror of RequestCrushToggle — find the dash ability spec and activate it
 	for (TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
@@ -381,7 +389,7 @@ void AkdMyPlayer::RequestShadowDash()
 
 void AkdMyPlayer::RequestStrategicViewStart()
 {
-	if (!AbilitySystemComponent) return;
+	if (!AbilitySystemComponent || IsDead()) return;   // ← add IsDead()
 
 	for (TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
 	{
@@ -416,6 +424,10 @@ void AkdMyPlayer::RequestStrategicViewStop()
 void AkdMyPlayer::ForceExitCrush()
 {
 	if (!AbilitySystemComponent) return;
+
+	// A corpse never morphs. Fall-recovery and cutscene code call this blind;
+	// without the gate it would fire a crush-exit into the middle of a ragdoll.
+	if (IsDead()) return;
 
 	const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
 
@@ -469,6 +481,18 @@ void AkdMyPlayer::OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 Ne
 			LightHealthWidget->ShowWidget();
 		else
 			LightHealthWidget->HideWidget();
+	}
+
+	// ── Death guard ───────────────────────────────────────────────────────────
+	// Fixes: "death respawn triggers the full crush-exit morph during teleport."
+	// UkdDeathComponent drops State.CrushMode under the black screen to un-fold
+	// the world. Answering that here with a 0.63s morph would (a) fight the
+	// ragdoll for mesh authority, (b) play a camera lerp nobody can see, and
+	// (c) still be running when PerformRespawn teleports. Death owns its own
+	// restoration path — UkdDeathComponent calls SnapToThreeD() instead.
+	if (IsDead())
+	{
+		return;
 	}
 
 	// ── Transition guard ──────────────────────────────────────────────────────

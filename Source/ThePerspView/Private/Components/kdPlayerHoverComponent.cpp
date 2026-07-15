@@ -15,6 +15,25 @@ UkdPlayerHoverComponent::UkdPlayerHoverComponent()
 	PrimaryComponentTick.TickGroup = TG_PostUpdateWork;
 }
 
+void UkdPlayerHoverComponent::SetSuspended(bool bSuspend)
+{
+    if (bSuspended == bSuspend) return;
+    bSuspended = bSuspend;
+
+    // Tick off entirely rather than an early-out — cheaper, and the hand-off is
+    // visible in the component list when debugging a "mesh won't move" report.
+    SetComponentTickEnabled(!bSuspend);
+
+    if (!bSuspend && BodyMesh)
+    {
+        // Resume from the canonical baseline, never from wherever physics left
+        // the mesh, or the hover would oscillate around a corpse pose forever.
+        HoverPhase = 0.f;
+        CurrentAmplitude = 0.f;
+        BodyMesh->SetRelativeLocation(MeshBaseOffset);
+    }
+}
+
 void UkdPlayerHoverComponent::BeginPlay()
 {
 	Super::BeginPlay();

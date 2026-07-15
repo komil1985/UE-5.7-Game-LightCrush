@@ -21,6 +21,7 @@ UkdShadowMove::UkdShadowMove()
     ActivationRequiredTags.AddTag(StateTags.State_InShadow);
 
     ActivationBlockedTags.AddTag(StateTags.State_Exhausted);
+    ActivationBlockedTags.AddTag(StateTags.State_Dead);
     
 }
 
