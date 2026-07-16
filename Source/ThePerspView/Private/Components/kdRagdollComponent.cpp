@@ -13,7 +13,60 @@
 #include "PhysicsEngine/BodyInstance.h"
 #include "Engine/SkeletalMesh.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "PhysicsEngine/SkeletalBodySetup.h"
 
+
+
+#if !UE_BUILD_SHIPPING
+// ─────────────────────────────────────────────────────────────────────────────
+// GetAuthoredBodyReach — the collision shape's half-extent along Z, in world cm.
+//
+// NOT UE_BUILD_SHIPPING-guarded: ProbePlacement feeds the spawn lift, which is
+// gameplay, not diagnostics. Guarding it would compile in DebugGame and break
+// Shipping — the worst possible time to find out.
+//
+// Reads the AUTHORED primitive from the Physics Asset rather than
+// Mesh->Bounds.SphereRadius. Bounds is the RENDER volume and can be far larger
+// than the collision shape; that proxy is what reported a flat -30.0 earlier.
+// ─────────────────────────────────────────────────────────────────────────────
+static float GetAuthoredBodyReach(const USkeletalMeshComponent* Mesh, FName BoneName)
+{
+	const UPhysicsAsset* PA = Mesh ? Mesh->GetPhysicsAsset() : nullptr;
+	if (!PA) return 0.f;
+
+	// Resolve the body that actually belongs to this bone. Index 0 happens to be
+	// correct for your single-body sphere, but silently picks the wrong body the
+	// day the asset gains a second one.
+	int32 Index = PA->FindBodyIndex(BoneName);
+	if (Index == INDEX_NONE)
+	{
+		if (PA->SkeletalBodySetups.Num() == 0) return 0.f;
+		Index = 0;
+	}
+
+	const USkeletalBodySetup* BS = PA->SkeletalBodySetups[Index];
+	if (!BS) return 0.f;
+
+	const FKAggregateGeom& Agg = BS->AggGeom;
+	float Reach = 0.f;
+
+	for (const FKSphereElem& E : Agg.SphereElems)
+	{
+		Reach = FMath::Max(Reach, E.Radius + FMath::Abs(E.Center.Z));
+	}
+	for (const FKSphylElem& E : Agg.SphylElems)
+	{
+		Reach = FMath::Max(Reach, E.Radius + E.Length * 0.5f + FMath::Abs(E.Center.Z));
+	}
+	for (const FKBoxElem& E : Agg.BoxElems)
+	{
+		Reach = FMath::Max(Reach, E.Z * 0.5f + FMath::Abs(E.Center.Z));
+	}
+
+	// Uniform component scale is guaranteed by EnterRagdoll's AllComponentsEqual guard.
+	return Reach * Mesh->GetComponentScale().X;
+}
+#endif
 
 
 UkdRagdollComponent::UkdRagdollComponent()
@@ -134,26 +187,40 @@ void UkdRagdollComponent::EnterRagdoll(const FVector& InheritedVelocity)
 		Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 
-	// ── 4. Mesh → physics ─────────────────────────────────────────────────────
-	SavedMeshRelScale = Scale;
-	SavedMeshProfile = Mesh->GetCollisionProfileName();
-	SavedMeshCameraResponse = Mesh->GetCollisionResponseToChannel(ECC_Camera);
+	// ── 4. Resolve the landing spot ONCE. No solver, no per-frame collision.
+	const FName  Bone = ResolvePelvisBone(Mesh);
+	const FVector Origin = Mesh->GetComponentLocation();
+	const float   Reach = GetAuthoredBodyReach(Mesh, Bone);
 
-	// Built explicitly, NOT from the "Ragdoll" preset. The preset would set
-	// ObjectType=PhysicsBody; the floors only block Pawn, so the corpse would
-	// have no floor to land on. See RagdollObjectChannel's comment.
-	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	Mesh->SetCollisionObjectType(RagdollObjectChannel);
-	Mesh->SetCollisionResponseToAllChannels(ECR_Block);
-	Mesh->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);  // SpringArm probe
-	Mesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);  // shadow traces
+	FHitResult Hit;
+	FCollisionQueryParams P(SCENE_QUERY_STAT(kdDeathDrop), false, CachedPlayer);
 
-#if !UE_BUILD_SHIPPING
-	LogPlacementProbe(Mesh);   // BEFORE sim starts — captures the spawn condition
-#endif
+	// Trace on the CAPSULE's channel — the one that has demonstrably found this
+	// floor every frame the player has been standing on it.
+	const ECollisionChannel Ch = CachedPlayer->GetCapsuleComponent()
+		? CachedPlayer->GetCapsuleComponent()->GetCollisionObjectType() : ECC_Pawn;
 
-	Mesh->SetSimulatePhysics(true);
-	Mesh->SetAllBodiesPhysicsBlendWeight(1.f);
+	DropStartLoc = Origin;
+
+	if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin - FVector(0, 0, 10000.f), Ch, P))
+	{
+		DropEndLoc = FVector(Origin.X, Origin.Y, Hit.ImpactPoint.Z + Reach);
+		UE_LOG(LogTemp, Log, TEXT("[kdDrop] Landing on '%s' at Z=%.1f (fall %.1fcm)"),
+			*GetNameSafe(Hit.GetActor()), DropEndLoc.Z, Origin.Z - DropEndLoc.Z);
+	}
+	else
+	{
+		// Void death: fall past the camera. Never "forever" — the fade owns the end.
+		DropEndLoc = Origin - FVector(0, 0, 1500.f);
+		UE_LOG(LogTemp, Log, TEXT("[kdDrop] No floor — falling into the void."));
+	}
+
+	DropElapsed = 0.f;
+	SettleElapsed = 0.f;
+	bLanded = false;
+
+	bRagdolling = true;
+	SetComponentTickEnabled(true);
 
 	// ── 5. Motion ─────────────────────────────────────────────────────────────
 	if (bDeadDrop)
@@ -272,45 +339,34 @@ void UkdRagdollComponent::ExitRagdoll()
 #endif
 }
 
-#if !UE_BUILD_SHIPPING
-void UkdRagdollComponent::LogPlacementProbe(USkeletalMeshComponent* Mesh) const
-{
-	if (!Mesh || !GetWorld() || !CachedPlayer) return;
 
-	const FVector Origin = Mesh->GetComponentLocation();
-	const float   Radius = Mesh->Bounds.SphereRadius;
+#if !UE_BUILD_SHIPPING
+UkdRagdollComponent::FkdRagdollPlacement
+UkdRagdollComponent::ProbePlacement(USkeletalMeshComponent* Mesh) const
+{
+	FkdRagdollPlacement Out;
+	if (!Mesh || !GetWorld() || !CachedPlayer) return Out;
+
+	const FName  Bone = ResolvePelvisBone(Mesh);
+	const FVector Origin = (Bone != NAME_None)
+		? Mesh->GetBoneLocation(Bone, EBoneSpaces::WorldSpace)   // where the body WILL be
+		: Mesh->GetComponentLocation();
+
+	const float Reach = GetAuthoredBodyReach(Mesh, Bone);
 
 	FHitResult Hit;
-	FCollisionQueryParams P(SCENE_QUERY_STAT(kdRagdollProbe), /*bTraceComplex=*/false, CachedPlayer);
+	FCollisionQueryParams P(SCENE_QUERY_STAT(kdRagdollProbe), false, CachedPlayer);
+	const ECollisionChannel Ch = Mesh->GetCollisionObjectType();
 
-	const bool bHit = GetWorld()->LineTraceSingleByChannel(
-		Hit, Origin, Origin - FVector(0.f, 0.f, 5000.f), RagdollObjectChannel, P);
-
-	if (!bHit)
+	if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin - FVector(0, 0, 5000.f), Ch, P))
 	{
-		UE_LOG(LogTemp, Warning,
-			TEXT("[kdRagdoll] PROBE | NOTHING below within 50m on the corpse's channel — it will fall forever."));
-		return;
+		return Out;   // airborne over the void — nothing to lift out of
 	}
 
-	const float Gap = (Origin.Z - Radius) - Hit.ImpactPoint.Z;
-
-	UE_LOG(LogTemp, Log,
-		TEXT("[kdRagdoll] PROBE | floor='%s'  bodyRadius=%.1f  gap=%.1fcm%s"),
-		*GetNameSafe(Hit.GetActor()), Radius, Gap,
-		Gap < 0.f ? TEXT("   <-- NEGATIVE: body spawns INSIDE the floor, depenetration will launch it")
-		: TEXT(""));
-
-	if (const UPrimitiveComponent* Floor = Hit.GetComponent())
-	{
-		const ECollisionResponse R = Floor->GetCollisionResponseToChannel(RagdollObjectChannel);
-		UE_LOG(LogTemp, Log,
-			TEXT("[kdRagdoll] PROBE | '%s' (profile '%s') responds to corpse channel with: %s"),
-			*Floor->GetName(), *Floor->GetCollisionProfileName().ToString(),
-			R == ECR_Block ? TEXT("BLOCK  (good)")
-			: R == ECR_Overlap ? TEXT("OVERLAP  <-- corpse falls through")
-			: TEXT("IGNORE  <-- corpse falls through"));
-	}
+	Out.bFoundFloor = true;
+	Out.FloorName = GetNameSafe(Hit.GetActor());
+	Out.Penetration = FMath::Max(0.f, Hit.ImpactPoint.Z - (Origin.Z - Reach));
+	return Out;
 }
 #endif
 
@@ -322,62 +378,33 @@ void UkdRagdollComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (!bRagdolling || !IsValid(CachedPlayer))
-	{
-		SetComponentTickEnabled(false);
-		return;
-	}
-
+	if (!bRagdolling || !IsValid(CachedPlayer)) { SetComponentTickEnabled(false); return; }
 	USkeletalMeshComponent* Mesh = CachedPlayer->GetMesh();
 	if (!IsValid(Mesh)) { SetComponentTickEnabled(false); return; }
 
-	// ── Hold the corpse on the shadow plane ───────────────────────────────────
-	// Velocity projection only — snapping body transforms every frame would
-	// fight the solver. Over a 1.2s fade this reads as a perfect plane lock.
-	if (bPlaneLockActive)
+	if (!bLanded)
 	{
-		for (FBodyInstance* Body : Mesh->Bodies)
-		{
-			// NOTE: deliberately NOT FBodyInstance::IsInstanceSimulatingPhysics().
-			// That inline forwards to FBodyInstanceCore::ShouldInstanceSimulatingPhysics(),
-			// which is PHYSICSCORE_API — visible to the compiler, not linked to this
-			// module. bSimulatePhysics is a plain UPROPERTY bitfield on the same
-			// struct, so reading it is header-only and needs no import. Every body
-			// here was set simulating in EnterRagdoll, and SetLinearVelocity safely
-			// no-ops on an invalid handle, so this is the complete guard.
-			if (!Body || !Body->bSimulatePhysics) continue;
+		DropElapsed += DeltaTime;
+		const float t = FMath::Clamp(DropElapsed / DropDuration, 0.f, 1.f);
 
-			const FVector V = Body->GetUnrealWorldVelocity();
-			Body->SetLinearVelocity(FVector::VectorPlaneProject(V, LockedCollapseNormal), false);
-		}
+		// t² = constant acceleration. Reads as gravity because it IS gravity's curve.
+		Mesh->SetWorldLocation(FMath::Lerp(DropStartLoc, DropEndLoc, t * t));
+
+		if (t >= 1.f) { bLanded = true; }
+		return;
 	}
 
-	if (bCameraFollowsRagdoll)
-	{
-		// Move the SPRING ARM. Never the actor.
-		//
-		// The previous version called SetActorLocation(..., ETeleportType::TeleportPhysics).
-		// TeleportPhysics is precisely the flag that makes UpdateKinematicBonesToAnim
-		// force-move bodies EVEN WHEN THEY ARE SIMULATING. So every frame we teleported
-		// the corpse onto the capsule, the solver differenced that jump against its own
-		// integration and turned the delta into velocity — and it fed back on itself:
-		// capsule chases pelvis → teleport moves pelvis → capsule chases again.
-		//
-		// The SpringArm is not a physics body, and UkdCrushTransitionComponent writes
-		// only its rotation and TargetArmLength — never its location. Clean hand-off,
-		// zero physics contact.
-		if (USpringArmComponent* Arm = CachedPlayer->SpringArm)
-		{
-			const FName Bone = ResolvePelvisBone(Mesh);
-			if (Bone != NAME_None)
-			{
-				const FVector Pelvis = Mesh->GetBoneLocation(Bone, EBoneSpaces::WorldSpace);
-				if (!Pelvis.ContainsNaN())
-				{
-					// bEnableCameraLag (10.0 on BP_Player) smooths the follow for free.
-					Arm->SetWorldLocation(Pelvis);
-				}
-			}
-		}
-	}
+	// ── Impact squash → settle. This is the "dead body" read: the blob hits,
+	//    flattens, and relaxes. One bone can't flop, but it can absolutely land
+	//    with weight — and weight is what you actually asked for.
+	SettleElapsed += DeltaTime;
+	const float s = FMath::Clamp(SettleElapsed / FMath::Max(SettleDuration, KINDA_SMALL_NUMBER), 0.f, 1.f);
+	const float Amount = ImpactSquash * (1.f - s) * (1.f - s);   // decays out
+
+	Mesh->SetRelativeScale3D(FVector(
+		SavedMeshRelScale.X * (1.f + Amount * 0.5f),
+		SavedMeshRelScale.Y * (1.f + Amount * 0.5f),
+		SavedMeshRelScale.Z * (1.f - Amount)));
+
+	if (s >= 1.f) { SetComponentTickEnabled(false); }
 }

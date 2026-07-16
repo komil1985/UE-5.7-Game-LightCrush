@@ -109,10 +109,55 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Ragdoll | Motion")
 	bool bDeadDrop = true;
 
+	/** Hard ceiling on corpse speed, enforced every frame while bDeadDrop.
+	*  A governor, not a tuning value: depenetration launches, bounces and
+	*  contact impulses all become physically incapable of exceeding this. */
+	UPROPERTY(EditDefaultsOnly, Category = "Ragdoll | Motion", meta = (ClampMin = "0.0"))
+	float MaxCorpseSpeed = 400.f;
+
+	/** Zero angular velocity every frame while bDeadDrop. A blob has no readable
+	*  orientation, so tumbling adds nothing and is where every "spins like a top"
+	*  report comes from. Cheaper and more deterministic than damping. */
+	UPROPERTY(EditDefaultsOnly, Category = "Ragdoll | Motion")
+	bool bSuppressCorpseSpin = true;
+
+	/** Lift the mesh clear of the floor before simulation starts.
+	*  Your body reach (56.3) exceeds the clearance the capsule gives the mesh
+	*  origin (37.1), so a grounded death is born 19.2cm inside the floor and
+	*  Chaos ejects it. Lifting is the only fix that removes the impulse rather
+	*  than capping it after the fact. */
+	UPROPERTY(EditDefaultsOnly, Category = "Ragdoll | Placement")
+	bool bLiftOutOfPenetration = true;
+
+	/** Extra gap left above the floor when lifting. */
+	UPROPERTY(EditDefaultsOnly, Category = "Ragdoll | Placement", meta = (ClampMin = "0.0"))
+	float SpawnClearance = 2.f;
+
+	/** Seconds for the collapse. Short — this plays under a 1.2s fade. */
+	UPROPERTY(EditDefaultsOnly, Category = "Death Drop", meta = (ClampMin = "0.05", ClampMax = "1.0"))
+	float DropDuration = 0.45f;
+
+	/** Squash at the moment of impact. 0.4 = 40% flatter, 40% wider. */
+	UPROPERTY(EditDefaultsOnly, Category = "Death Drop", meta = (ClampMin = "0.0", ClampMax = "0.8"))
+	float ImpactSquash = 0.4f;
+
+	/** Seconds for the squash to settle back out. */
+	UPROPERTY(EditDefaultsOnly, Category = "Death Drop", meta = (ClampMin = "0.0", ClampMax = "0.8"))
+	float SettleDuration = 0.25f;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
 		FActorComponentTickFunction* ThisTickFunction) override;
+
+	bool NeedsTick() const
+	{
+		// bDeadDrop MUST be in here. The governor lives in TickComponent, so
+		// gating the tick on camera-follow alone let a cosmetic checkbox in the
+		// Details panel silently disable the constraint that guarantees the
+		// corpse behaves. Config must never be able to switch off a safety system.
+		return bRagdolling && (bDeadDrop || bCameraFollowsRagdoll || bPlaneLockActive);
+	}
 
 private:
 	UPROPERTY()
@@ -128,6 +173,11 @@ private:
 	ECollisionResponse     SavedMeshCameraResponse = ECR_Ignore;
 	ECollisionEnabled::Type SavedCapsuleCollision = ECollisionEnabled::QueryAndPhysics;
 	float                  CachedCapsuleHalfHeight = 88.f;
+	float   DropElapsed = 0.f;
+	FVector DropStartLoc = FVector::ZeroVector;
+	FVector DropEndLoc = FVector::ZeroVector;
+	bool    bLanded = false;
+	float   SettleElapsed = 0.f;
 
 	FVector BaselineSpringArmRelLoc = FVector::ZeroVector;
 
@@ -142,11 +192,19 @@ private:
 	FVector LockedCollapseNormal = FVector::ZeroVector;
 	bool    bPlaneLockActive = false;
 
-	bool NeedsTick() const { return bRagdolling && (bCameraFollowsRagdoll || bPlaneLockActive); }
+	bool bGovernorLogged = false;
+	//bool NeedsTick() const { return bRagdolling && (bCameraFollowsRagdoll || bPlaneLockActive); }
 	FName ResolvePelvisBone(USkeletalMeshComponent* Mesh) const;
 
 #if !UE_BUILD_SHIPPING
-	/** Answers "why did it fall through / why did it explode" in one log line. */
-	void LogPlacementProbe(USkeletalMeshComponent* Mesh) const;
+	/** Where the body will be born relative to the floor beneath it. */
+	struct FkdRagdollPlacement
+	{
+		bool    bFoundFloor = false;
+		float   Penetration = 0.f;   // >0 = body starts this deep INSIDE the floor
+		FString FloorName;
+	};
+
+	FkdRagdollPlacement ProbePlacement(USkeletalMeshComponent* Mesh) const;
 #endif
 };
