@@ -8,66 +8,14 @@
 #include "AbilitySystemComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/SpringArmComponent.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysicsEngine/BodyInstance.h"
+#include "PhysicsEngine/BodySetup.h"
 #include "Engine/SkeletalMesh.h"
-#include "GameFramework/SpringArmComponent.h"
-#include "PhysicsEngine/SkeletalBodySetup.h"
-
-
-
-#if !UE_BUILD_SHIPPING
-// ─────────────────────────────────────────────────────────────────────────────
-// GetAuthoredBodyReach — the collision shape's half-extent along Z, in world cm.
-//
-// NOT UE_BUILD_SHIPPING-guarded: ProbePlacement feeds the spawn lift, which is
-// gameplay, not diagnostics. Guarding it would compile in DebugGame and break
-// Shipping — the worst possible time to find out.
-//
-// Reads the AUTHORED primitive from the Physics Asset rather than
-// Mesh->Bounds.SphereRadius. Bounds is the RENDER volume and can be far larger
-// than the collision shape; that proxy is what reported a flat -30.0 earlier.
-// ─────────────────────────────────────────────────────────────────────────────
-static float GetAuthoredBodyReach(const USkeletalMeshComponent* Mesh, FName BoneName)
-{
-	const UPhysicsAsset* PA = Mesh ? Mesh->GetPhysicsAsset() : nullptr;
-	if (!PA) return 0.f;
-
-	// Resolve the body that actually belongs to this bone. Index 0 happens to be
-	// correct for your single-body sphere, but silently picks the wrong body the
-	// day the asset gains a second one.
-	int32 Index = PA->FindBodyIndex(BoneName);
-	if (Index == INDEX_NONE)
-	{
-		if (PA->SkeletalBodySetups.Num() == 0) return 0.f;
-		Index = 0;
-	}
-
-	const USkeletalBodySetup* BS = PA->SkeletalBodySetups[Index];
-	if (!BS) return 0.f;
-
-	const FKAggregateGeom& Agg = BS->AggGeom;
-	float Reach = 0.f;
-
-	for (const FKSphereElem& E : Agg.SphereElems)
-	{
-		Reach = FMath::Max(Reach, E.Radius + FMath::Abs(E.Center.Z));
-	}
-	for (const FKSphylElem& E : Agg.SphylElems)
-	{
-		Reach = FMath::Max(Reach, E.Radius + E.Length * 0.5f + FMath::Abs(E.Center.Z));
-	}
-	for (const FKBoxElem& E : Agg.BoxElems)
-	{
-		Reach = FMath::Max(Reach, E.Z * 0.5f + FMath::Abs(E.Center.Z));
-	}
-
-	// Uniform component scale is guaranteed by EnterRagdoll's AllComponentsEqual guard.
-	return Reach * Mesh->GetComponentScale().X;
-}
-#endif
-
+#include "Engine/StaticMesh.h"
 
 UkdRagdollComponent::UkdRagdollComponent()
 {
@@ -87,8 +35,10 @@ void UkdRagdollComponent::BeginPlay()
 		return;
 	}
 
-	// Capture the canonical mesh anchor BEFORE any tick runs. Component BeginPlay
-	// is guaranteed to complete for all components before the first TickComponent,
+	CachedHover = CachedPlayer->FindComponentByClass<UkdPlayerHoverComponent>();
+
+	// Capture the canonical baselines BEFORE any tick runs. Component BeginPlay is
+	// guaranteed to complete for every component before the first TickComponent,
 	// so this is the designer-authored pose, not a hover-offset frame.
 	if (const USkeletalMeshComponent* Mesh = CachedPlayer->GetMesh())
 	{
@@ -99,11 +49,6 @@ void UkdRagdollComponent::BeginPlay()
 	if (const USpringArmComponent* Arm = CachedPlayer->SpringArm)
 	{
 		BaselineSpringArmRelLoc = Arm->GetRelativeLocation();
-	}
-
-	if (const UCapsuleComponent* Capsule = CachedPlayer->GetCapsuleComponent())
-	{
-		CachedCapsuleHalfHeight = Capsule->GetScaledCapsuleHalfHeight();
 	}
 }
 
@@ -116,7 +61,6 @@ FName UkdRagdollComponent::ResolvePelvisBone(USkeletalMeshComponent* Mesh) const
 		return PelvisBoneName;
 	}
 
-	// A skeleton rename must never silently break the death camera.
 	const FName Fallback = (Mesh->GetNumBones() > 0) ? Mesh->GetBoneName(0) : NAME_None;
 	UE_LOG(LogTemp, Warning,
 		TEXT("[kdRagdoll] PelvisBoneName '%s' not on skeleton — falling back to root bone '%s'."),
@@ -129,29 +73,41 @@ FName UkdRagdollComponent::ResolvePelvisBone(USkeletalMeshComponent* Mesh) const
 // ─────────────────────────────────────────────────────────────────────────────
 void UkdRagdollComponent::EnterRagdoll(const FVector& InheritedVelocity)
 {
-	if (bRagdolling || !IsValid(CachedPlayer)) return;
+	if (bRagdolling)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[kdRagdoll] Already ragdolling — ignored."));
+		return;
+	}
+	if (!IsValid(CachedPlayer))
+	{
+		UE_LOG(LogTemp, Error, TEXT("[kdRagdoll] CachedPlayer invalid — BeginPlay never resolved the owner."));
+		return;
+	}
 
 	USkeletalMeshComponent* Mesh = CachedPlayer->GetMesh();
-	if (!IsValid(Mesh)) return;
+	if (!IsValid(Mesh))
+	{
+		UE_LOG(LogTemp, Error, TEXT("[kdRagdoll] Owner has no SkeletalMeshComponent."));
+		return;
+	}
 
-	// ── 0. Gate: no Physics Asset = no bodies = SetSimulatePhysics is a silent
-	//        no-op that leaves the mesh frozen mid-air. Fail loud, degrade safe.
+	// ── 0. Physics Asset gate ────────────────────────────────────────────────
+	// No asset = no bodies = SetSimulatePhysics is a silent no-op that leaves the
+	// mesh frozen mid-air. Fail loud; the rest of the death sequence still runs.
 	if (!Mesh->GetPhysicsAsset())
 	{
 		UE_LOG(LogTemp, Error,
-			TEXT("[kdRagdoll] Skeletal Mesh '%s' has NO Physics Asset — ragdoll skipped. "
-				"Right-click the Skeletal Mesh asset → Create → Physics Asset. The rest "
-				"of the death sequence will still run."),
+			TEXT("[kdRagdoll] Skeletal Mesh '%s' has NO Physics Asset — ragdoll skipped."),
 			*GetNameSafe(Mesh->GetSkeletalMeshAsset()));
 		return;
 	}
 
-	// ── 1. Scale sanity. Chaos bakes body scale at simulation start and does not
-	//        handle non-uniform scale on convex/sphyl bodies — they interpenetrate
-	//        and blow up. UkdCrushTransitionComponent's Z squash-stretch produces
-	//        exactly that mid-morph, so a death timed into a morph would hit it.
-	//        UkdDeathComponent aborts the transition before calling us, but this
-	//        stays as the last line of defence.
+	// ── 1. Scale sanity ──────────────────────────────────────────────────────
+	// Chaos bakes body scale at simulation start and does not handle non-uniform
+	// scale on convex/sphyl bodies — they interpenetrate and blow up.
+	// UkdCrushTransitionComponent's Z squash-stretch produces exactly that
+	// mid-morph. UkdDeathComponent aborts the transition before calling us; this
+	// is the last line of defence.
 	FVector Scale = Mesh->GetRelativeScale3D();
 	if (!Scale.AllComponentsEqual(0.001f))
 	{
@@ -163,16 +119,16 @@ void UkdRagdollComponent::EnterRagdoll(const FVector& InheritedVelocity)
 		Mesh->SetRelativeScale3D(Scale);
 	}
 
-	// ── 2. Seize mesh-transform authority from the cosmetic drivers ───────────
-	//        UkdJumpSquashComponent self-suspends on State.Dead (already applied
-	//        by UkdDeathComponent before this call). UkdPlayerHoverComponent has
-	//        no ASC by design — it is told explicitly.
-	if (UkdPlayerHoverComponent* Hover = CachedPlayer->HoverComponent)
+	// ── 2. Seize mesh-transform authority from the cosmetic drivers ──────────
+	// UkdJumpSquashComponent self-suspends on State.Dead (already applied by
+	// UkdDeathComponent before this call). UkdPlayerHoverComponent has no ASC by
+	// design, and writes mesh relative location EVERY frame — it is told directly.
+	if (CachedHover)
 	{
-		Hover->SetSuspended(true);
+		CachedHover->SetSuspended(true);
 	}
 
-	// ── 3. Hand off the capsule ───────────────────────────────────────────────
+	// ── 3. Hand off the capsule ──────────────────────────────────────────────
 	if (UCharacterMovementComponent* MC = CachedPlayer->GetCharacterMovement())
 	{
 		MC->StopMovementImmediately();
@@ -181,80 +137,51 @@ void UkdRagdollComponent::EnterRagdoll(const FVector& InheritedVelocity)
 
 	if (UCapsuleComponent* Capsule = CachedPlayer->GetCapsuleComponent())
 	{
-		CachedCapsuleHalfHeight = Capsule->GetScaledCapsuleHalfHeight();
 		SavedCapsuleCollision = Capsule->GetCollisionEnabled();
 		// Off, or the capsule ploughs the corpse around and blocks its own fall.
 		Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 
-	// ── 4. Resolve the landing spot ONCE. No solver, no per-frame collision.
-	const FName  Bone = ResolvePelvisBone(Mesh);
-	const FVector Origin = Mesh->GetComponentLocation();
-	const float   Reach = GetAuthoredBodyReach(Mesh, Bone);
+	// ── 4. Collision — inherit the CAPSULE's contract, do not invent one ──────
+	// The capsule has navigated this world correctly all game: floors block it,
+	// hazards OVERLAP it — and that overlap is literally what fires
+	// HandlePlayerDeath. Two earlier versions got this wrong in instructive ways:
+	//   • The engine "Ragdoll" preset switches object type to PhysicsBody. Floors
+	//     that only block Pawn then swallow the corpse.  → fall-through.
+	//   • SetCollisionResponseToAllChannels(ECR_Block) made the corpse block the
+	//     hazard it was standing inside. Chaos ejects it from an angled cone face;
+	//     an angled contact is torque.  → spin.
+	SavedMeshRelScale = Scale;
+	SavedMeshProfile = Mesh->GetCollisionProfileName();
+	SavedMeshCameraResponse = Mesh->GetCollisionResponseToChannel(ECC_Camera);
 
-	FHitResult Hit;
-	FCollisionQueryParams P(SCENE_QUERY_STAT(kdDeathDrop), false, CachedPlayer);
-
-	// Trace on the CAPSULE's channel — the one that has demonstrably found this
-	// floor every frame the player has been standing on it.
-	const ECollisionChannel Ch = CachedPlayer->GetCapsuleComponent()
-		? CachedPlayer->GetCapsuleComponent()->GetCollisionObjectType() : ECC_Pawn;
-
-	DropStartLoc = Origin;
-
-	if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin - FVector(0, 0, 10000.f), Ch, P))
+	if (const UCapsuleComponent* Capsule = CachedPlayer->GetCapsuleComponent())
 	{
-		DropEndLoc = FVector(Origin.X, Origin.Y, Hit.ImpactPoint.Z + Reach);
-		UE_LOG(LogTemp, Log, TEXT("[kdDrop] Landing on '%s' at Z=%.1f (fall %.1fcm)"),
-			*GetNameSafe(Hit.GetActor()), DropEndLoc.Z, Origin.Z - DropEndLoc.Z);
+		Mesh->SetCollisionObjectType(Capsule->GetCollisionObjectType());
+		Mesh->SetCollisionResponseToChannels(Capsule->GetCollisionResponseToChannels());
 	}
-	else
+	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	Mesh->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);  // SpringArm probe
+	Mesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);  // shadow traces
+
+#if !UE_BUILD_SHIPPING
+	LogFloor(Mesh);   // BEFORE sim starts — captures the spawn condition
+#endif
+
+	// ── 5. Simulate ──────────────────────────────────────────────────────────
+	Mesh->SetSimulatePhysics(true);
+	Mesh->SetAllBodiesPhysicsBlendWeight(1.f);
+	Mesh->SetAllUseCCD(true);
+
+	FVector StartVel = InheritedVelocity * VelocityInheritance;
+	if (MaxInheritedSpeed > KINDA_SMALL_NUMBER)
 	{
-		// Void death: fall past the camera. Never "forever" — the fade owns the end.
-		DropEndLoc = Origin - FVector(0, 0, 1500.f);
-		UE_LOG(LogTemp, Log, TEXT("[kdDrop] No floor — falling into the void."));
+		StartVel = StartVel.GetClampedToMaxSize(MaxInheritedSpeed);
 	}
-
-	DropElapsed = 0.f;
-	SettleElapsed = 0.f;
-	bLanded = false;
-
-	bRagdolling = true;
-	SetComponentTickEnabled(true);
-
-	// ── 5. Motion ─────────────────────────────────────────────────────────────
-	if (bDeadDrop)
-	{
-		// Nothing but gravity. No inherited velocity, no pop, no spin — the two
-		// things that were turning a 0.008x-volume body into a projectile.
-		Mesh->SetAllPhysicsLinearVelocity(FVector::ZeroVector);
-		Mesh->SetAllPhysicsAngularVelocityInRadians(FVector::ZeroVector);
-	}
-	else
-	{
-		FVector StartVel = InheritedVelocity * VelocityInheritance;
-		if (MaxInheritedSpeed > KINDA_SMALL_NUMBER)
-		{
-			StartVel = StartVel.GetClampedToMaxSize(MaxInheritedSpeed);
-		}
-		Mesh->SetAllPhysicsLinearVelocity(StartVel);
-		Mesh->SetAllPhysicsAngularVelocityInRadians(FVector::ZeroVector);
-
-		// CCD only matters when the body is actually moving fast. In dead-drop it
-		// costs solver time for nothing, and CCD on an already-penetrating body
-		// can sweep it somewhere arbitrary — which is the "flies through the map".
-		Mesh->SetAllUseCCD(true);
-
-		if (DeathPopSpeed > KINDA_SMALL_NUMBER)
-		{
-			Mesh->AddImpulse(FVector(0.f, 0.f, DeathPopSpeed),
-				ResolvePelvisBone(Mesh), /*bVelChange=*/true);
-		}
-	}
-
+	Mesh->SetAllPhysicsLinearVelocity(StartVel);
 	Mesh->WakeAllRigidBodies();
 
-	// ── 6. Crush-plane lock ───────────────────────────────────────────────────
+	// ── 6. Crush-plane lock ──────────────────────────────────────────────────
 	bPlaneLockActive = false;
 	if (bLockToCrushPlane)
 	{
@@ -269,6 +196,10 @@ void UkdRagdollComponent::EnterRagdoll(const FVector& InheritedVelocity)
 
 	bRagdolling = true;
 	SetComponentTickEnabled(NeedsTick());
+
+#if !UE_BUILD_SHIPPING
+	LogRig(Mesh);
+#endif
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -294,8 +225,8 @@ void UkdRagdollComponent::ExitRagdoll()
 
 		// Physics drove the COMPONENT transform, not just the bones — the mesh's
 		// relative transform to the capsule is now garbage. Nothing else in the
-		// codebase re-derives it, so restoring the BeginPlay baseline here is
-		// mandatory or the mesh is permanently offset after the first death.
+		// codebase re-derives it, so restoring the baseline here is mandatory or
+		// the mesh is permanently offset after the first death.
 		if (UCapsuleComponent* Capsule = CachedPlayer->GetCapsuleComponent())
 		{
 			if (Mesh->GetAttachParent() != Capsule)
@@ -327,11 +258,10 @@ void UkdRagdollComponent::ExitRagdoll()
 		MC->SetMovementMode(MOVE_Falling);
 	}
 
-	// Release the cosmetic drivers. JumpSquash resumes on its own when State.Dead
-	// is cleared in UkdDeathComponent::ClearAllGASDeathState.
-	if (UkdPlayerHoverComponent* Hover = CachedPlayer->HoverComponent)
+	// JumpSquash resumes on its own when State.Dead clears in ClearAllGASDeathState.
+	if (CachedHover)
 	{
-		Hover->SetSuspended(false);
+		CachedHover->SetSuspended(false);
 	}
 
 #if !UE_BUILD_SHIPPING
@@ -339,39 +269,8 @@ void UkdRagdollComponent::ExitRagdoll()
 #endif
 }
 
-
-#if !UE_BUILD_SHIPPING
-UkdRagdollComponent::FkdRagdollPlacement
-UkdRagdollComponent::ProbePlacement(USkeletalMeshComponent* Mesh) const
-{
-	FkdRagdollPlacement Out;
-	if (!Mesh || !GetWorld() || !CachedPlayer) return Out;
-
-	const FName  Bone = ResolvePelvisBone(Mesh);
-	const FVector Origin = (Bone != NAME_None)
-		? Mesh->GetBoneLocation(Bone, EBoneSpaces::WorldSpace)   // where the body WILL be
-		: Mesh->GetComponentLocation();
-
-	const float Reach = GetAuthoredBodyReach(Mesh, Bone);
-
-	FHitResult Hit;
-	FCollisionQueryParams P(SCENE_QUERY_STAT(kdRagdollProbe), false, CachedPlayer);
-	const ECollisionChannel Ch = Mesh->GetCollisionObjectType();
-
-	if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin - FVector(0, 0, 5000.f), Ch, P))
-	{
-		return Out;   // airborne over the void — nothing to lift out of
-	}
-
-	Out.bFoundFloor = true;
-	Out.FloorName = GetNameSafe(Hit.GetActor());
-	Out.Penetration = FMath::Max(0.f, Hit.ImpactPoint.Z - (Origin.Z - Reach));
-	return Out;
-}
-#endif
-
 // ─────────────────────────────────────────────────────────────────────────────
-// TickComponent — only alive between EnterRagdoll and ExitRagdoll.
+// TickComponent — cosmetics only. Camera follow and plane lock.
 // ─────────────────────────────────────────────────────────────────────────────
 void UkdRagdollComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	FActorComponentTickFunction* ThisTickFunction)
@@ -379,32 +278,139 @@ void UkdRagdollComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	if (!bRagdolling || !IsValid(CachedPlayer)) { SetComponentTickEnabled(false); return; }
+
 	USkeletalMeshComponent* Mesh = CachedPlayer->GetMesh();
 	if (!IsValid(Mesh)) { SetComponentTickEnabled(false); return; }
 
-	if (!bLanded)
+	// ── Hold the corpse on the shadow plane ──────────────────────────────────
+	// Velocity projection only — snapping body transforms would fight the solver.
+	if (bPlaneLockActive)
 	{
-		DropElapsed += DeltaTime;
-		const float t = FMath::Clamp(DropElapsed / DropDuration, 0.f, 1.f);
+		for (FBodyInstance* Body : Mesh->Bodies)
+		{
+			// bSimulatePhysics, not IsInstanceSimulatingPhysics(): that inline
+			// forwards to FBodyInstanceCore::ShouldInstanceSimulatingPhysics(),
+			// which is PHYSICSCORE_API — visible to the compiler, not linked to
+			// this module. The bitfield read is header-only.
+			if (!Body || !Body->bSimulatePhysics) continue;
 
-		// t² = constant acceleration. Reads as gravity because it IS gravity's curve.
-		Mesh->SetWorldLocation(FMath::Lerp(DropStartLoc, DropEndLoc, t * t));
+			const FVector V = Body->GetUnrealWorldVelocity();
+			Body->SetLinearVelocity(FVector::VectorPlaneProject(V, LockedCollapseNormal), false);
+		}
+	}
 
-		if (t >= 1.f) { bLanded = true; }
+	// ── Keep the camera on the body ──────────────────────────────────────────
+	// Move the SPRING ARM. Never the actor.
+	//
+	// The original version called SetActorLocation(..., ETeleportType::TeleportPhysics).
+	// TeleportPhysics is precisely the flag that makes UpdateKinematicBonesToAnim
+	// force-move bodies EVEN WHEN SIMULATING — so every frame the corpse was
+	// teleported onto the capsule, the solver differenced that jump against its
+	// own integration and turned the delta into velocity. It fed back on itself:
+	// capsule chases pelvis → teleport moves pelvis → capsule chases again.
+	//
+	// The SpringArm is not a physics body, and UkdCrushTransitionComponent writes
+	// only its rotation and TargetArmLength — never its location.
+	if (bCameraFollowsRagdoll)
+	{
+		if (USpringArmComponent* Arm = CachedPlayer->SpringArm)
+		{
+			const FName Bone = ResolvePelvisBone(Mesh);
+			if (Bone != NAME_None)
+			{
+				const FVector Pelvis = Mesh->GetBoneLocation(Bone, EBoneSpaces::WorldSpace);
+				if (!Pelvis.ContainsNaN())
+				{
+					// bEnableCameraLag (10.0 on BP_Player) smooths the follow for free.
+					Arm->SetWorldLocation(Pelvis);
+				}
+			}
+		}
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Diagnostics
+// ─────────────────────────────────────────────────────────────────────────────
+#if !UE_BUILD_SHIPPING
+
+void UkdRagdollComponent::LogRig(USkeletalMeshComponent* Mesh) const
+{
+	if (!Mesh) return;
+
+	const int32 Bodies = Mesh->Bodies.Num();
+	const int32 Constraints = Mesh->Constraints.Num();
+	const bool  bSim = Mesh->IsSimulatingPhysics();
+
+	// Warning verbosity: yellow and unmissable. These four facts decide whether a
+	// bad-looking death is a code problem or an asset problem, and every previous
+	// debugging round was lost to not having them in one line.
+	UE_LOG(LogTemp, Warning,
+		TEXT("[kdRagdoll] RIG | asset=%s  bones=%d  bodies=%d  constraints=%d  mass=%.2fkg  scale=%.2f  sim=%s%s"),
+		*GetNameSafe(Mesh->GetPhysicsAsset()),
+		Mesh->GetNumBones(), Bodies, Constraints,
+		Mesh->GetMass(), Mesh->GetComponentScale().X,
+		bSim ? TEXT("YES") : TEXT("NO — body Physics Type is probably Kinematic"),
+		(Constraints == 0)
+		? TEXT("   <-- 0 CONSTRAINTS: this is a rigid marble, not a ragdoll. It CANNOT flop. Rig the mesh.")
+		: TEXT(""));
+}
+
+void UkdRagdollComponent::LogFloor(USkeletalMeshComponent* Mesh) const
+{
+	if (!Mesh || !GetWorld() || !CachedPlayer) return;
+
+	const FVector Origin = Mesh->GetComponentLocation();
+	const ECollisionChannel Ch = Mesh->GetCollisionObjectType();
+
+	FHitResult Hit;
+	FCollisionQueryParams P(SCENE_QUERY_STAT(kdRagdollFloorProbe), /*bTraceComplex=*/false, CachedPlayer);
+
+	if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin - FVector(0.f, 0.f, 5000.f), Ch, P))
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[kdRagdoll] FLOOR | nothing below within 50m on the corpse's channel — void death."));
 		return;
 	}
 
-	// ── Impact squash → settle. This is the "dead body" read: the blob hits,
-	//    flattens, and relaxes. One bone can't flop, but it can absolutely land
-	//    with weight — and weight is what you actually asked for.
-	SettleElapsed += DeltaTime;
-	const float s = FMath::Clamp(SettleElapsed / FMath::Max(SettleDuration, KINDA_SMALL_NUMBER), 0.f, 1.f);
-	const float Amount = ImpactSquash * (1.f - s) * (1.f - s);   // decays out
+	// The question a line trace CANNOT answer on its own:
+	// rigid bodies collide against SIMPLE collision only, while line traces also
+	// hit complex (per-triangle) collision. So a floor with no simple primitives,
+	// or one set to UseComplexAsSimple, reports a clean BLOCK to a trace and is
+	// completely invisible to the corpse. That is a fall-through no amount of
+	// ragdoll tuning can ever fix, and it is not visible from the Details panel.
+	const UStaticMeshComponent* SMC = Cast<UStaticMeshComponent>(Hit.GetComponent());
+	const UStaticMesh* SM = SMC ? SMC->GetStaticMesh() : nullptr;
+	const UBodySetup* BS = SM ? SM->GetBodySetup() : nullptr;
 
-	Mesh->SetRelativeScale3D(FVector(
-		SavedMeshRelScale.X * (1.f + Amount * 0.5f),
-		SavedMeshRelScale.Y * (1.f + Amount * 0.5f),
-		SavedMeshRelScale.Z * (1.f - Amount)));
+	if (!BS)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[kdRagdoll] FLOOR | '%s' — not a static mesh, skipping simple-collision check."),
+			*GetNameSafe(Hit.GetActor()));
+		return;
+	}
 
-	if (s >= 1.f) { SetComponentTickEnabled(false); }
+	const int32 SimpleElems = BS->AggGeom.GetElementCount();
+	const bool  bComplexAsSimple = (BS->CollisionTraceFlag == CTF_UseComplexAsSimple);
+	const bool  bBroken = (SimpleElems == 0) || bComplexAsSimple;
+
+	// UE_LOG needs a compile-time verbosity, so the branch is on the call, not the arg.
+	if (bBroken)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[kdRagdoll] FLOOR | actor='%s'  mesh='%s'  simplePrimitives=%d  complexity=%s"
+				"   <-- NO SIMPLE COLLISION: rigid bodies pass straight through this. "
+				"Fix: open the mesh -> Collision -> Add Box Simplified Collision, and set "
+				"Collision Complexity = Default."),
+			*GetNameSafe(Hit.GetActor()), *GetNameSafe(SM), SimpleElems,
+			bComplexAsSimple ? TEXT("UseComplexAsSimple") : TEXT("Default"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log,
+			TEXT("[kdRagdoll] FLOOR | actor='%s'  mesh='%s'  simplePrimitives=%d  complexity=Default   (ok)"),
+			*GetNameSafe(Hit.GetActor()), *GetNameSafe(SM), SimpleElems);
+	}
 }
+
+#endif // !UE_BUILD_SHIPPING
