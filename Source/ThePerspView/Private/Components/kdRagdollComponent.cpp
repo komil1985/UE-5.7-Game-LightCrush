@@ -171,13 +171,19 @@ void UkdRagdollComponent::EnterRagdoll(const FVector& InheritedVelocity)
 	// ── 5. Simulate ──────────────────────────────────────────────────────────
 	Mesh->SetSimulatePhysics(true);
 	Mesh->SetAllBodiesPhysicsBlendWeight(1.f);
-	Mesh->SetAllUseCCD(true);
 
-	FVector StartVel = InheritedVelocity * VelocityInheritance;
-	if (MaxInheritedSpeed > KINDA_SMALL_NUMBER)
-	{
-		StartVel = StartVel.GetClampedToMaxSize(MaxInheritedSpeed);
-	}
+	// CCD OFF. A dead-drop corpse moves slowly, so CCD buys nothing — and CCD on
+	// a body that spawns penetrating the hazard cone sweeps it to an arbitrary
+	// point. That was half the fly-away.
+	Mesh->SetAllUseCCD(false);
+
+	// Zero inherited velocity: you asked for "drop dead on the ground," and that
+	// means gravity only. Handing a light body the player's run speed toward a
+	// cone it's standing against is exactly the wrong input. VelocityInheritance
+	// stays on the component if you ever want kinetic deaths on a clear surface.
+	const FVector StartVel = (VelocityInheritance > KINDA_SMALL_NUMBER)
+		? (InheritedVelocity * VelocityInheritance).GetClampedToMaxSize(MaxInheritedSpeed)
+		: FVector::ZeroVector;
 	Mesh->SetAllPhysicsLinearVelocity(StartVel);
 	Mesh->WakeAllRigidBodies();
 
