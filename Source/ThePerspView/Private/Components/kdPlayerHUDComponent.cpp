@@ -232,6 +232,10 @@ void UkdPlayerHUDComponent::OnDeadTagChanged(const FGameplayTag CallbackTag, int
         // Tag added → player is dead → lock the bars at their last values.
         FreezeUpdates();
     }
+    else
+    {
+        UnfreezeUpdates();
+    }
     // NewCount == 0 (tag removed, e.g. on respawn) is intentionally NOT auto-unfrozen
     // here — a fresh possession runs InitializeForPawn(), which resets bUpdatesFrozen.
     // If you respawn WITHOUT re-possessing, add: else { UnfreezeUpdates(); }
