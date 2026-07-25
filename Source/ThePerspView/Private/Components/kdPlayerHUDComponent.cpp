@@ -9,6 +9,7 @@
 #include "GameFramework/Pawn.h"
 #include "AbilitySystem/kdAttributeSet.h"
 #include "GameplayTags/kdGameplayTags.h"
+#include "UI/Widget/kdCrushRegisterWidget.h"
 
 
 UkdPlayerHUDComponent::UkdPlayerHUDComponent()
@@ -71,6 +72,20 @@ void UkdPlayerHUDComponent::EnsureWidget()
     {
         HUDWidget->AddToViewport(ViewportZOrder);
     }
+
+    if (!RegisterWidget && RegisterWidgetClass)
+    {
+        if (PC)
+        {
+            RegisterWidget = CreateWidget<UkdCrushRegisterWidget>(PC, RegisterWidgetClass);
+            if (RegisterWidget)
+            {
+                // One above the vitals HUD: the register sits over the crosshair line
+                // and must not be occluded by the bars.
+                RegisterWidget->AddToViewport(ViewportZOrder + 1);
+            }
+        }
+    }
 }
 
 void UkdPlayerHUDComponent::DestroyWidget()
@@ -80,6 +95,12 @@ void UkdPlayerHUDComponent::DestroyWidget()
         HUDWidget->RemoveFromParent();   // UE5: RemoveFromViewport is deprecated
     }
     HUDWidget = nullptr;
+
+    if (RegisterWidget)
+    {
+        RegisterWidget->RemoveFromParent();
+        RegisterWidget = nullptr;
+    }
 }
 
 void UkdPlayerHUDComponent::SetHUDVisible(bool bVisible)

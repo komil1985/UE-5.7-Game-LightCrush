@@ -35,6 +35,7 @@
 #include "Components/kdPlayerHUDComponent.h"
 #include "NiagaraComponent.h"
 #include "Components/kdRagdollComponent.h"
+#include "Components/kdCrushAlignmentComponent.h"
 
 
 
@@ -91,6 +92,7 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	LightHealthComponent = CreateDefaultSubobject<UkdLightHealthComponent>(TEXT("LightHealthComponent"));
 	JumpSquashComponent = CreateDefaultSubobject<UkdJumpSquashComponent>(TEXT("JumpSquashComponent"));
 	RagdollComponent = CreateDefaultSubobject<UkdRagdollComponent>(TEXT("RagdollComponent"));
+	CrushAlignmentComponent = CreateDefaultSubobject<UkdCrushAlignmentComponent>(TEXT("CrushAlignmentComponent"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 	/*	--	Default Values	--	*/
@@ -149,11 +151,25 @@ void AkdMyPlayer::HandleLevelComplete()
 			HUD->FreezeUpdates();
 		}
 	}
+
+	if (CrushAlignmentComponent) CrushAlignmentComponent->CancelPendingIntent();
 }
 
 void AkdMyPlayer::BeginPlay()
 {
 	Super::BeginPlay();
+
+
+	// A BP_Player saved before this component existed will not have the native
+	// subobject; and a designer-added instance will not populate the pointer.
+	// FindComponentByClass covers both without forcing a BP re-drop.
+	if (!CrushAlignmentComponent)
+	{
+		CrushAlignmentComponent = FindComponentByClass<UkdCrushAlignmentComponent>();
+		UE_LOG(LogTemp, Warning,
+			TEXT("AkdMyPlayer: CrushAlignmentComponent recovered via FindComponentByClass (%s)."),
+			CrushAlignmentComponent ? TEXT("found") : TEXT("STILL NULL"));
+	}
 
 	// Binding Transition Finished Event
 	if (CrushTransitionComponent) CrushTransitionComponent->OnTransitionComplete.AddDynamic(this, &AkdMyPlayer::OnTransitionFinished);
@@ -193,36 +209,10 @@ void AkdMyPlayer::BeginPlay()
 		JumpSquashComponent->SetTentacleComponents({ Tentacle_1, Tentacle_2, Tentacle_3, Tentacle_4 });
 	}
 
-	// ── Light Health Widget — created as a screen-space viewport widget ───────
-	//if (LightHealthWidgetClass)
-	//{
-	//	APlayerController* PC = Cast<APlayerController>(GetController());
-	//	if (!PC) PC = GetWorld()->GetFirstPlayerController();
-
-	//	LightHealthWidget = CreateWidget<UkdLightHealthWidget>(PC, LightHealthWidgetClass);
-	//	if (LightHealthWidget)
-	//	{
-	//		LightHealthWidget->AddToViewport(5);		// ZOrder 5: above gameplay, below menus
-	//		LightHealthWidget->SetVisibility(ESlateVisibility::Hidden);		// hidden until CrushMode
-	//		LightHealthWidget->InitializeWithASC(AbilitySystemComponent, LightHealthComponent);
-
-	//		UE_LOG(LogTemp, Log, TEXT("LightHealthWidget: Created and added to viewport."));
-	//	}
-	//	else
-	//	{
-	//		UE_LOG(LogTemp, Error,
-	//			TEXT("LightHealthWidget: CreateWidget FAILED. Ensure WBP_LightHealth parent class is UkdLightHealthWidget."));
-	//	}
-	//}
-	//else
-	//{
-	//	UE_LOG(LogTemp, Warning, TEXT("LightHealthWidgetClass not assigned in BP_Player Details panel!"));
-	//}
-
 	// ── Light Health Widget — screen-space viewport widget ────────────────────
-// Created here (not in the ctor) because it needs a valid PlayerController and
-// an already-initialised ASC. Hidden until Crush entry; shown/hidden by
-// AkdMyPlayer::OnCrushModeTagChanged.
+	// Created here (not in the ctor) because it needs a valid PlayerController and
+	// an already-initialised ASC. Hidden until Crush entry; shown/hidden by
+	// AkdMyPlayer::OnCrushModeTagChanged.
 	if (LightHealthWidgetClass)
 	{
 		// Prefer the C++ subobject; fall back to a BP-added instance so init
@@ -278,13 +268,35 @@ void AkdMyPlayer::BeginPlay()
 
 bool AkdMyPlayer::IsDead() const
 {
-	return AbilitySystemComponent
-		&& AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_Dead);
+	return AbilitySystemComponent && AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_Dead);
 }
 
 void AkdMyPlayer::RequestCrushToggle()
 {
 	if (!AbilitySystemComponent || IsDead()) return;   // ← add IsDead()
+
+	// ── Plate Register gate — ENTER path only ────────────────────────────────
+	// Exit needs no camera alignment, is used by fall-recovery / death, and must
+	// never be delayed or buffered. Only intercept while we are still in 3D.
+	if (CrushAlignmentComponent && !AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+	{
+		switch (CrushAlignmentComponent->RequestCrushIntent())
+		{
+		case EkdCrushIntentResult::Buffered:
+			// The component owns this press now; it will re-enter this function
+			// the frame alignment resolves. Do NOT activate anything here.
+			return;
+
+		case EkdCrushIntentResult::Denied:
+			// Genuinely off-axis. The denial cue has already fired.
+			return;
+
+		case EkdCrushIntentResult::Immediate:
+		case EkdCrushIntentResult::NotApplicable:
+		default:
+			break;   // fall through to the unmodified ability path below
+		}
+	}
 
 	// Find the CrushToggle ability class in the DefaultAbilities array
 	for (TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
@@ -493,6 +505,7 @@ void AkdMyPlayer::OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 Ne
 	if (IsDead())
 	{
 		return;
+		if (CrushAlignmentComponent) CrushAlignmentComponent->CancelPendingIntent();
 	}
 
 	// ── Transition guard ──────────────────────────────────────────────────────

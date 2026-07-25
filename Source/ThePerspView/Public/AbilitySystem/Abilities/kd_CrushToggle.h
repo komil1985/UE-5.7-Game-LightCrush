@@ -18,6 +18,10 @@ class THEPERSPVIEW_API Ukd_CrushToggle : public UGameplayAbility
 public:
 	Ukd_CrushToggle();
 
+    /** Read by UkdCrushAlignmentComponent so the HUD readout and the assist arc
+    *  are always derived from THIS value — never a duplicated constant. */
+    FORCEINLINE float GetAlignmentToleranceDegrees() const { return CrushAlignmentToleranceDegrees; }
+
 protected:
     virtual void ActivateAbility(
         const FGameplayAbilitySpecHandle Handle,

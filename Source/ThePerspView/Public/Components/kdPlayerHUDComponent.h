@@ -11,6 +11,7 @@ class UkdHUDWidget;
 class UAbilitySystemComponent;
 class APlayerController;
 class APawn;
+class UkdCrushRegisterWidget;
 
 /**
  * UkdPlayerHUDComponent
@@ -49,6 +50,13 @@ public:
     /** WBP class to instantiate. Set in the controller constructor (see wiring below). */
     UPROPERTY(EditAnywhere, Category = "kd|HUD")
     TSubclassOf<UkdHUDWidget> HUDWidgetClass = nullptr;
+
+    /** WBP CrushRegister. Optional — leave unset to disable the readout entirely. */
+    UPROPERTY(EditAnywhere, Category = "kd|HUD")
+    TSubclassOf<UkdCrushRegisterWidget> RegisterWidgetClass = nullptr;
+
+    UPROPERTY(Transient)
+    TObjectPtr<UkdCrushRegisterWidget> RegisterWidget = nullptr;
 
     void FreezeUpdates();
     void UnfreezeUpdates();

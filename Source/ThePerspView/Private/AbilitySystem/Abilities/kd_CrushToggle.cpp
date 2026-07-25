@@ -96,15 +96,19 @@ void Ukd_CrushToggle::ActivateAbility(const FGameplayAbilitySpecHandle Handle, c
 
         if (CrushDir == EkdCrushDirection::None)
         {
-            // Off-axis — abort cleanly.  Do NOT add State_Transitioning.
-            // Route a denied cue through GFC here when you have one wired up:
-            //   GFC->OnCrushDirectionDenied(AlignmentError);
-            UE_LOG(LogTemp, Log,
-                TEXT("CrushToggle: Crush DENIED — yaw not aligned to any cardinal "
-                    "(error %.1f° > limit %.1f°)."),
+            // Should be unreachable once UkdCrushAlignmentComponent is gating entry;
+            // if this fires, the register and the ability have desynced — investigate.
+            UE_LOG(LogTemp, Warning,
+                TEXT("CrushToggle: Crush DENIED at ability level — error %.1f > limit %.1f. "
+                    "Alignment component should have caught this."),
                 AlignmentError, CrushAlignmentToleranceDegrees);
 
-            EndAbility(Handle, ActorInfo, ActivationInfo, /*bReplicate*/ true, /*bWasCancelled*/ true);
+            if (UkdGameFeedbackComponent* GFC = Player->GetGameFeedbackComponent())
+            {
+                GFC->NotifyCrushDenied();
+            }
+
+            EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
             return;
         }
         // Aligned — publish the resolved direction so every axis-aware system
