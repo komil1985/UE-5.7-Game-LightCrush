@@ -11,7 +11,7 @@
 #include "Misc/PackageName.h"
 
 
-const FString UkdGameInstance::SaveSlotName = TEXT("KD_Save_00");
+const FString UkdGameInstance::SaveSlotName = TEXT("LightCrush_Save_00");
 
 
 UkdGameInstance::UkdGameInstance()
@@ -23,7 +23,12 @@ UkdGameInstance::UkdGameInstance()
         FName("L_Level_02"),
         FName("L_Level_03"),
         FName("L_Level_04"),
-        FName("L_Level_05")
+        FName("L_Level_05"),
+        FName("L_Level_06"),
+        FName("L_Level_07"),
+        FName("L_Level_08"),
+        FName("L_Level_09"),
+        FName("L_Level_10")
         });
 }
 

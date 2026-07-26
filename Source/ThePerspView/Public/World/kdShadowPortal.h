@@ -8,6 +8,7 @@
 
 class USphereComponent;
 class UStaticMeshComponent;
+class UkdPortalVortexComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdShadowPortal : public AActor
 {
@@ -45,8 +46,8 @@ public:
 
 	// ── Blueprint Hooks ───────────────────────────────────────────────────────
 
-/** Fires on the SOURCE portal the moment the player teleports.
- *  Use for Niagara burst, warp sound, camera shake. */
+	/** Fires on the SOURCE portal the moment the player teleports.
+	*  Use for Niagara burst, warp sound, camera shake. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Portal")
 	void BP_OnTeleportUsed(AkdMyPlayer* TeleportedPlayer);
 
@@ -73,10 +74,17 @@ public:
 
 	bool bCanTeleport = true;
 
+	void OnPlayerArrived();   // called by the player's teleport component on arrival
+
+	UkdPortalVortexComponent* GetVortex() const { return Vortex; }
+
 protected:
 	virtual void BeginPlay() override;
 
 private:
+	UPROPERTY(VisibleAnywhere, Category = "Portal")
+	TObjectPtr<UkdPortalVortexComponent> Vortex;
+
 	// ── Crush Mode Visibility ─────────────────────────────────────────────────
 
 	/**

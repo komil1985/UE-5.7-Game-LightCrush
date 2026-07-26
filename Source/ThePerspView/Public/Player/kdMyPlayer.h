@@ -40,6 +40,7 @@ class UkdJumpSquashComponent;
 class UNiagaraComponent;
 class UkdRagdollComponent;
 class UkdCrushAlignmentComponent;
+class UkdPortalTeleportComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdMyPlayer : public ACharacter, public IAbilitySystemInterface
 {
@@ -109,6 +110,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UkdCrushAlignmentComponent> CrushAlignmentComponent;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Components")
+	TObjectPtr<UkdPortalTeleportComponent> PortalTeleportComponent;
 	/*--------------------------------------------------------------------------*/
 
 	// -- Low Stamina Warning Widget -------------------------------------------- //

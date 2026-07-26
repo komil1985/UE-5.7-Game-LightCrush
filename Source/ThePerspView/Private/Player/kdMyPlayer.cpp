@@ -36,6 +36,7 @@
 #include "NiagaraComponent.h"
 #include "Components/kdRagdollComponent.h"
 #include "Components/kdCrushAlignmentComponent.h"
+#include "Components/kdPortalTeleportComponent.h"
 
 
 
@@ -93,6 +94,7 @@ AkdMyPlayer::AkdMyPlayer(const FObjectInitializer& ObjectInitializer)
 	JumpSquashComponent = CreateDefaultSubobject<UkdJumpSquashComponent>(TEXT("JumpSquashComponent"));
 	RagdollComponent = CreateDefaultSubobject<UkdRagdollComponent>(TEXT("RagdollComponent"));
 	CrushAlignmentComponent = CreateDefaultSubobject<UkdCrushAlignmentComponent>(TEXT("CrushAlignmentComponent"));
+	PortalTeleportComponent = CreateDefaultSubobject<UkdPortalTeleportComponent>(TEXT("PortalTeleportComponent"));
 	/*-----------------------------------------------------------------------------------------------------------*/
 
 	/*	--	Default Values	--	*/
