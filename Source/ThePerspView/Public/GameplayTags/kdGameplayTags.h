@@ -40,6 +40,7 @@ public:
 	FGameplayTag State_EnemyContact;
 	FGameplayTag State_InLight;
 	FGameplayTag State_Dead;
+	FGameplayTag State_Shaded;
 
 	//Effects
 	FGameplayTag Effect_ShadowDrain;

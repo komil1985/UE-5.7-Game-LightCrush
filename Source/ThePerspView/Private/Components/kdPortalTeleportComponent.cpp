@@ -9,6 +9,9 @@
 #include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Kismet/GameplayStatics.h"
+#include "AbilitySystemComponent.h"
+#include "GameplayTags/kdGameplayTags.h"
+#include "Crush/kdCrushDirectionLibrary.h"
 
 UkdPortalTeleportComponent::UkdPortalTeleportComponent()
 {
@@ -92,14 +95,30 @@ void UkdPortalTeleportComponent::HandleCovered()
 	CachedPlayer->SetActorLocation(
 		PendingExitLocation, false, nullptr, ETeleportType::TeleportPhysics);
 
-	// Keep in-plane momentum; drop the collapse-axis component so the exit is clean.
+	// ── Mode-aware exit velocity ────────────────────────────────────────────────
+	// 2D Crush Mode: strip the ACTIVE crush direction's collapse normal so we
+	//   never inject off-plane motion. Reading the basis (not hardcoding X) keeps
+	//   this correct for every cardinal — a Y-collapse must not have its X zeroed.
+	// Full 3D: there is no collapsed axis — preserve momentum verbatim so a
+	//   shadow-gated 3D portal carries the player's speed through the gate.
 	if (UCharacterMovementComponent* MC = CachedPlayer->GetCharacterMovement())
 	{
 		FVector V = MC->Velocity;
+
 		if (bZeroCollapseAxisVelocity)
 		{
-			V.X = 0.f;
+			if (UAbilitySystemComponent* ASC = CachedPlayer->GetAbilitySystemComponent())
+			{
+				if (ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+				{
+					const FVector CollapseN =
+						UkdCrushDirectionLibrary::MakeCrushBasis(
+							CachedPlayer->GetActiveCrushDirection()).CollapseNormal;
+					V = FVector::VectorPlaneProject(V, CollapseN);
+				}
+			}
 		}
+
 		MC->Velocity = V;
 	}
 

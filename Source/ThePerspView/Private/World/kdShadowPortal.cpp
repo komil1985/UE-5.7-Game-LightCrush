@@ -29,8 +29,9 @@ AkdShadowPortal::AkdShadowPortal()
 
 	Vortex = CreateDefaultSubobject<UkdPortalVortexComponent>(TEXT("Vortex"));
 
-	// Portal starts completely hidden and inactive.
-	// SetPortalActive(true) is called when the player enters CrushMode.
+	// Portal starts hidden/inactive. BeginPlay resolves the correct initial
+	// state from the player's shadow tag (or forces it visible when the portal
+	// is configured to always show).
 	SetActorHiddenInGame(true);
 	SetActorEnableCollision(false);
 }
@@ -38,36 +39,43 @@ AkdShadowPortal::AkdShadowPortal()
 void AkdShadowPortal::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	TriggerSphere->OnComponentBeginOverlap.AddDynamic(this, &AkdShadowPortal::OnTriggerBeginOverlap);
 
-	// Find the local player and register a tag-change callback so the portal
-	// appears and disappears in sync with CrushMode — no polling needed.
 	AkdMyPlayer* Player = Cast<AkdMyPlayer>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
+	if (!Player) return;
 
-	if (Player)
+	UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent();
+	if (!ASC) return;
+
+	// Vortex needs the ASC + mesh regardless of reveal policy.
+	Vortex->InitializeForMesh(PortalMesh, ASC);
+
+	if (!bRevealOnlyInShadow)
 	{
-		UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent();
-		if (ASC)
-		{
-			ASC->RegisterGameplayTagEvent(FkdGameplayTags::Get().State_CrushMode,EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AkdShadowPortal::OnCrushModeTagChanged);
-
-			// Sync immediately in case the player is already in CrushMode
-			// (e.g. portal placed in a level that starts in 2D).
-			Vortex->InitializeForMesh(PortalMesh, ASC);
-
-			const bool bAlreadyCrushing = ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode);
-			SetPortalActive(bAlreadyCrushing);
-			if (bAlreadyCrushing) { Vortex->OnPortalShown(); }
-		}
+		// Always visible/interactive; the teleport path still checks State.Shaded.
+		SetPortalActive(true);
+		return;
 	}
+
+	// Reveal-in-shadow: track State.Shaded so the portal appears/disappears in
+	// sync with shadow — in BOTH 2D and 3D — with no polling.
+	ASC->RegisterGameplayTagEvent(
+		FkdGameplayTags::Get().State_Shaded,
+		EGameplayTagEventType::NewOrRemoved)
+		.AddUObject(this, &AkdShadowPortal::OnShadedTagChanged);
+
+	// Sync immediately in case the player already stands in shadow (e.g. portal
+	// placed where the level begins occluded). SetPortalActive drives the Vortex.
+	const bool bAlreadyShaded =
+		ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_Shaded);
+	SetPortalActive(bAlreadyShaded);
 }
 
-void AkdShadowPortal::OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+void AkdShadowPortal::OnShadedTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
 {
-	// ── Crush Mode Visibility ─────────────────────────────────────────────────────
-	// NewCount > 0  → CrushMode just became active   → show portal
-	// NewCount == 0 → CrushMode was just removed      → hide portal
+	// NewCount > 0  → player just became shaded → reveal portal
+	// NewCount == 0 → player left shadow          → hide portal
 	SetPortalActive(NewCount > 0);
 }
 
@@ -86,7 +94,7 @@ void AkdShadowPortal::SetPortalActive(bool bActive)
 	}
 
 #if !UE_BUILD_SHIPPING
-	UE_LOG(LogTemp, Log, TEXT("ShadowPortal [%s]: SetPortalActive=%d"),*GetName(), bActive);
+	UE_LOG(LogTemp, Log, TEXT("ShadowPortal [%s]: SetPortalActive=%d"), *GetName(), bActive);
 #endif
 }
 
@@ -100,24 +108,26 @@ void AkdShadowPortal::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedComp,
 	UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent();
 	if (!ASC) return;
 
-	// Portals are shadow-plane only
 	const FkdGameplayTags& StateTags = FkdGameplayTags::Get();
-	if (!ASC->HasMatchingGameplayTag(StateTags.State_CrushMode) || !ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
-	{
-		return;
-	}
+
+	// ── Gate: shadow-only, in BOTH 2D and 3D ───────────────────────────────────
+	// State.Shaded is the single authoritative "occluded from all lights" signal
+	// maintained by UkdCrushStateComponent regardless of dimension.
+	if (!ASC->HasMatchingGameplayTag(StateTags.State_Shaded)) return;
+
+	// Never teleport mid-crush-transition or while dead — both would fight other
+	// systems that are momentarily driving the pawn's transform/physics.
+	if (ASC->HasMatchingGameplayTag(StateTags.State_Transitioning)) return;
+	if (ASC->HasMatchingGameplayTag(StateTags.State_Dead)) return;
 
 	// ── Teleport ──────────────────────────────────────────────────────────────
 	// Place the player at the linked portal's location offset by ExitOffset
 	// (in the linked portal's local space, so the exit direction is always correct).
 	const FVector ExitWorldLocation = LinkedPortal->GetActorLocation() + LinkedPortal->GetActorRotation().RotateVector(LinkedPortal->ExitOffset);
 
-	// ETeleportType::TeleportPhysics: moves actor without triggering sweep collisions,
-	// which prevents the player from getting stuck in a wall mid-teleport.
-	//Player->SetActorLocation(ExitWorldLocation, false, nullptr, ETeleportType::TeleportPhysics);
-
-	// Hand the smooth move to the player. It fades, moves under cover, and calls
-	// LinkedPortal->OnPlayerArrived() at the covered moment for the exhale.
+	// Hand the smooth move to the player. It fades, moves under cover, applies
+	// mode-aware exit velocity, and calls LinkedPortal->OnPlayerArrived() at the
+	// covered moment for the exhale.
 	if (UkdPortalTeleportComponent* TC = Player->FindComponentByClass<UkdPortalTeleportComponent>())
 	{
 		if (TC->IsTeleporting()) { return; }        // guard double-triggers
@@ -126,10 +136,10 @@ void AkdShadowPortal::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedComp,
 	else
 	{
 		// Fallback: no component present → old instant snap so nothing breaks.
+		// Velocity is left untouched here; the polished path (TC) owns the
+		// mode-aware collapse-axis handling.
 		Player->SetActorLocation(ExitWorldLocation, false, nullptr, ETeleportType::TeleportPhysics);
 		if (LinkedPortal->GetVortex()) { LinkedPortal->GetVortex()->OnExitBloom(); }
-		UCharacterMovementComponent* MC = Player->GetCharacterMovement();
-		FVector V = MC->Velocity; V.X = 0.f; MC->Velocity = V;
 	}
 
 	BP_OnTeleportUsed(Player);
@@ -137,11 +147,9 @@ void AkdShadowPortal::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedComp,
 	if (Vortex) { Vortex->OnCollapse(); }   // source inhales
 	if (LinkedPortal && LinkedPortal->Vortex) { LinkedPortal->Vortex->OnExitBloom(); } // exit exhales
 
-	// Preserve momentum through the portal — keep Y/Z velocity, hard-zero X
-	UCharacterMovementComponent* MoveComp = Player->GetCharacterMovement();
-	FVector CarriedVelocity = MoveComp->Velocity;
-	CarriedVelocity.X = 0.f;
-	MoveComp->Velocity = CarriedVelocity;
+	// NOTE: the old redundant `CarriedVelocity.X = 0` block was removed here — it
+	// fought the teleport component (which re-applies velocity under cover) and
+	// hardcoded the 2D collapse axis. Velocity is now owned solely by the TC.
 
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("ShadowPortal: Teleported player to %s"), *ExitWorldLocation.ToString());

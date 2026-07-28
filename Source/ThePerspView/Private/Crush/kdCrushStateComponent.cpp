@@ -131,10 +131,124 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	// --- End stamina handling ---
 
 	//Shadow and gravity logic(only in crush mode)
+	//if (!bInCrushMode)
+	//{
+	//	// Ensure normal gravity and exit early and reset tag
+	//	auto* MoveComp = CachedOwner->GetCharacterMovement();
+	//	if (MoveComp->GravityScale != 1.0f)
+	//	{
+	//		MoveComp->GravityScale = 1.0f;
+	//		MoveComp->MaxWalkSpeed = 600.0f;
+	//	}
+	//	if (ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
+	//	{
+	//		ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
+	//	}
+	//	return;
+	//}
+
+	//// Refresh cached light direction every tick so rotating lights move shadows in real time
+	////if (DirectionalLightActor) CachedLightDirection = -DirectionalLightActor->GetActorForwardVector();
+
+	//// Adaptive interval based on movement speed
+	//const float DesiredInterval = bIsMoving ? ShadowCheckFrequencyMoving : ShadowCheckFrequency;
+	//TimeSinceLastShadowCheck += DeltaTime;
+	//if (TimeSinceLastShadowCheck < DesiredInterval) return;
+	//TimeSinceLastShadowCheck = 0.0f;
+
+	//// Perform shadow check
+	//bIsInShadow = IsStandingInShadow();
+
+	//
+	//// Apply physics changes based on shadow state
+	//UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
+	//if (bIsInShadow)
+	//{		
+	//	if (!ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
+	//	{
+	//		ASC->AddLooseGameplayTag(StateTags.State_InShadow);
+
+	//		// ENTER Shadow 2D movement, Switch to custom 2D shadow physics — gravity OFF, free vertical movement
+	//		MoveComp->SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_Shadow2D);
+	//		MoveComp->GravityScale = 0.0f;
+	//		MoveComp->MaxFlySpeed = ShadowMoveSpeed;
+	//		MoveComp->MaxWalkSpeed = ShadowMoveSpeed;
+	//	}
+	//}
+	//else
+	//{
+	//	if (ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
+	//	{
+	//		ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
+
+	//		// EXIT Shadow 2D movement (but still in crush mode)
+	//		MoveComp->SetMovementMode(MOVE_Walking);
+	//		MoveComp->MaxWalkSpeed = 600.0f;
+	//		MoveComp->GravityScale = 1.0f;
+	//	}
+	//}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// SHADOW OCCLUSION  (geometric truth — mode-agnostic)
+	// ─────────────────────────────────────────────────────────────────────────
+	// IsStandingInShadow() is a pure spatial query (line traces vs registered
+	// lights, no side effects). We run it in BOTH 3D and 2D and publish the
+	// result as State.Shaded so shadow-gated systems have one authoritative
+	// signal valid regardless of dimension.
+	//
+	// State.Shaded is ORTHOGONAL to State.InShadow — never merge them:
+	//   • State.Shaded   → "occluded from all lights" (2D or 3D). No physics.
+	//   • State.InShadow → the 2D shadow-plane PHYSICS state (Crush Mode only).
+	// World-color grading, light-health, and the level goal key off InShadow to
+	// mean "in the 2D indigo shadow world"; firing that in 3D would blue-tint
+	// the lit world and break the Heliograph identity.
+
+	auto* MoveComp = CachedOwner->GetCharacterMovement();
+
+	// Pay for tracing only when it can matter: always in Crush Mode; in 3D only
+	// when the level opted in. Empty light set => never shaded.
+	const bool bWantShadowQuery = (bInCrushMode || bTrackShadowInThreeD) && !RegisteredLights.IsEmpty();
+
+	if (bWantShadowQuery)
+	{
+		const float DesiredInterval = bIsMoving ? ShadowCheckFrequencyMoving : ShadowCheckFrequency;
+		TimeSinceLastShadowCheck += DeltaTime;
+		if (TimeSinceLastShadowCheck >= DesiredInterval)
+		{
+			TimeSinceLastShadowCheck = 0.0f;
+			bIsInShadow = IsStandingInShadow();
+
+			// Publish the mode-agnostic occlusion signal.
+			const bool bHasShaded = ASC->HasMatchingGameplayTag(StateTags.State_Shaded);
+			if (bIsInShadow && !bHasShaded)
+			{
+				ASC->AddLooseGameplayTag(StateTags.State_Shaded);
+			}
+			else if (!bIsInShadow && bHasShaded)
+			{
+				ASC->RemoveLooseGameplayTag(StateTags.State_Shaded);
+			}
+		}
+	}
+	else
+	{
+		// Tracking off / no lights → cannot be shaded. Clear any stale signal.
+		bIsInShadow = false;
+		if (ASC->HasMatchingGameplayTag(StateTags.State_Shaded))
+		{
+			ASC->RemoveLooseGameplayTag(StateTags.State_Shaded);
+		}
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// 2D SHADOW-PLANE PHYSICS  (Crush Mode ONLY)
+	// ─────────────────────────────────────────────────────────────────────────
+	// The ONLY place that flips movement into CMOVE_Shadow2D. In 3D we never
+	// touch the movement mode, so State.Shaded firing in 3D has zero locomotion
+	// impact — it only informs shadow-gated actors.
 	if (!bInCrushMode)
 	{
-		// Ensure normal gravity and exit early and reset tag
-		auto* MoveComp = CachedOwner->GetCharacterMovement();
+		// 3D: guarantee normal gravity/speed and drop any stale 2D shadow tag.
 		if (MoveComp->GravityScale != 1.0f)
 		{
 			MoveComp->GravityScale = 1.0f;
@@ -147,28 +261,14 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		return;
 	}
 
-	// Refresh cached light direction every tick so rotating lights move shadows in real time
-	//if (DirectionalLightActor) CachedLightDirection = -DirectionalLightActor->GetActorForwardVector();
-
-	// Adaptive interval based on movement speed
-	const float DesiredInterval = bIsMoving ? ShadowCheckFrequencyMoving : ShadowCheckFrequency;
-	TimeSinceLastShadowCheck += DeltaTime;
-	if (TimeSinceLastShadowCheck < DesiredInterval) return;
-	TimeSinceLastShadowCheck = 0.0f;
-
-	// Perform shadow check
-	bIsInShadow = IsStandingInShadow();
-
-	
-	// Apply physics changes based on shadow state
-	UCharacterMovementComponent* MoveComp = CachedOwner->GetCharacterMovement();
+	// Crush Mode: mirror the fresh occlusion result into the 2D physics state.
 	if (bIsInShadow)
-	{		
+	{
 		if (!ASC->HasMatchingGameplayTag(StateTags.State_InShadow))
 		{
 			ASC->AddLooseGameplayTag(StateTags.State_InShadow);
 
-			// ENTER Shadow 2D movement, Switch to custom 2D shadow physics — gravity OFF, free vertical movement
+			// ENTER 2D shadow physics — gravity OFF, free vertical movement.
 			MoveComp->SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_Shadow2D);
 			MoveComp->GravityScale = 0.0f;
 			MoveComp->MaxFlySpeed = ShadowMoveSpeed;
@@ -181,7 +281,7 @@ void UkdCrushStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		{
 			ASC->RemoveLooseGameplayTag(StateTags.State_InShadow);
 
-			// EXIT Shadow 2D movement (but still in crush mode)
+			// EXIT 2D shadow physics (still in Crush Mode).
 			MoveComp->SetMovementMode(MOVE_Walking);
 			MoveComp->MaxWalkSpeed = 600.0f;
 			MoveComp->GravityScale = 1.0f;

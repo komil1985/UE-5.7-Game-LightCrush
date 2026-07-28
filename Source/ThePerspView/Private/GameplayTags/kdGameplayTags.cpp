@@ -159,6 +159,15 @@ void FkdGameplayTags::InitializeNativeGameplayTags()
 	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.State_Dead.ToString());
 #endif
 
+	GameplayTags.State_Shaded = UGameplayTagsManager::Get().AddNativeGameplayTag(
+		FName("State.Shaded"),
+		FString("Player is geometrically occluded from all lights (2D or 3D). "
+			"Orthogonal to State.InShadow, which is the 2D-physics state.")
+	);
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("Created tag: %s"), *GameplayTags.State_Shaded.ToString());
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

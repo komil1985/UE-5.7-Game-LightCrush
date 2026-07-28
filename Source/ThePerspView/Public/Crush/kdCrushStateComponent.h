@@ -90,6 +90,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
 	float ShadowMoveSpeed = 300.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush | Settings")
+	bool bTrackShadowInThreeD = true;
 	//////////////////////////////////////////////////////////////////////////
 
 	// ── Multi-Light Settings ──────────────────────────────────────────────────
