@@ -61,6 +61,9 @@ protected:
     UPROPERTY(EditAnywhere, Category = "kd|Tutorial", meta = (ClampMin = "0.01"))
     float DismissSeconds = 0.35f;
 
+    UPROPERTY(EditAnywhere, Category = "kd|Tutorial", meta = (ClampMin = "120.0"))
+    float BodyWrapAt = 1560.0f;
+
     /** Body/headline ink. Heliograph defaults baked in the constructor. */
     UPROPERTY(EditAnywhere, Category = "kd|Tutorial|Theme") FLinearColor HeadlineColor;
     UPROPERTY(EditAnywhere, Category = "kd|Tutorial|Theme") FLinearColor BodyColor;

@@ -18,9 +18,33 @@ void UkdTutorialPromptWidget::NativeConstruct()
 {
     Super::NativeConstruct();
 
-    if (Txt_Headline) Txt_Headline->SetColorAndOpacity(FSlateColor(HeadlineColor));
-    if (Txt_Body)     Txt_Body->SetColorAndOpacity(FSlateColor(BodyColor));
-    if (Txt_Key)      Txt_Key->SetColorAndOpacity(FSlateColor(KeyCapColor));
+    if (Txt_Headline)
+    {
+        Txt_Headline->SetColorAndOpacity(FSlateColor(HeadlineColor));
+        Txt_Headline->SetAutoWrapText(true);
+        Txt_Headline->SetWrapTextAt(BodyWrapAt);
+        Txt_Headline->SetJustification(ETextJustify::Center);
+    }
+
+    if (Txt_Body)
+    {
+        Txt_Body->SetColorAndOpacity(FSlateColor(BodyColor));
+
+        // Hard wrap at a fixed threshold, independent of parent width.
+        //  • AutoWrapText derives its wrap width from the PARENT panel's size.
+        //    Our body slot sizes to content, so that width is unbounded → never wraps.
+        //  • WrapTextAt wraps at an explicit pixel width — but it is ONLY consulted
+        //    when AutoWrapText is FALSE. Hence the flip below. Setting both was the
+        //    bug: AutoWrapText won and silently ignored WrapTextAt.
+        Txt_Body->SetAutoWrapText(false);
+        Txt_Body->SetWrapTextAt(BodyWrapAt);   // the threshold, in local units
+        Txt_Body->SetJustification(ETextJustify::Center);
+    }
+
+    if (Txt_Key)
+    {
+        Txt_Key->SetColorAndOpacity(FSlateColor(KeyCapColor));
+    }
 
     HideImmediate();
 }
