@@ -427,6 +427,12 @@ void UkdAudioSubsystem::PlayCrushDenied()
     PlaySFX2D(Bank ? Bank->CrushDenied : nullptr); // intentionally None in your DA right now
 }
 
+void UkdAudioSubsystem::PlayDash()
+{
+    UkdAudioBank* Bank = GetResolvedBank();
+    PlaySFX2D(Bank ? Bank->ShadowDash : nullptr); // safe no-op if the field is unassigned
+}
+
 // ─── Semantic event hooks ─────────────────────────────────────────────────────
 
 void UkdAudioSubsystem::OnCrushEnterStarted()

@@ -31,6 +31,21 @@ public:
 	// ── Shadow Dash ───────────────────────────────────────────────────────────
 
 	/**
+	 * How long a dash burst lasts, in seconds, before normal movement resumes.
+	 *
+	 * During this window the dash FULLY owns velocity: the burst speed eases
+	 * from DashStrength (passed to ApplyShadowDashImpulse) down to
+	 * ShadowMaxSpeed, and player steering input cannot add speed. This is the
+	 * whole reason the dash is time-bounded rather than speed-thresholded —
+	 * a speed threshold let held input pump the velocity indefinitely.
+	 *
+	 * Keep this comfortably below the dash cooldown (UkdShadowDashCooldown =
+	 * 0.8s) so every burst finishes before another dash can be committed.
+	 */
+	UPROPERTY(EditDefaultsOnly, Category = "Shadow Movement", meta = (ClampMin = "0.01"))
+	float DashDuration = 0.18f;
+
+	/**
 	 * Called by UkdShadowDash ability to apply a burst of velocity along
 	 * the shadow plane in the direction the player last steered.
 	 *
@@ -52,12 +67,30 @@ protected:
 	void PhysShadow2D(float DeltaTime, int32 Iterations);
 
 private:
+	/** Clears all dash bookkeeping in one place — call anywhere the dash must abort. */
+	FORCEINLINE void ResetDashState()
+	{
+		bIsDashing = false;
+		DashTimeRemaining = 0.f;
+		DashInitialSpeed = 0.f;
+		DashDirection = FVector::ZeroVector;
+	}
+
 	/**
 	 * Last non-zero input direction on the shadow plane (X=0 always).
 	 * Updated every frame in PhysShadow2D when the player provides input.
 	 * Persists when braking so the dash always fires in the last intended direction.
 	 */
 	FVector LastShadowInputDirection = FVector::ZeroVector;
+
+	/** Direction the active dash is committed to. Locked for the burst duration. */
+	FVector DashDirection = FVector::ZeroVector;
+
+	/** Speed this dash started at; eases toward ShadowMaxSpeed over DashDuration. */
+	float DashInitialSpeed = 0.f;
+
+	/** Seconds remaining in the active dash burst. <= 0 means the dash has ended. */
+	float DashTimeRemaining = 0.f;
 
 	bool bIsDashing = false;
 };

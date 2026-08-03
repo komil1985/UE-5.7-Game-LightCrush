@@ -119,6 +119,7 @@ public:
     void PlayCrushExit();
     void PlayCrushLand();
     void PlayCrushDenied();
+    void PlayDash();
 
     /** The resolved bank (may be null if Project Settings isn't configured). */
     UFUNCTION(BlueprintPure, Category = "kd|Audio")

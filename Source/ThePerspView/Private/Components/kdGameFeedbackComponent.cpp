@@ -15,6 +15,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraSystem.h"
 #include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"
 #include "Audio/kdAudioSubsystem.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
@@ -264,20 +265,27 @@ void UkdGameFeedbackComponent::OnDashPerformed(FVector DashDirection)
     PulseEdge(DashEdgePulseStrength);
     PulseChromatic(DashChromaticBurst);
 
+    // Niagara burst + SFX now stand in for the old character-mesh vertex smear.
     if (!DashDirection.IsNearlyZero())
     {
         LastDashDirection = DashDirection;
-        CurrentSmear = DashSmearPeak;
-        WriteMesh_Smear(CurrentSmear, LastDashDirection);
+    }
+    SpawnDashNiagara(LastDashDirection);
+
+    if (UkdAudioSubsystem* Audio = GetAudioSubsystem())
+    {
+        Audio->PlayDash();   // DA_HeliographAudio.ShadowDash (safe no-op if unassigned)
     }
 
-    SetTickActive(true);
+    // NOTE: no SetTickActive(true) here anymore. The tick only ever ran to decay
+    // the smear; the Niagara burst is fire-and-forget (auto-destroy) and the SFX
+    // is 2D one-shot, so nothing dash-related needs a per-frame update now.
 
 #if !UE_BUILD_SHIPPING
     UE_LOG(LogTemp, Log,
-        TEXT("GameFeedback: Dash performed.  Smear=%.2f  Dir=(0, %.2f, %.2f)  DMI=%s"),
-        DashSmearPeak, LastDashDirection.Y, LastDashDirection.Z,
-        CharMeshDMI ? TEXT("VALID") : TEXT("NULL"));
+        TEXT("GameFeedback: Dash performed.  Dir=(%.2f, %.2f, %.2f)  Niagara=%s"),
+        LastDashDirection.X, LastDashDirection.Y, LastDashDirection.Z,
+        DashNiagara ? TEXT("VALID") : TEXT("NULL"));
 #endif
 }
 
@@ -554,6 +562,41 @@ void UkdGameFeedbackComponent::SpawnShadowEntryNiagara()
         /*bAutoDestroy*/   true,
         /*bAutoActivate*/  true,
         ENCPoolMethod::AutoRelease);
+}
+
+void UkdGameFeedbackComponent::SpawnDashNiagara(FVector PlanarDirection)
+{
+    if (!DashNiagara) return;
+
+    AActor* Owner = GetOwner();
+    if (!Owner || !Owner->GetWorld()) return;
+
+    const FVector SpawnLocation =
+        Owner->GetActorLocation() + FVector(0.f, 0.f, DashNiagaraZOffset);
+
+    // Orient the system so its local +X points along the dash, so any
+    // velocity-aligned ribbons / sprites in the graph read the right way.
+    // Falls back to identity if the direction is degenerate.
+    const FRotator SpawnRotation = PlanarDirection.IsNearlyZero()
+        ? FRotator::ZeroRotator
+        : FRotationMatrix::MakeFromX(PlanarDirection).Rotator();
+
+    UNiagaraComponent* Comp = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+        Owner->GetWorld(),
+        DashNiagara,
+        SpawnLocation,
+        SpawnRotation,
+        FVector(DashNiagaraScale),
+        /*bAutoDestroy*/  true,
+        /*bAutoActivate*/ true,
+        ENCPoolMethod::AutoRelease);
+
+    // Hand the planar direction to the graph as well (safe no-op if the system
+    // doesn't declare this user param — same tolerance as the tentacle params).
+    if (Comp && !PlanarDirection.IsNearlyZero())
+    {
+        Comp->SetVariableVec3(DashNiagaraDirectionParamName, PlanarDirection);
+    }
 }
 
 // ── Misc ─────────────────────────────────────────────────────────────────────

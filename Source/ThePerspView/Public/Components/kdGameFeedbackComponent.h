@@ -281,6 +281,24 @@ public:
         meta = (ClampMin = "0.0"))
     float ShadowEntryNiagaraZOffset = 60.0f;
 
+    // ── Dash niagara (one-shot burst on dash — replaces the old vertex smear) ──
+
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Particles")
+    TObjectPtr<UNiagaraSystem> DashNiagara;
+
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Particles",
+        meta = (ClampMin = "0.1", ClampMax = "5.0"))
+    float DashNiagaraScale = 1.0f;
+
+    /** Vertical offset so the burst spawns at the body's centre, not the feet. */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Particles")
+    float DashNiagaraZOffset = 0.0f;
+
+    /** Vec3 user param the dash FX can read for velocity-aligned emission.
+     *  Safe no-op if the system doesn't declare it. */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Particles")
+    FName DashNiagaraDirectionParamName = FName("DashDirection");
+
     /** Called by CrushToggle ability / CrushStateComponent at transition start */
     void NotifyCrushTransitionStarted(bool bEntering);
 
@@ -371,7 +389,7 @@ private:
     void WriteMesh_Smear(float Strength, FVector PlanarDirection) const;
 
     void SpawnShadowEntryNiagara();
-
+    void SpawnDashNiagara(FVector PlanarDirection);
     float ReadStaminaFraction() const;
     void  UpdateVignettePulse(float DeltaTime);
     void  UpdateRim(float DeltaTime);

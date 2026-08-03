@@ -110,6 +110,9 @@ public:
     UPROPERTY(EditDefaultsOnly, Category = "SFX|Shadow")
     TObjectPtr<USoundBase> ShadowExit;
 
+    UPROPERTY(EditDefaultsOnly, Category = "SFX|Shadow")
+    TObjectPtr<USoundBase> ShadowDash;
+
     // ── UI SFX ────────────────────────────────────────────────────────────────
 
     UPROPERTY(EditDefaultsOnly, Category = "SFX|UI")
