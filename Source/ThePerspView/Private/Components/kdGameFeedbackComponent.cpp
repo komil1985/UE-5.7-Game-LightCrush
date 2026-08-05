@@ -571,8 +571,7 @@ void UkdGameFeedbackComponent::SpawnDashNiagara(FVector PlanarDirection)
     AActor* Owner = GetOwner();
     if (!Owner || !Owner->GetWorld()) return;
 
-    const FVector SpawnLocation =
-        Owner->GetActorLocation() + FVector(0.f, 0.f, DashNiagaraZOffset);
+    const FVector SpawnLocation = Owner->GetActorLocation() + FVector(0.f, DashNiagaraYOffset, DashNiagaraZOffset);
 
     // Orient the system so its local +X points along the dash, so any
     // velocity-aligned ribbons / sprites in the graph read the right way.

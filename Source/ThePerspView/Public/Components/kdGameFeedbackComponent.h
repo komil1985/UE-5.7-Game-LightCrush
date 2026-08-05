@@ -294,6 +294,9 @@ public:
     UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Particles")
     float DashNiagaraZOffset = 0.0f;
 
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Particles")
+    float DashNiagaraYOffset = 0.0f;
+
     /** Vec3 user param the dash FX can read for velocity-aligned emission.
      *  Safe no-op if the system doesn't declare it. */
     UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Particles")
