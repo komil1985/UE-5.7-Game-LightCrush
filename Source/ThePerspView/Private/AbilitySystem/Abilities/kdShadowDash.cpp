@@ -35,14 +35,6 @@ UkdShadowDash::UkdShadowDash()
 
 void UkdShadowDash::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
-	/* CommitAbility: checks CanActivate, then applies cost + cooldown via the
-	 CostGameplayEffectClass / CooldownGameplayEffectClass set in the constructor.*/
-	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
-	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
 	AkdMyPlayer* Player = Cast<AkdMyPlayer>(ActorInfo->AvatarActor.Get());
 	if (!Player)
 	{
@@ -57,24 +49,44 @@ void UkdShadowDash::ActivateAbility(const FGameplayAbilitySpecHandle Handle, con
 		return;
 	}
 
-	// Apply the burst. The movement component uses its cached last-input direction
-	// so the dash always fires the way the player was last steering.
-	MoveComp->ApplyShadowDashImpulse(DashStrength);
+	// ── Bail BEFORE committing cost/cooldown if there's no direction to dash in.
+	// An idle press must be a true no-op: no stamina spent, no cooldown started,
+	// and (the bug you hit) no phantom dash FX.
+	if (!MoveComp->HasDashDirection())
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, /*bWasCancelled*/ true);
+		return;
+	}
+
+	// CommitAbility: re-checks CanActivate, then applies cost + cooldown.
+	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	// Apply the burst. Guaranteed a direction after the check above, but respect
+	// the return value defensively in case state changed between check and commit.
+	if (!MoveComp->ApplyShadowDashImpulse(DashStrength))
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
 
 #if !UE_BUILD_SHIPPING
 	UE_LOG(LogTemp, Log, TEXT("ShadowDash: impulse applied, strength=%.0f"), DashStrength);
 #endif
 
-	const FVector PostDashVelocity = MoveComp->Velocity;
-	const FVector DashDir2D = FVector(0.f, PostDashVelocity.Y, PostDashVelocity.Z).GetSafeNormal();
+	// Fresh, authoritative direction — only reached on a real dash, so FX never
+	// fires phantom and never uses a stale direction.
+	const FVector DashDir2D = MoveComp->GetActiveDashDirection();
 
-	// Notify game feel component — triggers shake + aberration spike
 	if (UkdGameFeedbackComponent* GF = Player->FindComponentByClass<UkdGameFeedbackComponent>())
-    {
-        GF->OnDashPerformed(DashDir2D);
-    }
+	{
+		GF->OnDashPerformed(DashDir2D);
+	}
 
-	// Dash is fire-and-forget — end immediately so the ability slot is free
+	// Fire-and-forget — end immediately so the ability slot is free.
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 }
 

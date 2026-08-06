@@ -569,32 +569,45 @@ void UkdGameFeedbackComponent::SpawnDashNiagara(FVector PlanarDirection)
     if (!DashNiagara) return;
 
     AActor* Owner = GetOwner();
-    if (!Owner || !Owner->GetWorld()) return;
+    USceneComponent* Root = Owner ? Owner->GetRootComponent() : nullptr;
+    if (!Root || !Owner->GetWorld()) return;
 
-    const FVector SpawnLocation = Owner->GetActorLocation() + FVector(0.f, DashNiagaraYOffset, DashNiagaraZOffset);
+    // Degenerate-direction guard — never orient the burst at nothing.
+    const FVector Dir = PlanarDirection.GetSafeNormal();
+    const bool bHasDir = !Dir.IsNearlyZero();
 
-    // Orient the system so its local +X points along the dash, so any
-    // velocity-aligned ribbons / sprites in the graph read the right way.
-    // Falls back to identity if the direction is degenerate.
-    const FRotator SpawnRotation = PlanarDirection.IsNearlyZero()
-        ? FRotator::ZeroRotator
-        : FRotationMatrix::MakeFromX(PlanarDirection).Rotator();
-
-    UNiagaraComponent* Comp = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
-        Owner->GetWorld(),
-        DashNiagara,
-        SpawnLocation,
-        SpawnRotation,
-        FVector(DashNiagaraScale),
-        /*bAutoDestroy*/  true,
-        /*bAutoActivate*/ true,
-        ENCPoolMethod::AutoRelease);
-
-    // Hand the planar direction to the graph as well (safe no-op if the system
-    // doesn't declare this user param — same tolerance as the tentacle params).
-    if (Comp && !PlanarDirection.IsNearlyZero())
+    // Desired WORLD transform: lifted on Z, pushed BACK along the dash, facing
+    // forward (local +X = travel direction).
+    FVector WorldLoc = Owner->GetActorLocation() + FVector(0.f, 0.f, DashNiagaraZOffset);
+    if (bHasDir)
     {
-        Comp->SetVariableVec3(DashNiagaraDirectionParamName, PlanarDirection);
+        WorldLoc -= Dir * DashNiagaraBackOffset;
+    }
+    const FQuat WorldRot = bHasDir ? FRotationMatrix::MakeFromX(Dir).ToQuat() : FQuat::Identity;
+
+    // Convert to the root's local space so the burst ATTACHES and follows the
+    // player through the dash instead of being stranded at the launch point.
+    // Works regardless of how the character mesh itself is oriented.
+    const FTransform ParentXform = Root->GetComponentTransform();
+    const FVector  RelLoc = ParentXform.InverseTransformPosition(WorldLoc);
+    const FRotator RelRot = ParentXform.InverseTransformRotation(WorldRot).Rotator();
+
+    UNiagaraComponent* Comp = UNiagaraFunctionLibrary::SpawnSystemAttached(
+        DashNiagara,
+        Root,
+        NAME_None,
+        RelLoc,
+        RelRot,
+        FVector(DashNiagaraScale),
+        EAttachLocation::KeepRelativeOffset,
+        /*bAutoDestroy*/  true,
+        ENCPoolMethod::AutoRelease,
+        /*bAutoActivate*/ true);
+
+    // Hand the world-space dash direction to the graph too (safe no-op if absent).
+    if (Comp && bHasDir)
+    {
+        Comp->SetVariableVec3(DashNiagaraDirectionParamName, Dir);
     }
 }
 

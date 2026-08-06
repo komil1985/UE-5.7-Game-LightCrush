@@ -297,6 +297,11 @@ public:
     UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Particles")
     float DashNiagaraYOffset = 0.0f;
 
+    /** Push the burst BEHIND the player along the dash direction, so it reads as
+     *  being left behind as the player shoots forward. */
+    UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Particles", meta = (ClampMin = "0.0"))
+    float DashNiagaraBackOffset = 40.0f;
+
     /** Vec3 user param the dash FX can read for velocity-aligned emission.
      *  Safe no-op if the system doesn't declare it. */
     UPROPERTY(EditDefaultsOnly, Category = "GameFeel | Particles")

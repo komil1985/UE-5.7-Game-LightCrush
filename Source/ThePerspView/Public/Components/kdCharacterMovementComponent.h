@@ -45,6 +45,14 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Shadow Movement", meta = (ClampMin = "0.01"))
 	float DashDuration = 0.18f;
 
+	/** Resolves the direction a dash would fire in right now (last input →
+	 *  input → velocity), projected onto the crush plane. Zero vector = no
+	 *  usable direction, i.e. the player is fully idle and cannot dash. */
+	FVector ResolveDashDirection() const;
+
+	/** @return true if a dash could fire right now (non-zero direction resolves). */
+	FORCEINLINE bool HasDashDirection() const { return !ResolveDashDirection().IsNearlyZero(); }
+
 	/**
 	 * Called by UkdShadowDash ability to apply a burst of velocity along
 	 * the shadow plane in the direction the player last steered.
@@ -54,7 +62,13 @@ public:
 	 *
 	 * @param Strength  Speed of the burst in cm/s (set by the ability's DashStrength).
 	 */
-	void ApplyShadowDashImpulse(float Strength);
+	bool ApplyShadowDashImpulse(float Strength);
+
+	/** Unit travel direction of the active dash, already projected onto the
+	 *  current crush play plane. Feedback/FX should read THIS instead of
+	 *  reconstructing direction from velocity with a hardcoded axis — that
+	 *  hardcode zeroed the wrong axis for non-X crush and left FX stale. */
+	FORCEINLINE FVector GetActiveDashDirection() const { return DashDirection; }
 
 	/** Cleans up dash state when leaving Shadow2D mode. */
     virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;

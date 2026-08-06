@@ -28,40 +28,11 @@ void UkdCharacterMovementComponent::PhysCustom(float DeltaTime, int32 Iterations
     }
 }
 
-void UkdCharacterMovementComponent::ApplyShadowDashImpulse(float Strength)
+FVector UkdCharacterMovementComponent::ResolveDashDirection() const
 {
-	//// Prefer last steering direction; fall back to current velocity if the
-	//// player pressed dash while idle
-	//FVector DashDir = LastShadowInputDirection;
-
-	//if (DashDir.IsNearlyZero())
-	//{
-	//	DashDir = FVector(0.f, Acceleration.Y, Acceleration.Z);
-	//	DashDir.X = 0.f;
-	//	DashDir = DashDir.GetSafeNormal();
-	//}
-
-	//// Still no direction — player is completely stationary with no prior input
-	//if (DashDir.IsNearlyZero())
-	//{
-	//	DashDir = FVector(0.f, Velocity.Y, Velocity.Z);
-	//	DashDir.X = 0.f;
-	//	DashDir = DashDir.GetSafeNormal();
-	//}
-
-	//if (DashDir.IsNearlyZero()) return;
-
-	//bIsDashing = true;
-
-	//// Override (don't add to) velocity so the burst is always a predictable speed
-	//Velocity = DashDir * Strength;
-	//Velocity.X = 0.f;
-
 	const FVector CollapseN = GetCrushCollapseNormal();
 
-	// Prefer last steering direction; fall back to input, then velocity.
-	FVector DashDir = LastShadowInputDirection;
-
+	FVector DashDir = LastShadowInputDirection;                 // steering intent
 	if (DashDir.IsNearlyZero())
 	{
 		DashDir = FVector::VectorPlaneProject(Acceleration, CollapseN).GetSafeNormal();
@@ -70,7 +41,14 @@ void UkdCharacterMovementComponent::ApplyShadowDashImpulse(float Strength)
 	{
 		DashDir = FVector::VectorPlaneProject(Velocity, CollapseN).GetSafeNormal();
 	}
-	if (DashDir.IsNearlyZero()) return;
+	return DashDir; // zero == idle, no direction
+}
+
+bool UkdCharacterMovementComponent::ApplyShadowDashImpulse(float Strength)
+{
+	const FVector CollapseN = GetCrushCollapseNormal();
+	const FVector DashDir = ResolveDashDirection();
+	if (DashDir.IsNearlyZero()) return false; // idle press — nothing to dash toward
 
 	// Enter an EXPLICIT, TIME-BOUNDED dash state. From here until DashTimeRemaining
 	// reaches zero, PhysShadow2D owns velocity outright — steering input can re-aim
@@ -85,6 +63,7 @@ void UkdCharacterMovementComponent::ApplyShadowDashImpulse(float Strength)
 	// Override velocity for a predictable burst, kept on the play plane.
 	Velocity = DashDirection * DashInitialSpeed;
 	Velocity = FVector::VectorPlaneProject(Velocity, CollapseN);
+	return true;
 }
 
 void UkdCharacterMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
