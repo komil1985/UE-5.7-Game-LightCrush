@@ -336,8 +336,7 @@ void AkdMyPlayer::RequestInteract()
 	if (!AbilitySystemComponent || IsDead()) return;   // ← add IsDead()
 
 	// Only allow interaction in Crush Mode (matches Interact_CrushOnly intent)
-	if (!AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
-		return;
+	//if (!AbilitySystemComponent->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode)) return;
 
 	// Sphere overlap from player location — finds all IkdInteractable actors within reach
 	const float InteractRadius = 200.f;

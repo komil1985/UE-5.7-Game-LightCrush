@@ -88,3 +88,16 @@ void AkdLightBlocker::Interact(AkdMyPlayer* InInstigator)
 #endif
 }
 
+void AkdLightBlocker::Activate(AActor* InInstigator)
+{
+	bMovingToB = !bMovingToB;
+	bIsMoving = true;
+
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogTemp, Log, TEXT("LightBlocker '%s': %s -> moving to %s"),
+		*GetName(),
+		InInstigator ? *InInstigator->GetName() : TEXT("<none>"),
+		bMovingToB ? TEXT("B") : TEXT("A"));
+#endif
+}
+

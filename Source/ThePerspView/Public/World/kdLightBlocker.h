@@ -5,15 +5,16 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Interfaces/kdInteractable.h"
+#include "Interfaces/kdActivatable.h"
 #include "kdLightBlocker.generated.h"
 
 class USphereComponent;
 class UStaticMeshComponent;
 UCLASS()
-class THEPERSPVIEW_API AkdLightBlocker : public AActor, public IkdInteractable
+class THEPERSPVIEW_API AkdLightBlocker : public AActor, public IkdInteractable, public IkdActivatable
 {
 	GENERATED_BODY()
-	
+
 public:	
 	AkdLightBlocker();
 
@@ -21,6 +22,7 @@ public:
 
 	// IkdInteractable
 	virtual void Interact(class AkdMyPlayer* InInstigator) override;
+	virtual void Activate(AActor* InInstigator) override;
 
 	// ── Mesh ─────────────────────────────────────────────────────────────────
 
