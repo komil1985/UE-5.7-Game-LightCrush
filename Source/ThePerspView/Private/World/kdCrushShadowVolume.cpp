@@ -18,6 +18,9 @@
 // Material parameter names — must match the M_CrushShadowVolume graph.
 const FName AkdCrushShadowVolume::MP_ShadowColor = TEXT("ShadowColor");
 const FName AkdCrushShadowVolume::MP_ShadowOpacity = TEXT("ShadowOpacity");
+const FName AkdCrushShadowVolume::MP_EdgeFadeWidth = TEXT("EdgeFadeWidth");
+const FName AkdCrushShadowVolume::MP_EdgeFadeExp = TEXT("EdgeFadeExp");
+const FName AkdCrushShadowVolume::MP_InPlaneMask = TEXT("InPlaneMask");
 
 
 AkdCrushShadowVolume::AkdCrushShadowVolume()
@@ -81,6 +84,16 @@ bool AkdCrushShadowVolume::PositionForCurrentCrush()
 
     ApplyZoneScale(Basis.bCollapsesY);
 
+    // Feather only the two axes perpendicular to the view; never the collapse
+    // (depth) axis, or the whole front face would fade with camera distance.
+    if (ShadowMID)
+    {
+        const FLinearColor InPlaneMask = Basis.bCollapsesY
+            ? FLinearColor(1.f, 0.f, 1.f, 0.f)   // Y-crush (E/W): feather X + Z
+            : FLinearColor(0.f, 1.f, 1.f, 0.f);  // X-crush (N/S): feather Y + Z
+        ShadowMID->SetVectorParameterValue(MP_InPlaneMask, InPlaneMask);
+    }
+
     if (bTrackPlayerDepth)
     {
         const FVector PlayerLoc = CachedPlayer->GetActorLocation();
@@ -134,6 +147,16 @@ void AkdCrushShadowVolume::RefreshMaterialParameters()
 
     ShadowMID->SetVectorParameterValue(MP_ShadowColor, ShadowColor);
     ShadowMID->SetScalarParameterValue(MP_ShadowOpacity, ShadowOpacity);
+    ShadowMID->SetScalarParameterValue(MP_EdgeFadeWidth, ResolvedEdgeFadeWidth());   // + add
+    ShadowMID->SetScalarParameterValue(MP_EdgeFadeExp, EdgeFadeExponent);          // + add
+}
+
+float AkdCrushShadowVolume::ResolvedEdgeFadeWidth() const
+{
+    // Never let opposite feathers cross — guarantees a solid core even on the
+    // smallest in-plane dimension. 0 stays 0 (feather disabled).
+    const float MaxHalf = 0.49f * FMath::Min(ZoneWidthY, ZoneHeightZ);
+    return FMath::Clamp(EdgeFadeWidth, 0.f, MaxHalf);
 }
 
 void AkdCrushShadowVolume::SnapToState(bool bInCrush)

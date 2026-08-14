@@ -135,6 +135,21 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Shadow Volume")
     EkdCrushAxisFilter ActivationAxisFilter = EkdCrushAxisFilter::AnyAxis;
 
+
+    /** Width (world cm) over which each in-plane edge feathers to transparent.
+    *  0 = hard edge (feather off). Kept in cm so all visible edges fade over the
+    *  same physical distance regardless of the slab's non-uniform scale, and stay
+    *  correct if the volume is rescaled. Requires M_CrushShadowVolume's edge-fade
+    *  network. Ignored when ShadowVolumeMaterial is unset. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Shadow|Appearance",
+        meta = (ClampMin = "0.0", UIMax = "400.0"))
+    float EdgeFadeWidth = 120.f;
+
+    /** Feather falloff curve. 1 = linear; >1 = sharper core / softer lip; <1 broadens. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Shadow|Appearance",
+        meta = (ClampMin = "0.1", ClampMax = "8.0"))
+    float EdgeFadeExponent = 1.4f;
+
 protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type Reason) override;
@@ -193,6 +208,9 @@ private:
     /** Pushes ShadowColor + full ShadowOpacity into the MID (endpoints / editor tune). */
     void RefreshMaterialParameters();
 
+    /** EdgeFadeWidth clamped so opposite feathers never overlap (keeps a solid core). */
+    float ResolvedEdgeFadeWidth() const;
+
     /** Called when the driver-synced blend has settled: writes the exact endpoint
      *  and disables tick. */
     void FinalizeFade();
@@ -203,4 +221,7 @@ private:
     // Change these if you rename the params in the M_CrushShadowVolume material.
     static const FName MP_ShadowColor;
     static const FName MP_ShadowOpacity;
+    static const FName MP_EdgeFadeWidth;
+    static const FName MP_EdgeFadeExp;
+    static const FName MP_InPlaneMask;
 };
