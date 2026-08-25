@@ -7,6 +7,7 @@
 #include "GameplayTags/kdGameplayTags.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "NiagaraComponent.h"
 #include "Particles/ParticleSystemComponent.h"
 
 AkdLevelGoal::AkdLevelGoal()
@@ -23,9 +24,14 @@ AkdLevelGoal::AkdLevelGoal()
     TriggerSphere->SetCollisionProfileName(TEXT("OverlapAll"));
     TriggerSphere->SetGenerateOverlapEvents(true);
 
-    IdleParticle = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("IdleParticle"));
-    IdleParticle->SetupAttachment(RootComponent);
-    IdleParticle->bAutoActivate = true;
+    IdleParticle_1 = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("IdleParticle 1"));
+    IdleParticle_1->SetupAttachment(RootComponent);
+    IdleParticle_1->bAutoActivate = false;
+
+    IdleParticle_2 = CreateDefaultSubobject<UNiagaraComponent>(TEXT("IdleParticle 2"));
+    IdleParticle_2->SetupAttachment(RootComponent);
+    IdleParticle_2->bAutoActivate = false;
+
 }
 
 void AkdLevelGoal::BeginPlay()
@@ -71,8 +77,7 @@ bool AkdLevelGoal::IsPlayerEligible(UAbilitySystemComponent* ASC) const
 
     // InShadow only constrains anything while in Crush Mode; on the 3D plane the
     // tag can never be present, so requiring it there would be unsatisfiable.
-    if (bRequireInShadow && bInCrush &&
-        !ASC->HasMatchingGameplayTag(T.State_InShadow))
+    if (bRequireInShadow && bInCrush && !ASC->HasMatchingGameplayTag(T.State_InShadow))
     {
         return false;
     }
@@ -98,8 +103,9 @@ void AkdLevelGoal::TryComplete()
     // We've completed — no further state listening needed.
     UnbindStateTracking();
 
-    // Stop idle particles — visual payoff before the screen fades.
-    if (IdleParticle) IdleParticle->Deactivate();
+    // Start idle particles — visual effects before the screen fades.
+    if (IdleParticle_1) IdleParticle_1->Activate();
+    if (IdleParticle_2) IdleParticle_2->Activate();
 
     BP_OnGoalReached();     // Blueprint VFX + sound
 

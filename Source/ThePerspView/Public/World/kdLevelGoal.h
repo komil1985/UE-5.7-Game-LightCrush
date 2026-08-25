@@ -10,6 +10,7 @@
 class USphereComponent;
 class UStaticMeshComponent;
 class UParticleSystemComponent;
+class UNiagaraComponent;
 class UAbilitySystemComponent;
 class AkdMyPlayer;
 struct FGameplayTag;
@@ -63,7 +64,10 @@ protected:
     TObjectPtr<USphereComponent> TriggerSphere;
 
     UPROPERTY(VisibleAnywhere, Category = "Components")
-    TObjectPtr<UParticleSystemComponent> IdleParticle;
+    TObjectPtr<UParticleSystemComponent> IdleParticle_1;
+
+    UPROPERTY(VisibleAnywhere, Category = "Components")
+    TObjectPtr<UNiagaraComponent> IdleParticle_2;
 
 private:
     bool bTriggered = false;
