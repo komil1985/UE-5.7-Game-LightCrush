@@ -49,7 +49,10 @@ void AkdScorePickup::OnPickupSphereOverlap(UPrimitiveComponent* OverlappedComp, 
     UAbilitySystemComponent* ASC = Player->GetAbilitySystemComponent();
     if (!ASC) return;
 
-    if (!ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode)) return;
+    if (bRequireCrushMode && !ASC->HasMatchingGameplayTag(FkdGameplayTags::Get().State_CrushMode))
+    {
+        return;
+    }
 
     bCollected = true;
 
@@ -65,11 +68,8 @@ void AkdScorePickup::OnPickupSphereOverlap(UPrimitiveComponent* OverlappedComp, 
         const float Current = ASC->GetNumericAttribute(UkdAttributeSet::GetShadowStaminaAttribute());
         const float Max = ASC->GetNumericAttribute(UkdAttributeSet::GetMaxShadowStaminaAttribute());
         const float NewVal = FMath::Clamp(Current + StaminaRestore, 0.f, Max);
-        Cast<UkdAttributeSet>(
-            const_cast<UAttributeSet*>(
-                ASC->GetAttributeSet(UkdAttributeSet::StaticClass())
-                )
-        )->SetShadowStamina(NewVal);
+        //Cast<UkdAttributeSet>(const_cast<UAttributeSet*>(ASC->GetAttributeSet(UkdAttributeSet::StaticClass())))->SetShadowStamina(NewVal);
+        ASC->SetNumericAttributeBase(UkdAttributeSet::GetShadowStaminaAttribute(), NewVal);
     }
 
     // ── Feedback ───────────────────────────────────────────────────────────

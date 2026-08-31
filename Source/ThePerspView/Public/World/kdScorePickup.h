@@ -26,6 +26,11 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pickup")
     float StaminaRestore = 15.f;
 
+    /** If true, this pickup can only be collected while the player is in Crush Mode.
+    *  Default false — collectible in both 3D and Crush (2D) mode. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pickup")
+    bool bRequireCrushMode = false;
+
     UPROPERTY(EditDefaultsOnly, Category = "Pickup")
     TObjectPtr<USoundBase> PickupSound;
 
