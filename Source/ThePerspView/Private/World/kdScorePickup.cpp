@@ -10,6 +10,8 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "NiagaraComponent.h"
+#include "Components/kdHoverBobComponent.h"
 
 
 AkdScorePickup::AkdScorePickup()
@@ -26,9 +28,17 @@ AkdScorePickup::AkdScorePickup()
     PickupSphere->SetCollisionProfileName(TEXT("OverlapAll"));
     PickupSphere->SetGenerateOverlapEvents(true);
 
+    PickupEffect = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Pickup Effect"));
+    PickupEffect->SetupAttachment(RootComponent);
+
     // Gentle spin so the crystal catches the eye
     RotatingMovement = CreateDefaultSubobject<URotatingMovementComponent>(TEXT("RotatingMovement"));
     RotatingMovement->RotationRate = FRotator(0.f, 90.f, 0.f);
+
+    // Gentle vertical float so the crystal reads as "alive" from a distance
+    HoverBob = CreateDefaultSubobject<UkdHoverBobComponent>(TEXT("HoverBob"));
+    HoverBob->Amplitude = 15.f;
+    HoverBob->Frequency = 0.75f;
 }
 
 void AkdScorePickup::BeginPlay()
@@ -82,7 +92,9 @@ void AkdScorePickup::OnPickupSphereOverlap(UPrimitiveComponent* OverlappedComp, 
 
     // Hide mesh and disable collision — stay alive for sound to finish
     PickupMesh->SetVisibility(false);
+	PickupEffect->SetVisibility(false);
     PickupSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    HoverBob->SetComponentTickEnabled(false);
 
     // Destroy after a short delay so any looping sound / particle finishes
     SetLifeSpan(1.5f);
@@ -92,6 +104,3 @@ void AkdScorePickup::OnPickupSphereOverlap(UPrimitiveComponent* OverlappedComp, 
         *GetName(), ScoreValue, StaminaRestore);
 #endif
 }
-
-
-

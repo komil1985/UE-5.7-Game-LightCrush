@@ -9,7 +9,9 @@
 
 class USphereComponent;
 class UStaticMeshComponent;
+class UNiagaraComponent;
 class URotatingMovementComponent;
+class UkdHoverBobComponent;
 UCLASS(BlueprintType, Blueprintable)
 class THEPERSPVIEW_API AkdScorePickup : public AActor
 {
@@ -46,7 +48,13 @@ protected:
     TObjectPtr<USphereComponent> PickupSphere;
 
     UPROPERTY(VisibleAnywhere, Category = "Components")
+    TObjectPtr<UNiagaraComponent> PickupEffect;
+
+    UPROPERTY(VisibleAnywhere, Category = "Components")
     TObjectPtr<URotatingMovementComponent> RotatingMovement;
+
+    UPROPERTY(VisibleAnywhere, Category = "Components")
+    TObjectPtr<UkdHoverBobComponent> HoverBob;
 
 private:
     bool bCollected = false;
