@@ -10,6 +10,7 @@
 class USphereComponent;
 class UStaticMeshComponent;
 class UNiagaraComponent;
+class UNiagaraSystem;
 class URotatingMovementComponent;
 class UkdHoverBobComponent;
 UCLASS(BlueprintType, Blueprintable)
@@ -36,6 +37,9 @@ public:
     UPROPERTY(EditDefaultsOnly, Category = "Pickup")
     TObjectPtr<USoundBase> PickupSound;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pickup|Effects", meta = (ClampMin = "0.1"))
+    float CollectBurstScale = 1.f;
+
     /** Blueprint hook for visual/audio feedback on collection. */
     UFUNCTION(BlueprintImplementableEvent, Category = "Pickup")
     void BP_OnCollected();
@@ -46,6 +50,9 @@ protected:
 
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TObjectPtr<USphereComponent> PickupSphere;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Pickup|Effects")
+    TObjectPtr<UNiagaraSystem> CollectBurstNiagara;
 
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TObjectPtr<UNiagaraComponent> PickupEffect;

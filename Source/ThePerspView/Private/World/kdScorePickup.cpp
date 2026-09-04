@@ -12,6 +12,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraComponent.h"
 #include "Components/kdHoverBobComponent.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 
 
 AkdScorePickup::AkdScorePickup()
@@ -28,8 +30,8 @@ AkdScorePickup::AkdScorePickup()
     PickupSphere->SetCollisionProfileName(TEXT("OverlapAll"));
     PickupSphere->SetGenerateOverlapEvents(true);
 
-    PickupEffect = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Pickup Effect"));
-    PickupEffect->SetupAttachment(RootComponent);
+	PickupEffect = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Pickup Effect"));
+	PickupEffect->SetupAttachment(RootComponent);
 
     // Gentle spin so the crystal catches the eye
     RotatingMovement = CreateDefaultSubobject<URotatingMovementComponent>(TEXT("RotatingMovement"));
@@ -88,11 +90,24 @@ void AkdScorePickup::OnPickupSphereOverlap(UPrimitiveComponent* OverlappedComp, 
         UGameplayStatics::PlaySoundAtLocation(this, PickupSound, GetActorLocation());
     }
 
+    if (CollectBurstNiagara)
+    {
+        UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+            GetWorld(),
+            CollectBurstNiagara,
+            GetActorLocation(),
+            FRotator::ZeroRotator,
+            FVector(CollectBurstScale),
+            /*bAutoDestroy*/  true,
+            /*bAutoActivate*/ true,
+            ENCPoolMethod::AutoRelease);
+    }
+
     BP_OnCollected();
 
     // Hide mesh and disable collision — stay alive for sound to finish
     PickupMesh->SetVisibility(false);
-	PickupEffect->SetVisibility(false);
+    PickupEffect->SetVisibility(false);
     PickupSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     HoverBob->SetComponentTickEnabled(false);
 
