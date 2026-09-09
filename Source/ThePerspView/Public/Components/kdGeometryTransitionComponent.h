@@ -60,9 +60,9 @@ public:
 
     /** How thin the geometry's X axis becomes in Crush mode.
      *  0.04 = 4 % of original X extent (paper-thin slab). */
-    UPROPERTY(EditDefaultsOnly, Category = "Crush | Geometry",
+    UPROPERTY(EditAnywhere, Category = "Crush | Geometry",
         meta = (ClampMin = "0.001", ClampMax = "1.0"))
-    float CrushXScaleMultiplier = 0.04f;
+    float CrushXScaleMultiplier = 0.01f;
 
     /** Distance (cm) to push this geometry BEHIND the player's stage plane in Crush.
     *  0   -> flush with the plane (floors, platforms, shadow areas).
@@ -84,7 +84,7 @@ public:
      *  transition gives the world a satisfying "catching up" lag. */
     UPROPERTY(EditDefaultsOnly, Category = "Crush | Geometry",
         meta = (ClampMin = "0.1"))
-    float MorphDuration = 0.6f;
+    float MorphDuration = 0.25f;
 
     // ── Shadow ──────────────────────────────────────────────────────────────────
 
@@ -109,7 +109,7 @@ public:
 
     /** Oscillation cycles per second during shiver. */
     UPROPERTY(EditDefaultsOnly, Category = "Crush | Geometry | Shiver",
-        meta = (ClampMin = "1.0", ClampMax = "60.0"))
+        meta = (ClampMin = "0.0", ClampMax = "60.0"))
     float ShiverFrequency = 24.f;
 
 protected:
