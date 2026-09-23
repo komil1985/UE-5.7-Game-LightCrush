@@ -203,6 +203,8 @@ private:
     float   ArmLengthTo = 300.f;
     FRotator ArmRotFrom = FRotator(-30.f, 0.f, 0.f);
     FRotator ArmRotTo = FRotator(0.f, 0.f, 0.f);
+    float ArmYawFrom = 0.f, ArmYawTo = 0.f;
+    float ArmPitchFrom = 0.f, ArmPitchTo = 0.f;
 
     FQuat ArmRotFromQ;
     FQuat ArmRotToQ;

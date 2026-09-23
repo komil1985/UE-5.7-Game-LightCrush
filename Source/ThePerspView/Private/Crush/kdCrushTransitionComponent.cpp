@@ -154,28 +154,59 @@ void UkdCrushTransitionComponent::StartTransition(bool bToCrushMode, EkdCrushDir
     //        : Original3DArmRotQ.Rotator()).Quaternion();
     //}
 
-    if (CachedOwner->SpringArm)
+    //if (CachedOwner->SpringArm)
+    //{
+    //    ArmLengthFrom = CachedOwner->SpringArm->TargetArmLength;
+    //    ArmLengthTo = bToCrushMode ? Crush2DArmLength : Original3DArmLength;
+    //    ArmRotFromQ = CachedOwner->SpringArm->GetRelativeRotation().Quaternion();
+
+    //    if (bToCrushMode)
+    //    {
+    //        // Aim the crush camera along the active collapse axis so it always
+    //        // frames a true 2D side-view — and so WalkRight lines up with the
+    //        // camera's right vector, keeping controls consistent on every axis.
+    //        // Keep the tuned telephoto pitch; only the yaw is direction-driven.
+    //        const FkdCrushBasis Basis = UkdCrushDirectionLibrary::MakeCrushBasis(
+    //            CachedOwner->GetActiveCrushDirection());
+
+    //        const FRotator CrushArmRot(Crush2DArmRotation.Pitch, Basis.CameraYaw, 0.f);
+    //        ArmRotToQ = CrushArmRot.Quaternion();
+    //    }
+    //    else
+    //    {
+    //        ArmRotToQ = Original3DArmRotQ; // already a quat
+    //    }
+    //}
+
+    if (USpringArmComponent* Arm = CachedOwner->SpringArm)
     {
-        ArmLengthFrom = CachedOwner->SpringArm->TargetArmLength;
+        ArmLengthFrom = Arm->TargetArmLength;
         ArmLengthTo = bToCrushMode ? Crush2DArmLength : Original3DArmLength;
-        ArmRotFromQ = CachedOwner->SpringArm->GetRelativeRotation().Quaternion();
+
+        const float ControlYaw = CachedOwner->GetControlRotation().Yaw;
+
+        // The yaw the camera is ACTUALLY using right now.
+        ArmYawFrom = Arm->bInheritYaw ? ControlYaw : Arm->GetRelativeRotation().Yaw;
+        ArmPitchFrom = Arm->GetRelativeRotation().Pitch;
 
         if (bToCrushMode)
         {
-            // Aim the crush camera along the active collapse axis so it always
-            // frames a true 2D side-view — and so WalkRight lines up with the
-            // camera's right vector, keeping controls consistent on every axis.
-            // Keep the tuned telephoto pitch; only the yaw is direction-driven.
             const FkdCrushBasis Basis = UkdCrushDirectionLibrary::MakeCrushBasis(
                 CachedOwner->GetActiveCrushDirection());
-
-            const FRotator CrushArmRot(Crush2DArmRotation.Pitch, Basis.CameraYaw, 0.f);
-            ArmRotToQ = CrushArmRot.Quaternion();
+            ArmPitchTo = Crush2DArmRotation.Pitch;
+            ArmYawTo = ArmYawFrom + FMath::FindDeltaAngleDegrees(ArmYawFrom, Basis.CameraYaw);
         }
         else
         {
-            ArmRotToQ = Original3DArmRotQ; // already a quat
+            ArmPitchTo = Original3DArmRotQ.Rotator().Pitch;
+            ArmYawTo = ArmYawFrom + FMath::FindDeltaAngleDegrees(ArmYawFrom, ControlYaw);
         }
+
+        // Take yaw ownership NOW, with the value the camera already has, so there is no pop.
+        FRotator R = Arm->GetRelativeRotation();
+        R.Yaw = ArmYawFrom;
+        Arm->bInheritYaw = false;
+        Arm->SetRelativeRotation(R);
     }
 
     CrushTimeline->PlayFromStart();
@@ -303,23 +334,42 @@ void UkdCrushTransitionComponent::HandleTimelineUpdate(float Value)
     // ── Camera: FOV + arm length + arm rotation (Slerp, entire timeline) ──────
     if (CachedOwner->Camera) CachedOwner->Camera->SetFieldOfView(FMath::Lerp(FOVFrom, FOVTo, Alpha));
 
-    if (CachedOwner->SpringArm)
-    {
-        CachedOwner->SpringArm->TargetArmLength = FMath::Lerp(ArmLengthFrom, ArmLengthTo, Alpha);
+    //if (CachedOwner->SpringArm)
+    //{
+    //    CachedOwner->SpringArm->TargetArmLength = FMath::Lerp(ArmLengthFrom, ArmLengthTo, Alpha);
 
-        // Slerp: always takes the shortest arc regardless of ±180° boundary.
-        const FQuat SlerpedQ = FQuat::Slerp(ArmRotFromQ, ArmRotToQ, Alpha);
-        FRotator Applied = SlerpedQ.Rotator();
-        Applied.Roll = (bTargetCrushMode ? -TransitionRollDegrees : TransitionRollDegrees) * FMath::Sin(Alpha * PI);
-        CachedOwner->SpringArm->SetRelativeRotation(Applied);
+    //    // Slerp: always takes the shortest arc regardless of ±180° boundary.
+    //    const FQuat SlerpedQ = FQuat::Slerp(ArmRotFromQ, ArmRotToQ, Alpha);
+    //    FRotator Applied = SlerpedQ.Rotator();
+    //    Applied.Roll = (bTargetCrushMode ? -TransitionRollDegrees : TransitionRollDegrees) * FMath::Sin(Alpha * PI);
+    //    CachedOwner->SpringArm->SetRelativeRotation(Applied);
+    //}
+
+    if (USpringArmComponent* Arm = CachedOwner->SpringArm)
+    {
+        Arm->TargetArmLength = FMath::Lerp(ArmLengthFrom, ArmLengthTo, Alpha);
+
+        if (!bTargetCrushMode) // exiting: track the live control yaw in case it moved
+        {
+            ArmYawTo = ArmYawFrom + FMath::FindDeltaAngleDegrees(
+                ArmYawFrom, CachedOwner->GetControlRotation().Yaw);
+        }
+
+        FRotator Applied;
+        Applied.Pitch = FMath::Lerp(ArmPitchFrom, ArmPitchTo, Alpha);
+        Applied.Yaw = FMath::Lerp(ArmYawFrom, ArmYawTo, Alpha);
+        Applied.Roll = (bTargetCrushMode ? -TransitionRollDegrees : TransitionRollDegrees)
+            * FMath::Sin(Alpha * PI);
+        Arm->SetRelativeRotation(Applied);
     }
+    // (remove the `if (!bYawLocked && Alpha >= 0.5f)` block entirely)
 
     // ── Yaw lock at midpoint (fires exactly once) ─────────────────────────────
-    if (!bYawLocked && Alpha >= 0.5f)
-    {
-        bYawLocked = true;
-        if (CachedOwner->SpringArm) CachedOwner->SpringArm->bInheritYaw = !bTargetCrushMode;
-    }
+    //if (!bYawLocked && Alpha >= 0.5f)
+    //{
+    //    bYawLocked = true;
+    //    if (CachedOwner->SpringArm) CachedOwner->SpringArm->bInheritYaw = !bTargetCrushMode;
+    //}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -384,12 +434,20 @@ void UkdCrushTransitionComponent::HandleTimelineFinished()
 
     if (CachedOwner->Camera) CachedOwner->Camera->SetFieldOfView(FOVTo);
 
-    if (CachedOwner->SpringArm)
+    //if (CachedOwner->SpringArm)
+    //{
+    //    CachedOwner->SpringArm->TargetArmLength = ArmLengthTo;
+    //    FRotator Final = ArmRotToQ.Rotator();
+    //    Final.Roll = 0.f;
+    //    CachedOwner->SpringArm->SetRelativeRotation(Final);
+    //}
+
+    if (USpringArmComponent* Arm = CachedOwner->SpringArm)
     {
-        CachedOwner->SpringArm->TargetArmLength = ArmLengthTo;
-        FRotator Final = ArmRotToQ.Rotator();
-        Final.Roll = 0.f;
-        CachedOwner->SpringArm->SetRelativeRotation(Final);
+        Arm->TargetArmLength = ArmLengthTo;
+        Arm->SetRelativeRotation(FRotator(ArmPitchTo, ArmYawTo, 0.f));
+        // Hand yaw back to the controller only now. ArmYawTo == control yaw, so no pop.
+        if (!bTargetCrushMode) Arm->bInheritYaw = true;
     }
 
     // Restore mesh to exact base scale + original location.
