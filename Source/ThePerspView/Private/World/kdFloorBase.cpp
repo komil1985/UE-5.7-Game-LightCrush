@@ -3,13 +3,17 @@
 
 #include "World/kdFloorBase.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/kdBuoyancyComponent.h"
+
 
 AkdFloorBase::AkdFloorBase()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
 	FloorMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Floor"));
-	FloorMesh->SetupAttachment(RootComponent);
+	SetRootComponent(FloorMesh);
+
+	BuoyancyComponent = CreateDefaultSubobject<UkdBuoyancyComponent>(TEXT("BuoyancyComponent"));
 }
 
 void AkdFloorBase::BeginPlay()

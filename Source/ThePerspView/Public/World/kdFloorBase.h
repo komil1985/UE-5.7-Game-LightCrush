@@ -7,6 +7,7 @@
 #include "kdFloorBase.generated.h"
 
 class UStaticMeshComponent;
+class UkdBuoyancyComponent;
 UCLASS()
 class THEPERSPVIEW_API AkdFloorBase : public AActor
 {
@@ -14,6 +15,8 @@ class THEPERSPVIEW_API AkdFloorBase : public AActor
 	
 public:	
 	AkdFloorBase();
+
+	virtual void Tick(float DeltaTime) override;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Mesh")
 	TObjectPtr<UStaticMeshComponent> FloorMesh;
@@ -25,9 +28,8 @@ public:
 	FVector OriginalFloorLocation;
 
 protected:
-	virtual void BeginPlay() override;
+	virtual void BeginPlay() override;	
 
-public:	
-	virtual void Tick(float DeltaTime) override;
-
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UkdBuoyancyComponent> BuoyancyComponent;
 };
