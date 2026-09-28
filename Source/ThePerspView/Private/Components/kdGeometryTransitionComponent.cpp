@@ -100,13 +100,14 @@ void UkdGeometryTransitionComponent::TickComponent(float DeltaTime, ELevelTick T
         FVector ShiverLoc = OriginalMeshRelativeLoc;
         ShiverLoc.Y += Disp;
         ShiverLoc.Z += Disp * 0.45f;   // different amplitude on Z for character
+        ShiverLoc.Z += ExternalZOffset;
 
         CachedMesh->SetRelativeLocation(ShiverLoc);
 
         if (t >= 1.f)
         {
             // Restore clean origin before morph begins.
-            CachedMesh->SetRelativeLocation(OriginalMeshRelativeLoc);
+            CachedMesh->SetRelativeLocation(OriginalMeshRelativeLoc + FVector(0.f, 0.f, ExternalZOffset));
             State = EGeoState::Morphing;
             StateElapsed = 0.f;
         }
@@ -128,12 +129,12 @@ void UkdGeometryTransitionComponent::TickComponent(float DeltaTime, ELevelTick T
         const FVector FromScale = bToCrushMode ? OriginalMeshRelativeScale : MeshRelScaleCrush;
         const FVector ToScale = bToCrushMode ? MeshRelScaleCrush : OriginalMeshRelativeScale;
 
-        CachedMesh->SetRelativeLocation(FMath::Lerp(FromLoc, ToLoc, Alpha));
+        CachedMesh->SetRelativeLocation(FMath::Lerp(FromLoc, ToLoc, Alpha) + FVector(0.f, 0.f, ExternalZOffset));
         CachedMesh->SetRelativeScale3D(FMath::Lerp(FromScale, ToScale, Alpha));
 
         if (Alpha >= 1.f)
         {
-            CachedMesh->SetRelativeLocation(ToLoc);   // hard-snap, kill FP residual
+            CachedMesh->SetRelativeLocation(ToLoc + FVector(0.f, 0.f, ExternalZOffset));   // hard-snap, kill FP residual
             CachedMesh->SetRelativeScale3D(ToScale);
             State = EGeoState::Idle;
             SetComponentTickEnabled(false);
@@ -165,6 +166,20 @@ void UkdGeometryTransitionComponent::OnCrushModeTagChanged(const FGameplayTag Ta
     StateElapsed = 0.f;
     State = (ShiverDuration > KINDA_SMALL_NUMBER) ? EGeoState::Shivering : EGeoState::Morphing;    
     SetComponentTickEnabled(true);
+}
+
+void UkdGeometryTransitionComponent::SetExternalZOffset(float InOffsetZ)
+{
+    ExternalZOffset = InOffsetZ;
+
+    // Mid-morph: TickComponent applies the offset itself on its next write.
+    // At rest this component's tick is disabled, so this is the only path that
+    // moves the mesh — write the rest pose + offset now.
+    if (CachedMesh && State == EGeoState::Idle)
+    {
+        const FVector Rest = bToCrushMode ? MeshRelLocCrush : OriginalMeshRelativeLoc;
+        CachedMesh->SetRelativeLocation(Rest + FVector(0.f, 0.f, InOffsetZ));
+    }
 }
 
 float UkdGeometryTransitionComponent::ResolveDepthOffset(const FVector& CollapseNormal, float ReferenceOnAxis) const

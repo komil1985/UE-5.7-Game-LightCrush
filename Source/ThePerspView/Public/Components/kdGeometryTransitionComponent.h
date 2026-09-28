@@ -86,6 +86,20 @@ public:
         meta = (ClampMin = "0.1"))
     float MorphDuration = 0.25f;
 
+    // ── External Z offset (driven by UkdBuoyancyComponent) ────────────────────
+
+    /** Additive Z offset (cm) layered on top of EVERY mesh-location write this
+     *  component makes (shiver, morph, hard-snap, rest). This component stays
+     *  the SOLE writer of the mesh transform; the buoyancy spring only supplies
+     *  the number. Safe to call every frame, before, during and after a morph. */
+    void SetExternalZOffset(float InOffsetZ);
+
+    /** True while the shiver / morph is in flight and the mesh is being animated. */
+    FORCEINLINE bool IsTransitioning() const { return State != EGeoState::Idle; }
+
+    /** True when the geometry is (or is heading to) the collapsed Crush pose. */
+    FORCEINLINE bool IsCrushed() const { return bToCrushMode; }
+
     // ── Shadow ──────────────────────────────────────────────────────────────────
 
     /** In Crush Mode, stop this geometry casting 3D shadows so the shadow reads
@@ -138,8 +152,9 @@ private:
 
     enum class EGeoState : uint8 { Idle, Shivering, Morphing };
     EGeoState State = EGeoState::Idle;
-    bool      bToCrushMode = false;
-    float     StateElapsed = 0.f;
+    bool bToCrushMode = false;
+    float StateElapsed = 0.f;
+    float ExternalZOffset = 0.f;
 
     // ── Baselines captured at BeginPlay ───────────────────────────────────────
 
