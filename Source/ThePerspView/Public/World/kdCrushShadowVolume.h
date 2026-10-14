@@ -135,6 +135,12 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crush Shadow Volume")
     EkdCrushAxisFilter ActivationAxisFilter = EkdCrushAxisFilter::AnyAxis;
 
+    /**
+     * The actor this shadow volume should rigidly follow — typically
+     * an AkdLightBlocker or any other actor that moves at runtime (via Tick,
+     * Timeline, Sequencer, physics — doesn't matter how).*/
+    UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Crush Shadow|Attachment")
+    TObjectPtr<AActor> AttachToPlatform = nullptr;
 
     /** Width (world cm) over which each in-plane edge feathers to transparent.
     *  0 = hard edge (feather off). Kept in cm so all visible edges fade over the

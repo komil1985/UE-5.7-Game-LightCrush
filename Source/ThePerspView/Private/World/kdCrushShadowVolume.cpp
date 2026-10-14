@@ -98,7 +98,12 @@ bool AkdCrushShadowVolume::PositionForCurrentCrush()
     {
         const FVector PlayerLoc = CachedPlayer->GetActorLocation();
         const float   Behind = DepthBehindPlayer + (ZoneDepthX * 0.5f);
-        FVector       Loc = OriginalPlacedLocation;
+
+        // Use the LIVE world location, not the BeginPlay snapshot in
+        // OriginalPlacedLocation — this volume may have moved since level start
+        // (e.g. it's riding AttachToPlatform), so the in-plane axes must reflect
+        // wherever it currently is, not where it was originally placed.
+        FVector Loc = GetActorLocation();
 
         if (Basis.bCollapsesY)
             Loc.Y = PlayerLoc.Y + Basis.ViewForward.Y * Behind;
@@ -183,6 +188,39 @@ void AkdCrushShadowVolume::BeginPlay()
     Super::BeginPlay();
 
     OriginalPlacedLocation = GetActorLocation();
+
+    // ── Rigidly follow a moving platform, if one is assigned ──────────────────
+    if (AttachToPlatform)
+    {
+        if (USceneComponent* ParentRoot = AttachToPlatform->GetRootComponent())
+        {
+#if !UE_BUILD_SHIPPING
+            if (ParentRoot->Mobility == EComponentMobility::Static)
+            {
+                UE_LOG(LogTemp, Warning,
+                    TEXT("AkdCrushShadowVolume [%s]: AttachToPlatform '%s' root is Static mobility — "
+                        "it can never move at runtime, so attaching to it will never produce any motion. "
+                        "Set it to Movable."),
+                    *GetName(), *AttachToPlatform->GetName());
+            }
+#endif
+            // KeepWorldTransform: preserves the exact spot you placed this volume
+            // at in the editor as the resting relative offset — no visual pop.
+            AttachToActor(AttachToPlatform, FAttachmentTransformRules::KeepWorldTransform);
+
+#if !UE_BUILD_SHIPPING
+            UE_LOG(LogTemp, Log,
+                TEXT("AkdCrushShadowVolume [%s]: Attached to platform '%s' at %s."),
+                *GetName(), *AttachToPlatform->GetName(), *GetActorLocation().ToString());
+#endif
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning,
+                TEXT("AkdCrushShadowVolume [%s]: AttachToPlatform '%s' has no root component — cannot attach."),
+                *GetName(), *AttachToPlatform->GetName());
+        }
+    }
 
     ApplyZoneScale(false);
 
