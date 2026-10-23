@@ -217,6 +217,14 @@ private:
     /** EdgeFadeWidth clamped so opposite feathers never overlap (keeps a solid core). */
     float ResolvedEdgeFadeWidth() const;
 
+    /** Where this volume "lives" before crush-depth snapping is applied.
+    *  Unattached volume  -> the frozen BeginPlay placement.
+    *  Platform-attached  -> that placement carried by the platform's live transform. */
+    FVector ResolveHomeLocation() const;
+
+    /** Placement expressed in the platform's local space, captured once at BeginPlay. */
+    FVector HomeRelativeOffset = FVector::ZeroVector;
+
     /** Called when the driver-synced blend has settled: writes the exact endpoint
      *  and disables tick. */
     void FinalizeFade();

@@ -103,7 +103,7 @@ bool AkdCrushShadowVolume::PositionForCurrentCrush()
         // OriginalPlacedLocation — this volume may have moved since level start
         // (e.g. it's riding AttachToPlatform), so the in-plane axes must reflect
         // wherever it currently is, not where it was originally placed.
-        FVector Loc = GetActorLocation();
+        FVector Loc = ResolveHomeLocation();
 
         if (Basis.bCollapsesY)
             Loc.Y = PlayerLoc.Y + Basis.ViewForward.Y * Behind;
@@ -164,6 +164,22 @@ float AkdCrushShadowVolume::ResolvedEdgeFadeWidth() const
     return FMath::Clamp(EdgeFadeWidth, 0.f, MaxHalf);
 }
 
+FVector AkdCrushShadowVolume::ResolveHomeLocation() const
+{
+    // Only trust the platform path if the attachment actually succeeded.
+    const AActor* Parent = GetAttachParentActor();
+    if (Parent && Parent == AttachToPlatform)
+    {
+        if (const USceneComponent* ParentRoot = Parent->GetRootComponent())
+        {
+            return ParentRoot->GetComponentTransform().TransformPosition(HomeRelativeOffset);
+        }
+    }
+
+    // Normal volume: never moves, home is always the original placement.
+    return OriginalPlacedLocation;
+}
+
 void AkdCrushShadowVolume::SnapToState(bool bInCrush)
 {
     // Non-animated set: used at level start and as the fallback when there is no
@@ -189,35 +205,35 @@ void AkdCrushShadowVolume::BeginPlay()
 
     OriginalPlacedLocation = GetActorLocation();
 
-    // ── Rigidly follow a moving platform, if one is assigned ──────────────────
+    // ── Follow a moving platform (AkdLightBlocker) — ONLY if one is assigned ──
     if (AttachToPlatform)
     {
         if (USceneComponent* ParentRoot = AttachToPlatform->GetRootComponent())
         {
-#if !UE_BUILD_SHIPPING
-            if (ParentRoot->Mobility == EComponentMobility::Static)
+            // Capture the editor placement in the platform's local space BEFORE
+            // attaching. This is the volume's permanent "home" relative to it.
+            HomeRelativeOffset = ParentRoot->GetComponentTransform()
+                .InverseTransformPosition(OriginalPlacedLocation);
+
+            // A Static child can't follow a Movable parent (and SetActorLocation
+            // would be ignored anyway) — force Movable for followers.
+            if (VolumeMesh->Mobility != EComponentMobility::Movable)
             {
-                UE_LOG(LogTemp, Warning,
-                    TEXT("AkdCrushShadowVolume [%s]: AttachToPlatform '%s' root is Static mobility — "
-                        "it can never move at runtime, so attaching to it will never produce any motion. "
-                        "Set it to Movable."),
-                    *GetName(), *AttachToPlatform->GetName());
+                VolumeMesh->SetMobility(EComponentMobility::Movable);
             }
-#endif
-            // KeepWorldTransform: preserves the exact spot you placed this volume
-            // at in the editor as the resting relative offset — no visual pop.
+
             AttachToActor(AttachToPlatform, FAttachmentTransformRules::KeepWorldTransform);
 
 #if !UE_BUILD_SHIPPING
             UE_LOG(LogTemp, Log,
-                TEXT("AkdCrushShadowVolume [%s]: Attached to platform '%s' at %s."),
-                *GetName(), *AttachToPlatform->GetName(), *GetActorLocation().ToString());
+                TEXT("AkdCrushShadowVolume [%s]: following '%s' (local offset %s)."),
+                *GetName(), *AttachToPlatform->GetName(), *HomeRelativeOffset.ToString());
 #endif
         }
         else
         {
             UE_LOG(LogTemp, Warning,
-                TEXT("AkdCrushShadowVolume [%s]: AttachToPlatform '%s' has no root component — cannot attach."),
+                TEXT("AkdCrushShadowVolume [%s]: AttachToPlatform '%s' has no root component."),
                 *GetName(), *AttachToPlatform->GetName());
         }
     }
