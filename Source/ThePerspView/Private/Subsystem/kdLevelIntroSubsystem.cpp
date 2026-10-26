@@ -171,14 +171,17 @@ void UkdLevelIntroSubsystem::TryBegin()
     // the later blend is almost a pure translation.
     const USpringArmComponent* Arm = Player->SpringArm;
     const float ArmLen = Arm ? Arm->TargetArmLength : 1000.f;
-    const float Pitch = (Arm && !Arm->bInheritPitch)
-        ? Arm->GetRelativeRotation().Pitch
-        : PC->GetControlRotation().Pitch;
-    const float Fov = Player->Camera ? Player->Camera->FieldOfView : 90.f;
+    const float Pitch = (Arm && !Arm->bInheritPitch) ? Arm->GetRelativeRotation().Pitch : PC->GetControlRotation().Pitch;
+    const float Fov = Player->Camera ? Player->Camera->FieldOfView : 95.f;
+
+    // Mirror the player camera's aspect-ratio setup exactly, so the intro shot is
+    // framed (and letterboxed, if at all) identically to normal gameplay.
+    const bool  bConstrainAspect = Player->Camera ? (Player->Camera->bConstrainAspectRatio != 0) : false;
+    const float AspectRatio = Player->Camera ? Player->Camera->AspectRatio : (16.f / 9.f);
 
     const FRotator CamRot(Pitch, PC->GetControlRotation().Yaw, 0.f);
     const FVector  Focus = Goal->GetActorLocation() + S->GoalFocusOffset;
-    FVector        CamLoc = Focus - CamRot.Vector() * ArmLen;
+    FVector CamLoc = Focus - CamRot.Vector() * ArmLen;
 
     // Pull in if a wall is between the goal and the ideal camera spot — the same
     // thing the spring arm's probe does for the live camera.
@@ -215,7 +218,8 @@ void UkdLevelIntroSubsystem::TryBegin()
     if (UCameraComponent* CamComp = IntroCamera->GetCameraComponent())
     {
         CamComp->SetFieldOfView(Fov);
-        CamComp->bConstrainAspectRatio = false;   // no letterbox bars on ultrawide
+        CamComp->SetConstraintAspectRatio(bConstrainAspect);
+        CamComp->SetAspectRatio(AspectRatio);
     }
 
     CachedPC = PC;
