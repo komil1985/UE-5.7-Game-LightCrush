@@ -80,7 +80,7 @@ void AkdGameModeBase::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
 
-    if (!bLevelComplete && !bGamePaused)
+    if (!bLevelComplete && !bGamePaused && !bLevelTimerSuspended)
     {
         ElapsedTime += DeltaSeconds;
     }

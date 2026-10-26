@@ -15,6 +15,8 @@
 #include "Components/kdPlayerHUDComponent.h"
 #include "UI/Widget/kdHUDWidget.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Subsystem/kdLevelIntroSubsystem.h"
+#include "InputCoreTypes.h"
 
 
 
@@ -22,13 +24,13 @@ AkdPlayerController::AkdPlayerController()
 {
 	HUDComponent = CreateDefaultSubobject<UkdPlayerHUDComponent>(TEXT("HUDComponent"));
 
-	// Quick path to assign the WBP class (C++-only friendly). Adapt the asset path.
-	//static ConstructorHelpers::FClassFinder<UkdHUDWidget> HUDClassFinder(
+	//	Quick path to assign the WBP class (C++-only friendly). Adapt the asset path.
+	//	static ConstructorHelpers::FClassFinder<UkdHUDWidget> HUDClassFinder(
 	//	TEXT("D:/Unreal Projects/ThePerspView/Content/Blueprints/UI/Widget/HUD/WBP_HUD"));
-	//if (HUDClassFinder.Succeeded() && HUDComponent)
-	//{
-	//	HUDComponent->HUDWidgetClass = HUDClassFinder.Class;
-	//}
+	//	if (HUDClassFinder.Succeeded() && HUDComponent)
+	//	{
+	//		HUDComponent->HUDWidgetClass = HUDClassFinder.Class;
+	//	}
 }
 
 void AkdPlayerController::BeginPlay()
@@ -88,6 +90,12 @@ void AkdPlayerController::SetupInputComponent()
 		{
 			EnhancedInputComponent->BindAction(StrategicViewAction, ETriggerEvent::Started, this, &AkdPlayerController::StrategicViewStart);
 			EnhancedInputComponent->BindAction(StrategicViewAction, ETriggerEvent::Completed, this, &AkdPlayerController::StrategicViewStop);
+		}
+		// Any key skips the level-intro hold. Legacy BindKey coexists with Enhanced Input;
+		// the handler is a no-op unless the intro is actually blocking input.
+		if (InputComponent)
+		{
+			InputComponent->BindKey(EKeys::AnyKey, IE_Pressed, this, &AkdPlayerController::OnAnyKeyPressed);
 		}
 	}
 }
@@ -275,6 +283,10 @@ void AkdPlayerController::PrintTags()
 
 bool AkdPlayerController::IsActionLocked(const FGameplayTag& LockTag) const
 {
+	// Level-intro camera owns the view: swallow all gameplay input. Early-out
+	// BEFORE the log below so nothing spams during the intro.
+	if (bGameplayInputBlocked) return true;
+
 	// No ASC or tag absent ⇒ not locked. In non-tutorial levels the lock tags are
 	// never applied, so this is always false and gameplay is unaffected.
 	//return MyASC && MyASC->HasMatchingGameplayTag(LockTag);
@@ -284,4 +296,14 @@ bool AkdPlayerController::IsActionLocked(const FGameplayTag& LockTag) const
 	UE_LOG(LogTemp, Warning, TEXT("[Gate] %s locked=%d"), *LockTag.ToString(), bLocked ? 1 : 0);
 #endif
 	return bLocked;
+}
+
+void AkdPlayerController::OnAnyKeyPressed()
+{
+	if (!bGameplayInputBlocked) return;
+
+	if (UkdLevelIntroSubsystem* Intro = UkdLevelIntroSubsystem::Get(this))
+	{
+		Intro->RequestSkip();
+	}
 }

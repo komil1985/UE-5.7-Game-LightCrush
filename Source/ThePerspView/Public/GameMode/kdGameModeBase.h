@@ -98,6 +98,9 @@ public:
     UPROPERTY(EditDefaultsOnly, Category = "Level")
     FName LevelCompleteWidgetTag = FName("LevelComplete");
 
+    /** Level-intro camera suspends the clock so the goal reveal doesn't eat the time bonus. */
+    void SetLevelTimerSuspended(bool bSuspended) { bLevelTimerSuspended = bSuspended; }
+
 protected:
     virtual void RestartPlayer(AController* NewPlayer) override;
 
@@ -111,6 +114,7 @@ private:
     bool  bLevelComplete = false;
     bool  bGamePaused = false;
     bool  bGameOver = false;
+    bool  bLevelTimerSuspended = false;
 
     FTimerHandle RespawnTimerHandle;
 

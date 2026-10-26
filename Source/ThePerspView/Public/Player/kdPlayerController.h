@@ -63,6 +63,11 @@ public:
 
 	FORCEINLINE UkdPlayerHUDComponent* GetHUDComponent() const { return HUDComponent; }
 
+	/** Level-intro camera (and any future cinematic) blocks ALL gameplay input here.
+	*  Pause stays available. Set only by UkdLevelIntroSubsystem. */
+	void SetGameplayInputBlocked(bool bBlocked) { bGameplayInputBlocked = bBlocked; }
+	bool IsGameplayInputBlocked() const { return bGameplayInputBlocked; }
+
 protected:
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
@@ -93,5 +98,10 @@ private:
 	/** True if the given lock tag is present on the pawn's ASC (⇒ action blocked).
 	 *  Cheap poll; used at the top of each input handler. */
 	bool IsActionLocked(const FGameplayTag& LockTag) const;
+
+	bool bGameplayInputBlocked = false;
+
+	/** Any-key hook: lets the player skip the level-intro hold. */
+	void OnAnyKeyPressed();
 
 };

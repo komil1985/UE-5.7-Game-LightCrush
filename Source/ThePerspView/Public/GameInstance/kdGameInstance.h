@@ -158,6 +158,10 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Tutorial")
     void MarkTutorialSeen(FName StepId);
 
+    /* Level-intro session tracking (used only when bOncePerSession is on) */
+    bool HasPlayedLevelIntro(FName InLevelName) const { return LevelIntrosPlayed.Contains(InLevelName); }
+    void MarkLevelIntroPlayed(FName InLevelName) { LevelIntrosPlayed.Add(InLevelName); }
+
 private:
     UPROPERTY()
     FkdGameSettings GameSettings;
@@ -167,6 +171,9 @@ private:
 
     int32 CurrentLevelIndex = 0;
     int32 LastPlayedLevelIndex = 1;
+
+    /** Transient per-session record; deliberately NOT saved to disk. */
+    TSet<FName> LevelIntrosPlayed;
 
     static const FString SaveSlotName;
     static constexpr int32 SaveUserIndex = 0;
