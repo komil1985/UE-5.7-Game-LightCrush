@@ -505,8 +505,8 @@ void AkdMyPlayer::OnCrushModeTagChanged(const FGameplayTag CallbackTag, int32 Ne
 	// restoration path — UkdDeathComponent calls SnapToThreeD() instead.
 	if (IsDead())
 	{
-		return;
 		if (CrushAlignmentComponent) CrushAlignmentComponent->CancelPendingIntent();
+		return;
 	}
 
 	// ── Transition guard ──────────────────────────────────────────────────────
